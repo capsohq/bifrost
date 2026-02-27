@@ -96,10 +96,22 @@ echo ""
 echo "🛡️  4/5 - Running Governance Tests..."
 echo "-----------------------------------"
 if [ -d "tests/governance" ] && [ -x "$SCRIPT_DIR/run-governance-e2e-tests.sh" ]; then
-  if "$SCRIPT_DIR/run-governance-e2e-tests.sh"; then
+  MISSING_GOV_ENV=()
+  for required_var in OPENAI_API_KEY ANTHROPIC_API_KEY OPENROUTER_API_KEY; do
+    if [ -z "${!required_var:-}" ]; then
+      MISSING_GOV_ENV+=("$required_var")
+    fi
+  done
+
+  if [ "${#MISSING_GOV_ENV[@]}" -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Skipping governance tests due to missing env vars: ${MISSING_GOV_ENV[*]}${NC}"
     report_result "Governance Tests" 0
   else
-    report_result "Governance Tests" 1
+    if "$SCRIPT_DIR/run-governance-e2e-tests.sh"; then
+      report_result "Governance Tests" 0
+    else
+      report_result "Governance Tests" 1
+    fi
   fi
 else
   echo -e "${YELLOW}⚠️  Governance E2E script or directory not found, skipping...${NC}"

@@ -44,7 +44,7 @@ def run_integration_tests(
 
         # Build pytest command with absolute path relative to script location
         script_dir = Path(__file__).parent
-        test_file = script_dir / "tests" / "integrations" / f"test_{integration}.py"
+        test_file = script_dir / "tests" / f"test_{integration}.py"
 
         # Check if test file exists
         if not test_file.exists():
