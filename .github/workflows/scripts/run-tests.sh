@@ -110,10 +110,19 @@ echo ""
 echo "🔗 5/5 - Running Integration Tests..."
 echo "-----------------------------------"
 if [ -d "tests/integrations/python" ]; then
+  INTEGRATION_BUILD_FAILED=0
+
+  if [ ! -d "transports/bifrost-http/ui" ] || [ -z "$(find transports/bifrost-http/ui -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+    echo "UI build artifacts not found. Building UI for embedded assets..."
+    if ! (cd ui && npm ci && npm run build && npm run copy-build); then
+      echo -e "${RED}❌ Failed to build UI assets for bifrost-http${NC}"
+      INTEGRATION_BUILD_FAILED=1
+    fi
+  fi
+
   echo "Building bifrost-http binary for integration tests..."
   mkdir -p tmp
-  INTEGRATION_BUILD_FAILED=0
-  if ! (cd transports/bifrost-http && CGO_ENABLED=1 go build -tags "sqlite_static" -o ../../tmp/bifrost-http .); then
+  if [ "$INTEGRATION_BUILD_FAILED" -eq 0 ] && ! (cd transports/bifrost-http && CGO_ENABLED=1 go build -tags "sqlite_static" -o ../../tmp/bifrost-http .); then
     INTEGRATION_BUILD_FAILED=1
   fi
 
