@@ -93,28 +93,14 @@ echo "🛡️  4/5 - Running Governance Tests..."
 echo "-----------------------------------"
 if [ -d "tests/governance" ]; then
   cd tests/governance
-  
-  # Check if virtual environment exists, create if not
-  if [ ! -d "venv" ]; then
-    echo "Creating Python virtual environment..."
-    python3 -m venv venv
-  fi
-  
-  # Activate virtual environment
-  source venv/bin/activate
-  
-  # Install dependencies
-  echo "Installing Python dependencies..."
-  pip install -q -r requirements.txt
-  
-  # Run tests
-  if pytest -v; then
+
+  # Governance suite is Go-based
+  if go test -v ./...; then
     report_result "Governance Tests" 0
   else
     report_result "Governance Tests" 1
   fi
-  
-  deactivate
+
   cd ../..
 else
   echo -e "${YELLOW}⚠️  Governance tests directory not found, skipping...${NC}"
@@ -124,30 +110,40 @@ fi
 echo ""
 echo "🔗 5/5 - Running Integration Tests..."
 echo "-----------------------------------"
-if [ -d "tests/integrations" ]; then
-  cd tests/integrations
-  
-  # Check if virtual environment exists, create if not
-  if [ ! -d "venv" ]; then
-    echo "Creating Python virtual environment..."
-    python3 -m venv venv
+if [ -d "tests/integrations/python" ]; then
+  cd tests/integrations/python
+
+  if command -v uv >/dev/null 2>&1; then
+    echo "Installing Python dependencies with uv..."
+    if uv sync --quiet && uv run python run_all_tests.py; then
+      report_result "Integration Tests" 0
+    else
+      report_result "Integration Tests" 1
+    fi
+  else
+    if [ ! -d "venv" ]; then
+      echo "Creating Python virtual environment..."
+      python3 -m venv venv
+    fi
+    source venv/bin/activate
+
+    echo "Installing Python dependencies..."
+    if pip install -q -e . && python run_all_tests.py; then
+      report_result "Integration Tests" 0
+    else
+      report_result "Integration Tests" 1
+    fi
+
+    deactivate
   fi
-  
-  # Activate virtual environment
-  source venv/bin/activate
-  
-  # Install dependencies
-  echo "Installing Python dependencies..."
-  pip install -q -r requirements.txt
-  
-  # Run tests
+  cd ../../..
+elif [ -d "tests/integrations" ]; then
+  cd tests/integrations
   if python run_all_tests.py; then
     report_result "Integration Tests" 0
   else
     report_result "Integration Tests" 1
   fi
-  
-  deactivate
   cd ../..
 else
   echo -e "${YELLOW}⚠️  Integration tests directory not found, skipping...${NC}"
