@@ -8,6 +8,7 @@ import {
 
 // Track created clients for cleanup
 const createdClients: string[] = []
+const hasSSEHeaders = Boolean(process.env.MCP_SSE_HEADERS?.trim())
 
 test.describe('MCP Registry', () => {
   // MCP client creation can be slow (backend connects to MCP server); give tests room to complete
@@ -69,6 +70,7 @@ test.describe('MCP Registry', () => {
     })
 
     test('should create SSE client', async ({ mcpRegistryPage }) => {
+      test.skip(!hasSSEHeaders, 'requires MCP_SSE_HEADERS for authenticated SSE endpoint')
       const clientData = createSSEClientData({
         name: `sse_test_${Date.now()}`,
       })
@@ -151,6 +153,7 @@ test.describe('MCP Registry', () => {
     })
 
     test('should connect to SSE server and list tools', async ({ mcpRegistryPage }) => {
+      test.skip(!hasSSEHeaders, 'requires MCP_SSE_HEADERS for authenticated SSE endpoint')
       const clientData = createSSEClientData({
         name: `sse_validation_${Date.now()}`,
       })

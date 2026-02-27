@@ -92,7 +92,7 @@ function normalizeHeaders(parsed: Record<string, string | EnvVarLike>): Record<s
  * Supports: {"Authorization":"Bearer ...","K":"V"} or {"Authorization":{"value":"...","env_var":"","from_env":false}}.
  */
 export function createSSEClientData(overrides: Partial<MCPClientConfig> = {}): MCPClientConfig {
-  const connectionUrl = "https://ts-mcp-sse-proxy.fly.dev/npx%20-y%20exa-mcp-server/sse"
+  const connectionUrl = process.env.MCP_SSE_URL?.trim() || "https://ts-mcp-sse-proxy.fly.dev/npx%20-y%20exa-mcp-server/sse"
   const raw = process.env.MCP_SSE_HEADERS
   const parsed = raw ? parseSSEHeadersRaw(raw) : {}
   const headers = normalizeHeaders(parsed)
