@@ -26,6 +26,17 @@ echo "   Transport: $TRANSPORT_VERSION"
 
 START_FROM="none"
 
+has_nonempty_changelog() {
+  local changelog_file="$1"
+  if [ ! -f "$changelog_file" ]; then
+    return 1
+  fi
+
+  local content
+  content=$(grep -v '^<!--' "$changelog_file" | grep -v '^-->' | tr -d '[:space:]' || true)
+  [ -n "$content" ]
+}
+
 # Check Core
 echo ""
 echo "🔧 Checking core..."
@@ -42,8 +53,12 @@ else
   LATEST_CORE_TAG=$(git tag -l "core/v${CORE_MAJOR_MINOR}.*" | sort -V | tail -1)
   echo "🏷️ Latest core tag in track ${CORE_MAJOR_MINOR}.x: $LATEST_CORE_TAG"
   if [ -z "$LATEST_CORE_TAG" ]; then
-    echo "   ✅ First core release in track ${CORE_MAJOR_MINOR}.x: $CORE_VERSION"
-    CORE_NEEDS_RELEASE="true"
+    if has_nonempty_changelog "core/changelog.md"; then
+      echo "   ✅ First core release in track ${CORE_MAJOR_MINOR}.x: $CORE_VERSION"
+      CORE_NEEDS_RELEASE="true"
+    else
+      echo "   ⏭️ Core changelog empty, skipping core release"
+    fi
   else
     if [[ "$CORE_VERSION" == *"-"* ]]; then
       # current_version has prerelease, so include all versions but prefer stable
@@ -68,8 +83,12 @@ else
     echo "   📋 Previous: $PREVIOUS_CORE_VERSION, Current: $CORE_VERSION"
     # Fixed: Use head -1 instead of tail -1 for your sort -V behavior, and check against current version
     if [ "$(printf '%s\n' "$PREVIOUS_CORE_VERSION" "$CORE_VERSION" | sort -V | tail -1)" = "$CORE_VERSION" ] && [ "$PREVIOUS_CORE_VERSION" != "$CORE_VERSION" ]; then
-      echo "   ✅ Core version incremented: $PREVIOUS_CORE_VERSION → $CORE_VERSION"
-      CORE_NEEDS_RELEASE="true"
+      if has_nonempty_changelog "core/changelog.md"; then
+        echo "   ✅ Core version incremented: $PREVIOUS_CORE_VERSION → $CORE_VERSION"
+        CORE_NEEDS_RELEASE="true"
+      else
+        echo "   ⏭️ Core changelog empty, skipping core release"
+      fi
     else
       echo "   ⏭️ No core version increment"
     fi
@@ -100,15 +119,23 @@ else
     echo "latest framework tag (prerelease only): $LATEST_FRAMEWORK_TAG"  
   fi      
   if [ -z "$LATEST_FRAMEWORK_TAG" ]; then
-    echo "   ✅ First framework release in track ${FRAMEWORK_MAJOR_MINOR}.x: $FRAMEWORK_VERSION"
-    FRAMEWORK_NEEDS_RELEASE="true"
+    if has_nonempty_changelog "framework/changelog.md"; then
+      echo "   ✅ First framework release in track ${FRAMEWORK_MAJOR_MINOR}.x: $FRAMEWORK_VERSION"
+      FRAMEWORK_NEEDS_RELEASE="true"
+    else
+      echo "   ⏭️ Framework changelog empty, skipping framework release"
+    fi
   else
     PREVIOUS_FRAMEWORK_VERSION=${LATEST_FRAMEWORK_TAG#framework/v}
     echo "   📋 Previous: $PREVIOUS_FRAMEWORK_VERSION, Current: $FRAMEWORK_VERSION"
     # Fixed: Use head -1 instead of tail -1 for your sort -V behavior, and check against current version
     if [ "$(printf '%s\n' "$PREVIOUS_FRAMEWORK_VERSION" "$FRAMEWORK_VERSION" | sort -V | tail -1)" = "$FRAMEWORK_VERSION" ] && [ "$PREVIOUS_FRAMEWORK_VERSION" != "$FRAMEWORK_VERSION" ]; then
-      echo "   ✅ Framework version incremented: $PREVIOUS_FRAMEWORK_VERSION → $FRAMEWORK_VERSION"
-      FRAMEWORK_NEEDS_RELEASE="true"
+      if has_nonempty_changelog "framework/changelog.md"; then
+        echo "   ✅ Framework version incremented: $PREVIOUS_FRAMEWORK_VERSION → $FRAMEWORK_VERSION"
+        FRAMEWORK_NEEDS_RELEASE="true"
+      else
+        echo "   ⏭️ Framework changelog empty, skipping framework release"
+      fi
     else
       echo "   ⏭️ No framework version increment"
     fi
@@ -175,16 +202,24 @@ for plugin_dir in plugins/*/; do
 
   latest_tag=$LATEST_PLUGIN_TAG
   if [ -z "$latest_tag" ]; then
-    echo "      ✅ First release in track ${plugin_major_minor}.x"
-    PLUGIN_CHANGES+=("$plugin_name")
+    if has_nonempty_changelog "${plugin_dir}changelog.md"; then
+      echo "      ✅ First release in track ${plugin_major_minor}.x"
+      PLUGIN_CHANGES+=("$plugin_name")
+    else
+      echo "      ⏭️ Changelog empty for $plugin_name, skipping plugin release"
+    fi
   else
     previous_version=${latest_tag#plugins/${plugin_name}/v}
     echo "previous version: $previous_version"
     echo "current version: $current_version"
     echo "latest tag: $latest_tag"
     if [ "$(printf '%s\n' "$previous_version" "$current_version" | sort -V | tail -1)" = "$current_version" ] && [ "$previous_version" != "$current_version" ]; then
-      echo "      ✅ Version incremented: $previous_version → $current_version"
-      PLUGIN_CHANGES+=("$plugin_name")
+      if has_nonempty_changelog "${plugin_dir}changelog.md"; then
+        echo "      ✅ Version incremented: $previous_version → $current_version"
+        PLUGIN_CHANGES+=("$plugin_name")
+      else
+        echo "      ⏭️ Changelog empty for $plugin_name, skipping plugin release"
+      fi
     else
       echo "      ⏭️ No version increment"
     fi
@@ -285,8 +320,12 @@ else
   if [ -z "$LATEST_TRANSPORT_TAG" ]; then
     echo "   ✅ First transport release in track ${TRANSPORT_MAJOR_MINOR}.x: $TRANSPORT_VERSION"
     if [ "$GIT_TAG_EXISTS" = "false" ]; then
-      echo "   🏷️  Git tag missing - transport release needed"
-      BIFROST_HTTP_NEEDS_RELEASE="true"
+      if has_nonempty_changelog "transports/changelog.md"; then
+        echo "   🏷️  Git tag missing - transport release needed"
+        BIFROST_HTTP_NEEDS_RELEASE="true"
+      else
+        echo "   ⏭️ Transport changelog empty, skipping transport release"
+      fi
     fi
   else
     PREVIOUS_TRANSPORT_VERSION=${LATEST_TRANSPORT_TAG#transports/v}
@@ -333,8 +372,12 @@ else
     if version_less_than "$PREVIOUS_TRANSPORT_VERSION" "$TRANSPORT_VERSION"; then
       echo "   ✅ Transport version incremented: $PREVIOUS_TRANSPORT_VERSION → $TRANSPORT_VERSION"
       if [ "$GIT_TAG_EXISTS" = "false" ]; then
-        echo "   🏷️  Git tag missing - transport release needed"
-        BIFROST_HTTP_NEEDS_RELEASE="true"
+        if has_nonempty_changelog "transports/changelog.md"; then
+          echo "   🏷️  Git tag missing - transport release needed"
+          BIFROST_HTTP_NEEDS_RELEASE="true"
+        else
+          echo "   ⏭️ Transport changelog empty, skipping transport release"
+        fi
       fi
     else
       echo "   ⏭️ No transport version increment"

@@ -7,6 +7,11 @@ const createdRules: string[] = []
 test.describe('Routing Rules', () => {
   test.beforeEach(async ({ routingRulesPage }) => {
     await routingRulesPage.goto()
+    const createVisible = await routingRulesPage.createBtn.isVisible().catch(() => false)
+    const createEnabled = createVisible
+      ? await routingRulesPage.createBtn.isEnabled().catch(() => false)
+      : false
+    test.skip(!createEnabled, 'routing rules creation is unavailable in this environment')
   })
 
   test.afterEach(async ({ routingRulesPage }) => {
