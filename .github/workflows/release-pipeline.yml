@@ -979,7 +979,7 @@ jobs:
           context: .
           build-args: |
             VERSION=${{ needs.detect-changes.outputs.transport-version }}
-          file: ./transports/Dockerfile
+          file: ./transports/Dockerfile.local
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           platforms: linux/amd64
@@ -1050,7 +1050,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./transports/Dockerfile
+          file: ./transports/Dockerfile.local
           push: true
           build-args: |
             VERSION=${{ needs.detect-changes.outputs.transport-version }}
