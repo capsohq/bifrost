@@ -1,24 +1,24 @@
-module github.com/maximhq/bifrost/transports
+module github.com/capsohq/bifrost/transports
 
 go 1.26
 
 require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.4
 	github.com/bytedance/sonic v1.15.0
+	github.com/capsohq/bifrost/core v1.4.4
+	github.com/capsohq/bifrost/framework v1.2.23
+	github.com/capsohq/bifrost/plugins/governance v1.4.24
+	github.com/capsohq/bifrost/plugins/litellmcompat v0.0.13
+	github.com/capsohq/bifrost/plugins/logging v1.4.23
+	github.com/capsohq/bifrost/plugins/maxim v1.5.22
+	github.com/capsohq/bifrost/plugins/otel v1.1.23
+	github.com/capsohq/bifrost/plugins/semanticcache v1.4.22
+	github.com/capsohq/bifrost/plugins/telemetry v1.4.24
 	github.com/fasthttp/router v1.5.4
 	github.com/fasthttp/websocket v1.5.12
 	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.43.2
-	github.com/maximhq/bifrost/core v1.4.4
-	github.com/maximhq/bifrost/framework v1.2.23
-	github.com/maximhq/bifrost/plugins/governance v1.4.24
-	github.com/maximhq/bifrost/plugins/litellmcompat v0.0.13
-	github.com/maximhq/bifrost/plugins/logging v1.4.23
-	github.com/maximhq/bifrost/plugins/maxim v1.5.22
-	github.com/maximhq/bifrost/plugins/otel v1.1.23
-	github.com/maximhq/bifrost/plugins/semanticcache v1.4.22
-	github.com/maximhq/bifrost/plugins/telemetry v1.4.24
 	github.com/prometheus/client_golang v1.23.2
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/stretchr/testify v1.11.1
@@ -62,6 +62,7 @@ require (
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/capsohq/bifrost/plugins/mocker v1.4.23 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
@@ -110,7 +111,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
-	github.com/maximhq/bifrost/plugins/mocker v1.4.23 // indirect
 	github.com/maximhq/maxim-go v0.1.14 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
@@ -161,3 +161,23 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../core
+
+replace github.com/capsohq/bifrost/framework => ../framework
+
+replace github.com/capsohq/bifrost/plugins/governance => ../plugins/governance
+
+replace github.com/capsohq/bifrost/plugins/litellmcompat => ../plugins/litellmcompat
+
+replace github.com/capsohq/bifrost/plugins/logging => ../plugins/logging
+
+replace github.com/capsohq/bifrost/plugins/maxim => ../plugins/maxim
+
+replace github.com/capsohq/bifrost/plugins/mocker => ../plugins/mocker
+
+replace github.com/capsohq/bifrost/plugins/otel => ../plugins/otel
+
+replace github.com/capsohq/bifrost/plugins/semanticcache => ../plugins/semanticcache
+
+replace github.com/capsohq/bifrost/plugins/telemetry => ../plugins/telemetry

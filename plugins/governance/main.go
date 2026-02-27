@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/network"
+	"github.com/capsohq/bifrost/core/providers/gemini"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/configstore"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/mcpcatalog"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
 	"github.com/google/uuid"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/network"
-	"github.com/maximhq/bifrost/core/providers/gemini"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/configstore"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/mcpcatalog"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
 )
 
 // PluginName is the name of the governance plugin
@@ -200,12 +200,12 @@ func Init(
 
 	ctx, cancelFunc := context.WithCancel(ctx)
 	plugin := &GovernancePlugin{
-		ctx:           ctx,
-		cancelFunc:    cancelFunc,
-		store:         governanceStore,
-		resolver:      resolver,
-		tracker:       tracker,
-		engine:        engine,
+		ctx:             ctx,
+		cancelFunc:      cancelFunc,
+		store:           governanceStore,
+		resolver:        resolver,
+		tracker:         tracker,
+		engine:          engine,
 		configStore:     configStore,
 		modelCatalog:    modelCatalog,
 		mcpCatalog:      mcpCatalog,

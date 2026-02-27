@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // GetDefaultConfigDir returns the OS-specific default configuration directory for Bifrost.
@@ -189,4 +189,16 @@ func (s *BifrostHTTPServer) updateKeyStatus(
 
 		s.Config.Mu.Unlock()
 	}
+}
+
+func (s *BifrostHTTPServer) recordProviderModelDiscoveryResult(
+	provider schemas.ModelProvider,
+	unfiltered bool,
+	modelData *schemas.BifrostListModelsResponse,
+	discoveryErr *schemas.BifrostError,
+) {
+	if s.Config == nil || s.Config.ModelCatalog == nil {
+		return
+	}
+	s.Config.ModelCatalog.RecordProviderModelDiscoveryResult(provider, unfiltered, modelData, discoveryErr)
 }

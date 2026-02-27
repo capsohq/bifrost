@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -842,14 +842,14 @@ func newRedisStore(_ context.Context, config RedisConfig, logger schemas.Logger)
 	if config.Addr == nil || config.Addr.GetValue() == "" {
 		return nil, fmt.Errorf("redis addr is required")
 	}
-	if config.Username == nil  {
+	if config.Username == nil {
 		config.Username = schemas.NewEnvVar("")
 	}
-	if config.Password == nil  {
+	if config.Password == nil {
 		config.Password = schemas.NewEnvVar("")
 	}
 	db := 0
-	if config.DB != nil  {
+	if config.DB != nil {
 		db = config.DB.CoerceInt(0)
 	}
 	// Preparing the redis connection

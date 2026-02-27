@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // RunAutomaticFunctionCallingTest executes the automatic function calling test scenario using dual API testing framework
@@ -164,7 +164,7 @@ func validateAutomaticToolCall(t *testing.T, toolCalls []ToolCallInfo, apiName s
 	// Validation for tool call already happened inside WithDualAPITestRetry
 	// If we reach here, the tool call was successful
 	// This function just provides additional logging for tool call details
-	
+
 	for _, toolCall := range toolCalls {
 		if toolCall.Name == string(SampleToolTypeTime) {
 			t.Logf("✅ %s automatic function call: %s", apiName, toolCall.Arguments)

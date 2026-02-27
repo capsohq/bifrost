@@ -1,11 +1,11 @@
-module github.com/maximhq/bifrost/plugins/logging
+module github.com/capsohq/bifrost/plugins/logging
 
 go 1.26
 
 require (
 	github.com/bytedance/sonic v1.15.0
-	github.com/maximhq/bifrost/core v1.4.4
-	github.com/maximhq/bifrost/framework v1.2.23
+	github.com/capsohq/bifrost/core v1.4.4
+	github.com/capsohq/bifrost/framework v1.2.23
 )
 
 require (
@@ -126,3 +126,7 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../../core
+
+replace github.com/capsohq/bifrost/framework => ../../framework

@@ -11,7 +11,7 @@
 
 # Image configuration
 image:
-  repository: docker.io/maximhq/bifrost
+  repository: docker.io/capsohq/bifrost
   pullPolicy: IfNotPresent
   tag: "v1.3.38"  # Override with --set image.tag=vX.X.X
 
@@ -155,4 +155,3 @@ readinessProbe:
 
 autoscaling:
   enabled: false
-

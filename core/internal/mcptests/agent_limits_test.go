@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,14 +236,14 @@ func TestAgent_MaxDepthReached_ResponsesFormat(t *testing.T) {
 			CreateResponsesResponseWithToolCalls([]schemas.ResponsesToolMessage{
 				{
 					CallID:    schemas.Ptr("call-1"),
-					Name: schemas.Ptr("bifrostInternal-echo"),
+					Name:      schemas.Ptr("bifrostInternal-echo"),
 					Arguments: schemas.Ptr(`{"message": "first"}`),
 				},
 			}),
 			CreateResponsesResponseWithToolCalls([]schemas.ResponsesToolMessage{
 				{
 					CallID:    schemas.Ptr("call-2"),
-					Name: schemas.Ptr("bifrostInternal-echo"),
+					Name:      schemas.Ptr("bifrostInternal-echo"),
 					Arguments: schemas.Ptr(`{"message": "second"}`),
 				},
 			}),
@@ -784,7 +784,7 @@ func TestAgent_ErrorPropagation(t *testing.T) {
 					ID:   schemas.Ptr("call-error"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-nonexistent_tool"),
+						Name:      schemas.Ptr("bifrostInternal-nonexistent_tool"),
 						Arguments: `{}`,
 					},
 				},
@@ -851,7 +851,7 @@ func TestAgent_ErrorInMiddleOfLoop(t *testing.T) {
 					ID:   schemas.Ptr("call-2"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-nonexistent"),
+						Name:      schemas.Ptr("bifrostInternal-nonexistent"),
 						Arguments: `{}`,
 					},
 				},

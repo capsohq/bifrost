@@ -1,0 +1,86 @@
+---
+title: "MiniMax"
+description: "MiniMax split-endpoint support in Bifrost: anthropic-compatible text generation + openai-compatible chat."
+icon: "sparkles"
+---
+
+## Overview
+
+MiniMax is integrated with two API surfaces:
+
+- **Text completions** use MiniMax text generation (`/text/v1/messages`, Anthropic-compatible)
+- **Chat completions** use MiniMax text chat (`/v1/chat/completions`, OpenAI-compatible)
+
+Bifrost normalizes both into the unified OpenAI-compatible response schema.
+
+### Supported Operations
+
+| Operation | Non-Streaming | Streaming | Endpoint |
+|-----------|---------------|-----------|----------|
+| List Models | ✅ | - | `/v1/models` |
+| Text Completions | ✅ | ✅ | `/text/v1/messages` |
+| Chat Completions | ✅ | ✅ | `/v1/chat/completions` |
+| Responses API | ✅ | ✅ | Fallback to Chat Completions |
+| Image Generation | ✅ | ❌ | `/v1/image_generation` |
+| Embeddings | ❌ | ❌ | - |
+| Files / Batch / Video | ❌ | ❌ | - |
+
+## Prompt Caching
+
+For MiniMax Anthropic-compatible text generation, pass `anthropic_beta` in `extra_params`.
+
+- String form: `"anthropic_beta": "prompt-caching-2024-07-31"`
+- Array form: `"anthropic_beta": ["prompt-caching-2024-07-31", "..."]`
+
+Bifrost forwards this as the `anthropic-beta` header.
+
+## Curated Models
+
+- Text generation: `MiniMax-M2.5`, `MiniMax-M2.5-highspeed`, `MiniMax-M2.1`, `MiniMax-M2.1-highspeed`
+- Text chat / role play: `M2-her`
+- Image generation: `image-01`
+- Music generation (upstream API): `music-2.5`
+
+## Configuration
+
+<Tabs>
+<Tab title="Gateway">
+
+```bash
+curl --location 'http://localhost:8080/api/providers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "provider": "minimax",
+  "keys": [
+    {
+      "name": "minimax-key-1",
+      "value": "env.MINIMAX_API_KEY",
+      "models": [],
+      "weight": 1.0
+    }
+  ]
+}'
+```
+
+</Tab>
+<Tab title="Go SDK">
+
+```go
+case schemas.Minimax:
+    return []schemas.Key{{
+        Value:  *schemas.NewEnvVar("env.MINIMAX_API_KEY"),
+        Models: []string{},
+        Weight: 1.0,
+    }}, nil
+```
+
+</Tab>
+</Tabs>
+
+## Reference Links
+
+- [MiniMax Text Generation](https://platform.minimax.io/docs/guides/text-generation)
+- [MiniMax Text Chat](https://platform.minimax.io/docs/guides/text-chat)
+- [MiniMax Anthropic-compatible prompt cache](https://platform.minimax.io/docs/api-reference/anthropic-api-compatible-cache)
+- [MiniMax Image Generation](https://platform.minimax.io/docs/guides/image-generation)
+- [MiniMax Music Generation](https://platform.minimax.io/docs/guides/music-generation)

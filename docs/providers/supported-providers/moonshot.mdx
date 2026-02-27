@@ -1,0 +1,69 @@
+---
+title: "Moonshot AI"
+description: "Moonshot OpenAI-compatible provider guide for Kimi models via Bifrost."
+icon: "moon"
+---
+
+## Overview
+
+Moonshot is integrated as an OpenAI-compatible provider. Bifrost maps Moonshot endpoints for models, text completion, chat completion, and Responses API fallback.
+
+### Supported Operations
+
+| Operation | Non-Streaming | Streaming | Endpoint |
+|-----------|---------------|-----------|----------|
+| List Models | ✅ | - | `/v1/models` |
+| Text Completions | ✅ | ✅ | `/v1/completions` |
+| Chat Completions | ✅ | ✅ | `/v1/chat/completions` |
+| Responses API | ✅ | ✅ | Fallback to Chat Completions |
+| Embeddings | ❌ | ❌ | - |
+| Image / Audio / Files / Batch / Video | ❌ | ❌ | - |
+
+## Curated Models
+
+- `kimi-k2.5`
+- `kimi-k2-thinking`
+- `kimi-k2-thinking-turbo`
+- `kimi-k2-0711-preview`
+- `kimi-k2-0905-preview`
+
+## Configuration
+
+<Tabs>
+<Tab title="Gateway">
+
+```bash
+curl --location 'http://localhost:8080/api/providers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "provider": "moonshot",
+  "keys": [
+    {
+      "name": "moonshot-key-1",
+      "value": "env.MOONSHOT_API_KEY",
+      "models": [],
+      "weight": 1.0
+    }
+  ]
+}'
+```
+
+</Tab>
+<Tab title="Go SDK">
+
+```go
+case schemas.Moonshot:
+    return []schemas.Key{{
+        Value:  *schemas.NewEnvVar("env.MOONSHOT_API_KEY"),
+        Models: []string{},
+        Weight: 1.0,
+    }}, nil
+```
+
+</Tab>
+</Tabs>
+
+## Reference Links
+
+- [Moonshot Kimi K2.5 quickstart](https://platform.moonshot.ai/docs/guide/kimi-k2-5-quickstart#overview-of-kimi-k25-model)
+- [Moonshot API changelog](https://platform.moonshot.ai/docs/changelog)

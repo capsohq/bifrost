@@ -3,8 +3,8 @@ package modelcatalog
 import (
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,10 +17,15 @@ func newTestCatalog(modelPool map[schemas.ModelProvider][]string, baseModelIndex
 		baseModelIndex = make(map[string]string)
 	}
 	return &ModelCatalog{
-		modelPool:         modelPool,
-		baseModelIndex:    baseModelIndex,
-		pricingData:       make(map[string]configstoreTables.TableModelPricing),
-		compiledOverrides: make(map[schemas.ModelProvider][]compiledProviderPricingOverride),
+		modelPool:                      modelPool,
+		unfilteredModelPool:            make(map[schemas.ModelProvider][]string),
+		providerModelSnapshots:         make(map[schemas.ModelProvider][]string),
+		providerModelSources:           make(map[schemas.ModelProvider]ProviderModelSource),
+		unfilteredProviderModelSources: make(map[schemas.ModelProvider]ProviderModelSource),
+		providerModelHealth:            make(map[schemas.ModelProvider]providerModelHealthState),
+		baseModelIndex:                 baseModelIndex,
+		pricingData:                    make(map[string]configstoreTables.TableModelPricing),
+		compiledOverrides:              make(map[schemas.ModelProvider][]compiledProviderPricingOverride),
 	}
 }
 
@@ -144,4 +149,119 @@ func TestIsSameModel_EmptyStrings(t *testing.T) {
 	assert.True(t, mc.IsSameModel("", ""))
 	assert.False(t, mc.IsSameModel("gpt-4o", ""))
 	assert.False(t, mc.IsSameModel("", "gpt-4o"))
+}
+
+func TestGetDefaultModelsForProvider_GLM(t *testing.T) {
+	models := getDefaultModelsForProvider(schemas.GLM)
+	assert.NotEmpty(t, models)
+	assert.Contains(t, models, "glm-5")
+	assert.Contains(t, models, "glm-4.7")
+	assert.Contains(t, models, "glm-z1-thinking")
+
+	// Returned slice must be a clone.
+	models[0] = "changed"
+	modelsAfterMutation := getDefaultModelsForProvider(schemas.GLM)
+	assert.NotEqual(t, "changed", modelsAfterMutation[0])
+}
+
+func TestUpsertModelDataForProvider_UsesDefaultModelsWhenPricingMissing(t *testing.T) {
+	testCases := []struct {
+		provider schemas.ModelProvider
+		models   []string
+	}{
+		{provider: schemas.Deepseek, models: []string{"deepseek-chat", "deepseek-reasoner"}},
+		{provider: schemas.GLM, models: []string{"glm-5", "glm-4.7"}},
+		{provider: schemas.Minimax, models: []string{"MiniMax-M2.5", "MiniMax-M2"}},
+		{provider: schemas.Moonshot, models: []string{"kimi-k2.5", "kimi-latest"}},
+		{provider: schemas.Qwen, models: []string{"qwen-plus-latest", "qwen3-max-preview"}},
+		{provider: schemas.Volcengine, models: []string{"doubao-embedding", "glm-4-7-251222"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(string(tc.provider), func(t *testing.T) {
+			mc := newTestCatalog(nil, nil)
+			mc.UpsertModelDataForProvider(
+				tc.provider,
+				&schemas.BifrostListModelsResponse{},
+				nil,
+			)
+
+			models := mc.GetModelsForProvider(tc.provider)
+			assert.NotEmpty(t, models)
+			for _, expectedModel := range tc.models {
+				assert.Contains(t, models, expectedModel)
+			}
+		})
+	}
+}
+
+func TestUpsertUnfilteredModelDataForProvider_UsesDefaultModelsWhenPricingMissing(t *testing.T) {
+	testCases := []struct {
+		provider schemas.ModelProvider
+		models   []string
+	}{
+		{provider: schemas.Deepseek, models: []string{"deepseek-chat", "deepseek-reasoner"}},
+		{provider: schemas.GLM, models: []string{"glm-5", "glm-4.7"}},
+		{provider: schemas.Minimax, models: []string{"MiniMax-M2.5", "MiniMax-M2"}},
+		{provider: schemas.Moonshot, models: []string{"kimi-k2.5", "kimi-latest"}},
+		{provider: schemas.Qwen, models: []string{"qwen-plus-latest", "qwen3-max-preview"}},
+		{provider: schemas.Volcengine, models: []string{"doubao-embedding", "glm-4-7-251222"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(string(tc.provider), func(t *testing.T) {
+			mc := newTestCatalog(nil, nil)
+			mc.UpsertUnfilteredModelDataForProvider(
+				tc.provider,
+				&schemas.BifrostListModelsResponse{},
+			)
+
+			models := mc.GetUnfilteredModelsForProvider(tc.provider)
+			assert.NotEmpty(t, models)
+			for _, expectedModel := range tc.models {
+				assert.Contains(t, models, expectedModel)
+			}
+		})
+	}
+}
+
+func TestUpsertModelDataForProvider_PrefersPersistedSnapshotOverPricing(t *testing.T) {
+	mc := newTestCatalog(nil, nil)
+	mc.pricingData[makeKey("glm-pricing-only", string(schemas.GLM), "chat")] = configstoreTables.TableModelPricing{
+		Model:    "glm-pricing-only",
+		Provider: string(schemas.GLM),
+		Mode:     "chat",
+	}
+	mc.providerModelSnapshots[schemas.GLM] = []string{"glm-snapshot-primary"}
+
+	mc.UpsertModelDataForProvider(
+		schemas.GLM,
+		&schemas.BifrostListModelsResponse{},
+		nil,
+	)
+
+	models := mc.GetModelsForProvider(schemas.GLM)
+	assert.Equal(t, []string{"glm-snapshot-primary"}, models)
+	assert.NotContains(t, models, "glm-pricing-only")
+}
+
+func TestUpsertUnfilteredModelDataForProvider_UpdatesSnapshotFromDiscoveredModels(t *testing.T) {
+	mc := newTestCatalog(nil, nil)
+
+	mc.UpsertUnfilteredModelDataForProvider(
+		schemas.GLM,
+		&schemas.BifrostListModelsResponse{
+			Data: []schemas.Model{
+				{ID: "glm/glm-5"},
+				{ID: "glm/glm-4.7"},
+				{ID: "glm/glm-5"},
+			},
+		},
+	)
+
+	snapshot := mc.providerModelSnapshots[schemas.GLM]
+	assert.Equal(t, []string{"glm-5", "glm-4.7"}, snapshot)
+	models := mc.GetUnfilteredModelsForProvider(schemas.GLM)
+	assert.Contains(t, models, "glm-5")
+	assert.Contains(t, models, "glm-4.7")
 }

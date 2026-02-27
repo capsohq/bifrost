@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	core "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	core "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -286,7 +286,7 @@ func TestPlugin_MultiplePlugins(t *testing.T) {
 
 	// Setup Bifrost with multiple plugins in pipeline
 	bifrost, err := core.Init(context.Background(), schemas.BifrostConfig{
-		Account:    &testAccount{},
+		Account: &testAccount{},
 		MCPPlugins: []schemas.MCPPlugin{
 			loggingPlugin,
 			modifyPlugin,

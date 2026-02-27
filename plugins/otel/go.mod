@@ -1,10 +1,10 @@
-module github.com/maximhq/bifrost/plugins/otel
+module github.com/capsohq/bifrost/plugins/otel
 
 go 1.26
 
 require (
-	github.com/maximhq/bifrost/core v1.4.4
-	github.com/maximhq/bifrost/framework v1.2.23
+	github.com/capsohq/bifrost/core v1.4.4
+	github.com/capsohq/bifrost/framework v1.2.23
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.40.0
@@ -136,3 +136,7 @@ require (
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../../core
+
+replace github.com/capsohq/bifrost/framework => ../../framework

@@ -317,7 +317,7 @@ deploy-local-k8s-helm: ## Deploy Bifrost using Helm (Usage: make deploy-local-k8
 	CHART_REF="./helm-charts/bifrost"; \
 	if [ -n "$$HELM_VERSION" ]; then \
 		echo "  $(CYAN)Setting up Helm repository...$(NC)"; \
-		helm repo add bifrost https://maximhq.github.io/bifrost/helm-charts >/dev/null 2>&1 || true; \
+		helm repo add bifrost https://capsohq.github.io/bifrost/helm-charts >/dev/null 2>&1 || true; \
 		helm repo update >/dev/null 2>&1; \
 		CHART_REF="bifrost/bifrost --version $$HELM_VERSION"; \
 		echo "  $(GREEN)✓ Using remote chart v$$HELM_VERSION$(NC)"; \

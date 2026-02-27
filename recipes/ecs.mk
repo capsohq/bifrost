@@ -280,7 +280,7 @@ register-ecs-task-definition: ## Register ECS task definition
 		fi; \
 		echo '  "containerDefinitions": [{'; \
 		echo '    "name": "bifrost",'; \
-		echo '    "image": "maximhq/bifrost:$(IMAGE_TAG)",'; \
+		echo '    "image": "capsohq/bifrost:$(IMAGE_TAG)",'; \
 		echo '    "essential": true,'; \
 		if [ -n "$(SECRET_VALUE_ARN)" ]; then \
 			echo '    "entryPoint": ["/bin/sh", "-c"],'; \
@@ -648,4 +648,3 @@ cleanup-ecs: ## Remove ECS service and task definitions
 	@# Clean up temp files
 	@rm -f /tmp/ecs-subnets.tmp /tmp/ecs-execution-role.tmp /tmp/ecs-task-def.json
 	@echo "$(GREEN)✓ Cleanup complete$(NC)"
-

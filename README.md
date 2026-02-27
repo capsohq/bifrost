@@ -1,17 +1,17 @@
 # Bifrost AI Gateway
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/maximhq/bifrost/core)](https://goreportcard.com/report/github.com/maximhq/bifrost/core)
+[![Go Report Card](https://goreportcard.com/badge/github.com/capsohq/bifrost/core)](https://goreportcard.com/report/github.com/capsohq/bifrost/core)
 [![Discord badge](https://dcbadge.limes.pink/api/server/https://discord.gg/exN5KAydbU?style=flat)](https://discord.gg/exN5KAydbU)
-[![Known Vulnerabilities](https://snyk.io/test/github/maximhq/bifrost/badge.svg)](https://snyk.io/test/github/maximhq/bifrost)
-[![codecov](https://codecov.io/gh/maximhq/bifrost/branch/main/graph/badge.svg)](https://codecov.io/gh/maximhq/bifrost)
-![Docker Pulls](https://img.shields.io/docker/pulls/maximhq/bifrost)
+[![Known Vulnerabilities](https://snyk.io/test/github/capsohq/bifrost/badge.svg)](https://snyk.io/test/github/capsohq/bifrost)
+[![codecov](https://codecov.io/gh/capsohq/bifrost/branch/main/graph/badge.svg)](https://codecov.io/gh/capsohq/bifrost)
+![Docker Pulls](https://img.shields.io/docker/pulls/capsohq/bifrost)
 [<img src="https://run.pstmn.io/button.svg" alt="Run In Postman" style="width: 95px; height: 21px;">](https://app.getpostman.com/run-collection/31642484-2ba0e658-4dcd-49f4-845a-0c7ed745b916?action=collection%2Ffork&source=rip_markdown&collection-url=entityId%3D31642484-2ba0e658-4dcd-49f4-845a-0c7ed745b916%26entityType%3Dcollection%26workspaceId%3D63e853c8-9aec-477f-909c-7f02f543150e)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bifrost)](https://artifacthub.io/packages/search?repo=bifrost)
-[![License](https://img.shields.io/github/license/maximhq/bifrost)](LICENSE)
+[![License](https://img.shields.io/github/license/capsohq/bifrost)](LICENSE)
 
 ## The fastest way to build AI applications that never go down
 
-Bifrost is a high-performance AI gateway that unifies access to 15+ providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex, and more) through a single OpenAI-compatible API. Deploy in seconds with zero configuration and get automatic failover, load balancing, semantic caching, and enterprise-grade features.
+Bifrost is a high-performance AI gateway that unifies access to 25+ providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex, and more) through a single OpenAI-compatible API. Deploy in seconds with zero configuration and get automatic failover, load balancing, semantic caching, and enterprise-grade features.
 
 ## Quick Start
 
@@ -23,10 +23,10 @@ Bifrost is a high-performance AI gateway that unifies access to 15+ providers (O
 
 ```bash
 # Install and run locally
-npx -y @maximhq/bifrost
+npx -y @capsohq/bifrost
 
 # Or use Docker
-docker run -p 8080:8080 maximhq/bifrost
+docker run -p 8080:8080 capsohq/bifrost
 ```
 
 **Step 2:** Configure via Web UI
@@ -80,7 +80,7 @@ In addition to private networking, custom security controls, and governance, ent
 ### Core Infrastructure
 
 - **[Unified Interface](https://docs.getbifrost.ai/features/unified-interface)** - Single OpenAI-compatible API for all providers
-- **[Multi-Provider Support](https://docs.getbifrost.ai/quickstart/gateway/provider-configuration)** - OpenAI, Anthropic, AWS Bedrock, Google Vertex, Azure, Cerebras, Cohere, Mistral, Ollama, Groq, and more
+- **[Multi-Provider Support](https://docs.getbifrost.ai/quickstart/gateway/provider-configuration)** - OpenAI, Anthropic, AWS Bedrock, Google Vertex, Azure, Cerebras, Cohere, Mistral, Ollama, Groq, DeepSeek, Qwen, GLM, MiniMax, Moonshot, Volcengine, and more
 - **[Automatic Fallbacks](https://docs.getbifrost.ai/features/fallbacks)** - Seamless failover between providers and models with zero downtime
 - **[Load Balancing](https://docs.getbifrost.ai/features/fallbacks)** - Intelligent request distribution across multiple API keys and providers
 
@@ -150,10 +150,10 @@ Choose the deployment method that fits your needs:
 
 ```bash
 # NPX - Get started in 30 seconds
-npx -y @maximhq/bifrost
+npx -y @capsohq/bifrost
 
 # Docker - Production ready
-docker run -p 8080:8080 -v $(pwd)/data:/app/data maximhq/bifrost
+docker run -p 8080:8080 -v $(pwd)/data:/app/data capsohq/bifrost
 ```
 
 **Features:** Web UI, real-time monitoring, multi-provider management, zero-config startup
@@ -165,7 +165,7 @@ docker run -p 8080:8080 -v $(pwd)/data:/app/data maximhq/bifrost
 **Best for:** Direct Go integration with maximum performance and control
 
 ```bash
-go get github.com/maximhq/bifrost/core
+go get github.com/capsohq/bifrost/core
 ```
 
 **Features:** Native Go APIs, embedded deployment, custom middleware integration

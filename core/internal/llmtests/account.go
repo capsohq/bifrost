@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 const Concurrency = 4
@@ -137,6 +137,7 @@ func (account *ComprehensiveTestAccount) GetConfiguredProviders() ([]schemas.Mod
 		schemas.Anthropic,
 		schemas.Bedrock,
 		schemas.Cohere,
+		schemas.Deepseek,
 		schemas.Azure,
 		schemas.Vertex,
 		schemas.Ollama,
@@ -148,12 +149,17 @@ func (account *ComprehensiveTestAccount) GetConfiguredProviders() ([]schemas.Mod
 		schemas.Perplexity,
 		schemas.Cerebras,
 		schemas.Gemini,
+		schemas.GLM,
+		schemas.Minimax,
+		schemas.Moonshot,
 		schemas.OpenRouter,
+		schemas.Qwen,
 		schemas.HuggingFace,
 		schemas.Nebius,
 		schemas.XAI,
 		schemas.Replicate,
 		schemas.VLLM,
+		schemas.Volcengine,
 		schemas.Runway,
 		ProviderOpenAICustom,
 	}, nil
@@ -383,6 +389,15 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
 		}, nil
+	case schemas.Deepseek:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.DEEPSEEK_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
 	case schemas.Gemini:
 		return []schemas.Key{
 			{
@@ -392,10 +407,46 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
 		}, nil
+	case schemas.GLM:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.GLM_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
+	case schemas.Minimax:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.MINIMAX_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
+	case schemas.Moonshot:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.MOONSHOT_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
 	case schemas.OpenRouter:
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.OPENROUTER_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
+	case schemas.Qwen:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.QWEN_API_KEY"),
 				Models:         []string{},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
@@ -441,6 +492,15 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.RUNWAY_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
+	case schemas.Volcengine:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.VOLCENGINE_API_KEY"),
 				Models:         []string{},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
@@ -665,6 +725,20 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 				BufferSize:  10,
 			},
 		}, nil
+	case schemas.Deepseek:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+				DefaultRequestTimeoutInSeconds: 120,
+				MaxRetries:                     10,
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
 	case schemas.VLLM:
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
@@ -692,11 +766,67 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 				BufferSize:  20,
 			},
 		}, nil
+	case schemas.GLM:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("GLM_BASE_URL", "https://api.z.ai"),
+				DefaultRequestTimeoutInSeconds: 120,
+				MaxRetries:                     10,
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
+	case schemas.Minimax:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("MINIMAX_BASE_URL", "https://api.minimax.io"),
+				DefaultRequestTimeoutInSeconds: 120,
+				MaxRetries:                     10,
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
+	case schemas.Moonshot:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("MOONSHOT_BASE_URL", "https://api.moonshot.ai"),
+				DefaultRequestTimeoutInSeconds: 120,
+				MaxRetries:                     10,
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
 	case schemas.OpenRouter:
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
 				DefaultRequestTimeoutInSeconds: 120,
 				MaxRetries:                     10, // OpenRouter can be variable (proxy service)
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
+	case schemas.Qwen:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("QWEN_BASE_URL", "https://dashscope-us.aliyuncs.com/compatible-mode/v1"),
+				DefaultRequestTimeoutInSeconds: 120,
+				MaxRetries:                     10,
 				RetryBackoffInitial:            1 * time.Second,
 				RetryBackoffMax:                12 * time.Second,
 			},
@@ -760,6 +890,20 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 	case schemas.Runway:
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
+				DefaultRequestTimeoutInSeconds: 300,
+				MaxRetries:                     10,
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
+	case schemas.Volcengine:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("VOLCENGINE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
 				DefaultRequestTimeoutInSeconds: 300,
 				MaxRetries:                     10,
 				RetryBackoffInitial:            1 * time.Second,

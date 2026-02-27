@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
@@ -81,8 +81,8 @@ func (p *OtelPlugin) convertTraceToResourceSpan(trace *schemas.Trace) *ResourceS
 			Attributes: p.getResourceAttributes(),
 		},
 		ScopeSpans: []*ScopeSpan{{
-			Scope:  p.getInstrumentationScope(),
-			Spans:  otelSpans,
+			Scope: p.getInstrumentationScope(),
+			Spans: otelSpans,
 		}},
 	}
 }

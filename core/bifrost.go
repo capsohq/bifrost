@@ -16,32 +16,38 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/maximhq/bifrost/core/mcp"
-	"github.com/maximhq/bifrost/core/mcp/codemode/starlark"
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	"github.com/maximhq/bifrost/core/providers/azure"
-	"github.com/maximhq/bifrost/core/providers/bedrock"
-	"github.com/maximhq/bifrost/core/providers/cerebras"
-	"github.com/maximhq/bifrost/core/providers/cohere"
-	"github.com/maximhq/bifrost/core/providers/elevenlabs"
-	"github.com/maximhq/bifrost/core/providers/gemini"
-	"github.com/maximhq/bifrost/core/providers/groq"
-	"github.com/maximhq/bifrost/core/providers/huggingface"
-	"github.com/maximhq/bifrost/core/providers/mistral"
-	"github.com/maximhq/bifrost/core/providers/nebius"
-	"github.com/maximhq/bifrost/core/providers/ollama"
-	"github.com/maximhq/bifrost/core/providers/openai"
-	"github.com/maximhq/bifrost/core/providers/openrouter"
-	"github.com/maximhq/bifrost/core/providers/parasail"
-	"github.com/maximhq/bifrost/core/providers/perplexity"
-	"github.com/maximhq/bifrost/core/providers/replicate"
-	"github.com/maximhq/bifrost/core/providers/runway"
-	"github.com/maximhq/bifrost/core/providers/sgl"
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/providers/vertex"
-	"github.com/maximhq/bifrost/core/providers/vllm"
-	"github.com/maximhq/bifrost/core/providers/xai"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/mcp"
+	"github.com/capsohq/bifrost/core/mcp/codemode/starlark"
+	"github.com/capsohq/bifrost/core/providers/anthropic"
+	"github.com/capsohq/bifrost/core/providers/azure"
+	"github.com/capsohq/bifrost/core/providers/bedrock"
+	"github.com/capsohq/bifrost/core/providers/cerebras"
+	"github.com/capsohq/bifrost/core/providers/cohere"
+	"github.com/capsohq/bifrost/core/providers/deepseek"
+	"github.com/capsohq/bifrost/core/providers/elevenlabs"
+	"github.com/capsohq/bifrost/core/providers/gemini"
+	"github.com/capsohq/bifrost/core/providers/glm"
+	"github.com/capsohq/bifrost/core/providers/groq"
+	"github.com/capsohq/bifrost/core/providers/huggingface"
+	"github.com/capsohq/bifrost/core/providers/minimax"
+	"github.com/capsohq/bifrost/core/providers/mistral"
+	"github.com/capsohq/bifrost/core/providers/moonshot"
+	"github.com/capsohq/bifrost/core/providers/nebius"
+	"github.com/capsohq/bifrost/core/providers/ollama"
+	"github.com/capsohq/bifrost/core/providers/openai"
+	"github.com/capsohq/bifrost/core/providers/openrouter"
+	"github.com/capsohq/bifrost/core/providers/parasail"
+	"github.com/capsohq/bifrost/core/providers/perplexity"
+	"github.com/capsohq/bifrost/core/providers/qwen"
+	"github.com/capsohq/bifrost/core/providers/replicate"
+	"github.com/capsohq/bifrost/core/providers/runway"
+	"github.com/capsohq/bifrost/core/providers/sgl"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/providers/vertex"
+	"github.com/capsohq/bifrost/core/providers/vllm"
+	"github.com/capsohq/bifrost/core/providers/volcengine"
+	"github.com/capsohq/bifrost/core/providers/xai"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 	"github.com/valyala/fasthttp"
 )
 
@@ -3423,8 +3429,12 @@ func (bifrost *Bifrost) createBaseProvider(providerKey schemas.ModelProvider, co
 		return perplexity.NewPerplexityProvider(config, bifrost.logger)
 	case schemas.Cerebras:
 		return cerebras.NewCerebrasProvider(config, bifrost.logger)
+	case schemas.Deepseek:
+		return deepseek.NewDeepSeekProvider(config, bifrost.logger)
 	case schemas.Gemini:
 		return gemini.NewGeminiProvider(config, bifrost.logger), nil
+	case schemas.GLM:
+		return glm.NewGLMProvider(config, bifrost.logger)
 	case schemas.OpenRouter:
 		return openrouter.NewOpenRouterProvider(config, bifrost.logger), nil
 	case schemas.Elevenlabs:
@@ -3441,6 +3451,14 @@ func (bifrost *Bifrost) createBaseProvider(providerKey schemas.ModelProvider, co
 		return vllm.NewVLLMProvider(config, bifrost.logger)
 	case schemas.Runway:
 		return runway.NewRunwayProvider(config, bifrost.logger)
+	case schemas.Minimax:
+		return minimax.NewMinimaxProvider(config, bifrost.logger)
+	case schemas.Moonshot:
+		return moonshot.NewMoonshotProvider(config, bifrost.logger)
+	case schemas.Qwen:
+		return qwen.NewQwenProvider(config, bifrost.logger)
+	case schemas.Volcengine:
+		return volcengine.NewVolcengineProvider(config, bifrost.logger)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", targetProviderKey)
 	}

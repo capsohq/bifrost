@@ -1,10 +1,10 @@
-module github.com/maximhq/bifrost/plugins/maxim
+module github.com/capsohq/bifrost/plugins/maxim
 
 go 1.26
 
 require (
-	github.com/maximhq/bifrost/core v1.4.4
-	github.com/maximhq/bifrost/framework v1.2.23
+	github.com/capsohq/bifrost/core v1.4.4
+	github.com/capsohq/bifrost/framework v1.2.23
 	github.com/maximhq/maxim-go v0.1.14
 )
 
@@ -128,3 +128,7 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../../core
+
+replace github.com/capsohq/bifrost/framework => ../../framework

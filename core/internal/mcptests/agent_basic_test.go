@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -203,7 +203,7 @@ func TestAgent_BasicLoop_ResponsesFormat(t *testing.T) {
 			CreateResponsesResponseWithToolCalls([]schemas.ResponsesToolMessage{
 				{
 					CallID:    schemas.Ptr("call-1"),
-					Name: schemas.Ptr("bifrostInternal-echo"),
+					Name:      schemas.Ptr("bifrostInternal-echo"),
 					Arguments: schemas.Ptr(`{"message": "testing responses format"}`),
 				},
 			}),

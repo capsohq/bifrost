@@ -42,6 +42,7 @@ export const KNOWN_PROVIDERS = [
   'groq',
   'mistral',
   'deepseek',
+  'qwen',
   'cerebras',
   'nebius',
   'sambanova',
@@ -63,4 +64,21 @@ export const SAMPLE_MODELS = {
   openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
   anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
   gemini: ['gemini-pro', 'gemini-pro-vision'],
+}
+
+/**
+ * Providers added in this fork that must remain available in UI flows.
+ */
+export const NEWLY_ADDED_PROVIDERS = ['glm', 'minimax', 'moonshot', 'volcengine', 'deepseek', 'qwen'] as const
+
+/**
+ * Seed model canaries used to verify provider model catalog population.
+ */
+export const NEW_PROVIDER_MODEL_CANARIES: Record<(typeof NEWLY_ADDED_PROVIDERS)[number], string> = {
+  glm: 'glm-5',
+  minimax: 'MiniMax-M2.5',
+  moonshot: 'kimi-k2.5',
+  volcengine: 'doubao-embedding',
+  deepseek: 'deepseek-chat',
+  qwen: 'qwen-plus-latest',
 }

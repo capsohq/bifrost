@@ -10,11 +10,11 @@ import (
 	"strings"
 	"unicode"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/migrator"
 	"github.com/google/uuid"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/migrator"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -110,6 +110,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	if err := migrationAddFrameworkConfigsTable(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddProviderModelHealthPersistDebounceColumn(ctx, db); err != nil {
 		return err
 	}
 	if err := migrationCleanupMCPClientToolsConfig(ctx, db); err != nil {
@@ -683,6 +686,28 @@ func migrationAddFrameworkConfigsTable(ctx context.Context, db *gorm.DB) error {
 			migrator := tx.Migrator()
 			if !migrator.HasTable(&tables.TableFrameworkConfig{}) {
 				if err := migrator.CreateTable(&tables.TableFrameworkConfig{}); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}})
+	err := m.Migrate()
+	if err != nil {
+		return fmt.Errorf("error while running db migration: %s", err.Error())
+	}
+	return nil
+}
+
+// migrationAddProviderModelHealthPersistDebounceColumn adds the provider model health debounce column.
+func migrationAddProviderModelHealthPersistDebounceColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_provider_model_health_persist_debounce_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			migrator := tx.Migrator()
+			if !migrator.HasColumn(&tables.TableFrameworkConfig{}, "provider_model_health_persist_debounce_ms") {
+				if err := migrator.AddColumn(&tables.TableFrameworkConfig{}, "provider_model_health_persist_debounce_ms"); err != nil {
 					return err
 				}
 			}

@@ -1,13 +1,13 @@
-module github.com/maximhq/bifrost/plugins/semanticcache
+module github.com/capsohq/bifrost/plugins/semanticcache
 
 go 1.26
 
 require (
+	github.com/capsohq/bifrost/core v1.4.4
+	github.com/capsohq/bifrost/framework v1.2.23
+	github.com/capsohq/bifrost/plugins/mocker v1.4.17
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/google/uuid v1.6.0
-	github.com/maximhq/bifrost/core v1.4.4
-	github.com/maximhq/bifrost/framework v1.2.23
-	github.com/maximhq/bifrost/plugins/mocker v1.4.17
 )
 
 require (
@@ -128,3 +128,9 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../../core
+
+replace github.com/capsohq/bifrost/framework => ../../framework
+
+replace github.com/capsohq/bifrost/plugins/mocker => ../../plugins/mocker

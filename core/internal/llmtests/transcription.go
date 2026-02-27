@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // RunTranscriptionTest executes the transcription test scenario
@@ -137,7 +137,7 @@ func RunTranscriptionTest(t *testing.T, client *bifrost.Bifrost, ctx context.Con
 					}
 
 					ttsResponse, err := WithSpeechTestRetry(t, speechRetryConfig, ttsRetryContext, ttsExpectations, "Transcription_RoundTrip_TTS_"+tc.name, func() (*schemas.BifrostSpeechResponse, *schemas.BifrostError) {
-						bfCtx := schemas.NewBifrostContext(ctx, schemas.NoDeadline)	
+						bfCtx := schemas.NewBifrostContext(ctx, schemas.NoDeadline)
 						return client.SpeechRequest(bfCtx, ttsRequest)
 					})
 					if err != nil {

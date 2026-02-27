@@ -1,10 +1,10 @@
-module github.com/maximhq/bifrost/framework
+module github.com/capsohq/bifrost/framework
 
 go 1.26
 
 require (
+	github.com/capsohq/bifrost/core v1.4.4
 	github.com/google/uuid v1.6.0
-	github.com/maximhq/bifrost/core v1.4.4
 	github.com/pinecone-io/go-pinecone/v5 v5.3.0
 	github.com/qdrant/go-client v1.16.2
 	github.com/redis/go-redis/v9 v9.17.2
@@ -130,3 +130,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0
 )
+
+replace github.com/capsohq/bifrost/core => ../core

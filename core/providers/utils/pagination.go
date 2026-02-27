@@ -1,7 +1,7 @@
 package utils
 
 import (
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // SerialListHelper manages serial key pagination for list operations.
@@ -109,4 +109,3 @@ func (h *SerialListHelper) HasMoreKeys() bool {
 	}
 	return currentKeyIndex < len(h.Keys)-1
 }
-

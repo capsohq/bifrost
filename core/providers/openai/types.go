@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 const MinMaxCompletionTokens = 16
@@ -77,11 +77,21 @@ type OpenAIChatRequest struct {
 
 	//NOTE: MaxCompletionTokens is a new replacement for max_tokens but some providers still use max_tokens.
 	// This Field is populated only for such providers and is NOT to be used externally.
-	MaxTokens *int `json:"max_tokens,omitempty"`
+	MaxTokens *int                `json:"max_tokens,omitempty"`
+	Thinking  *OpenAIThinkingMode `json:"thinking,omitempty"`
+
+	// Qwen-specific thinking controls for OpenAI-compatible API.
+	EnableThinking *bool `json:"enable_thinking,omitempty"`
+	ThinkingBudget *int  `json:"thinking_budget,omitempty"`
 
 	// Bifrost specific field (only parsed when converting from Provider -> Bifrost request)
 	Fallbacks   []string               `json:"fallbacks,omitempty"`
 	ExtraParams map[string]interface{} `json:"-"` // Optional: Extra parameters
+}
+
+// OpenAIThinkingMode represents non-OpenAI thinking controls used by OpenAI-compatible providers.
+type OpenAIThinkingMode struct {
+	Type string `json:"type,omitempty"`
 }
 
 // GetExtraParams implements the ExtraParamsGetter interface

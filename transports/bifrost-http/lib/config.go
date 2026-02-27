@@ -18,27 +18,27 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework"
+	"github.com/capsohq/bifrost/framework/configstore"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/encrypt"
+	"github.com/capsohq/bifrost/framework/envutils"
+	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/framework/mcpcatalog"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
+	"github.com/capsohq/bifrost/framework/oauth2"
+	plugins "github.com/capsohq/bifrost/framework/plugins"
+	"github.com/capsohq/bifrost/framework/vectorstore"
+	"github.com/capsohq/bifrost/plugins/governance"
+	"github.com/capsohq/bifrost/plugins/litellmcompat"
+	"github.com/capsohq/bifrost/plugins/logging"
+	"github.com/capsohq/bifrost/plugins/maxim"
+	"github.com/capsohq/bifrost/plugins/otel"
+	"github.com/capsohq/bifrost/plugins/semanticcache"
+	"github.com/capsohq/bifrost/plugins/telemetry"
 	"github.com/google/uuid"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework"
-	"github.com/maximhq/bifrost/framework/configstore"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/encrypt"
-	"github.com/maximhq/bifrost/framework/envutils"
-	"github.com/maximhq/bifrost/framework/logstore"
-	"github.com/maximhq/bifrost/framework/mcpcatalog"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
-	"github.com/maximhq/bifrost/framework/oauth2"
-	plugins "github.com/maximhq/bifrost/framework/plugins"
-	"github.com/maximhq/bifrost/framework/vectorstore"
-	"github.com/maximhq/bifrost/plugins/governance"
-	"github.com/maximhq/bifrost/plugins/litellmcompat"
-	"github.com/maximhq/bifrost/plugins/logging"
-	"github.com/maximhq/bifrost/plugins/maxim"
-	"github.com/maximhq/bifrost/plugins/otel"
-	"github.com/maximhq/bifrost/plugins/semanticcache"
-	"github.com/maximhq/bifrost/plugins/telemetry"
 	"gorm.io/gorm"
 )
 
@@ -1782,11 +1782,21 @@ func initFrameworkConfigFromFile(ctx context.Context, config *Config, configData
 			syncDuration := time.Duration(*frameworkConfig.PricingSyncInterval) * time.Second
 			pricingConfig.PricingSyncInterval = &syncDuration
 		}
+		if frameworkConfig != nil && frameworkConfig.ProviderModelHealthPersistDebounce != nil {
+			debounceDuration := time.Duration(*frameworkConfig.ProviderModelHealthPersistDebounce) * time.Millisecond
+			pricingConfig.ProviderModelHealthPersistDebounce = &debounceDuration
+		}
 		mcpPricingConfig.PricingData = buildMCPPricingDataFromStore(ctx, config.ConfigStore)
 	} else if configData.FrameworkConfig != nil && configData.FrameworkConfig.Pricing != nil {
 		pricingConfig.PricingURL = configData.FrameworkConfig.Pricing.PricingURL
-		syncDuration := time.Duration(*configData.FrameworkConfig.Pricing.PricingSyncInterval) * time.Second
-		pricingConfig.PricingSyncInterval = &syncDuration
+		if configData.FrameworkConfig.Pricing.PricingSyncInterval != nil && *configData.FrameworkConfig.Pricing.PricingSyncInterval > 0 {
+			syncDuration := time.Duration(*configData.FrameworkConfig.Pricing.PricingSyncInterval) * time.Second
+			pricingConfig.PricingSyncInterval = &syncDuration
+		}
+		if configData.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce != nil && *configData.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce > 0 {
+			debounceDuration := time.Duration(*configData.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce) * time.Millisecond
+			pricingConfig.ProviderModelHealthPersistDebounce = &debounceDuration
+		}
 	}
 
 	// Initialize OAuth provider
@@ -2134,6 +2144,12 @@ func initDefaultFrameworkConfig(ctx context.Context, config *Config) error {
 	} else {
 		pricingConfig.PricingSyncInterval = bifrost.Ptr(modelcatalog.DefaultPricingSyncInterval)
 	}
+	if frameworkConfig != nil && frameworkConfig.ProviderModelHealthPersistDebounce != nil && *frameworkConfig.ProviderModelHealthPersistDebounce > 0 {
+		debounceDuration := time.Duration(*frameworkConfig.ProviderModelHealthPersistDebounce) * time.Millisecond
+		pricingConfig.ProviderModelHealthPersistDebounce = &debounceDuration
+	} else {
+		pricingConfig.ProviderModelHealthPersistDebounce = bifrost.Ptr(modelcatalog.DefaultProviderModelHealthPersistDebounce)
+	}
 
 	// Update DB with latest config
 	configID := uint(0)
@@ -2147,11 +2163,19 @@ func initDefaultFrameworkConfig(ctx context.Context, config *Config) error {
 		d := modelcatalog.DefaultPricingSyncInterval
 		durationSec = int64(d.Seconds())
 	}
+	var debounceMs int64
+	if pricingConfig.ProviderModelHealthPersistDebounce != nil {
+		debounceMs = int64((*pricingConfig.ProviderModelHealthPersistDebounce).Milliseconds())
+	} else {
+		d := modelcatalog.DefaultProviderModelHealthPersistDebounce
+		debounceMs = int64(d.Milliseconds())
+	}
 	logger.Debug("updating framework config with duration: %d", durationSec)
 	if err = config.ConfigStore.UpdateFrameworkConfig(ctx, &configstoreTables.TableFrameworkConfig{
-		ID:                  configID,
-		PricingURL:          pricingConfig.PricingURL,
-		PricingSyncInterval: bifrost.Ptr(durationSec),
+		ID:                                 configID,
+		PricingURL:                         pricingConfig.PricingURL,
+		PricingSyncInterval:                bifrost.Ptr(durationSec),
+		ProviderModelHealthPersistDebounce: bifrost.Ptr(debounceMs),
 	}); err != nil {
 		return fmt.Errorf("failed to update framework config: %w", err)
 	}
@@ -2977,7 +3001,7 @@ func (c *Config) UpdateProviderConfig(ctx context.Context, provider schemas.Mode
 // RemoveProvider removes a provider configuration from memory.
 func (c *Config) RemoveProvider(ctx context.Context, provider schemas.ModelProvider) error {
 	c.Mu.Lock()
-	defer c.Mu.Unlock()	
+	defer c.Mu.Unlock()
 	// Delete from DB first to avoid memory/DB inconsistency if DB delete fails
 	skipDBUpdate := false
 	if ctx.Value(schemas.BifrostContextKeySkipDBUpdate) != nil {

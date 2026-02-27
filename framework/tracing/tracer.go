@@ -5,9 +5,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
-	"github.com/maximhq/bifrost/framework/streaming"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
+	"github.com/capsohq/bifrost/framework/streaming"
 )
 
 // Tracer implements schemas.Tracer using TraceStore.
@@ -176,7 +176,7 @@ func (t *Tracer) PopulateLLMResponseAttributes(handle schemas.SpanHandle, resp *
 	span := trace.GetSpan(h.spanID)
 	if span == nil {
 		return
-	}	
+	}
 	for k, v := range PopulateResponseAttributes(resp) {
 		span.SetAttribute(k, v)
 	}

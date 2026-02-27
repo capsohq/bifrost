@@ -1,0 +1,81 @@
+---
+title: "Volcengine (ARK)"
+description: "Volcengine ARK provider guide for text, vision, embeddings, files, and video generation in Bifrost."
+icon: "server"
+---
+
+## Overview
+
+Volcengine ARK is integrated as an OpenAI-compatible provider with additional file and video task support in Bifrost.
+
+### Supported Operations
+
+| Operation | Non-Streaming | Streaming | Endpoint |
+|-----------|---------------|-----------|----------|
+| List Models | ✅ | - | `/models` |
+| Text Completions | ✅ | ✅ | `/completions` |
+| Chat Completions | ✅ | ✅ | `/chat/completions` |
+| Responses API | ✅ | ✅ | Fallback to Chat Completions |
+| Embeddings | ✅ | ❌ | `/embeddings` |
+| Image Generation | ✅ | ❌ | `/images/generations` |
+| Video Generation | ✅ | ❌ | `/contents/generations/tasks` |
+| Video Retrieve / Download / Delete / List | ✅ | ❌ | `/contents/generations/tasks` |
+| File Upload / List / Retrieve / Delete / Content | ✅ | ❌ | `/files` |
+| Image Edit / Image Variation / Batch | ❌ | ❌ | - |
+
+## Curated Models
+
+- Text: `doubao-seed-1-6-250615`, `doubao-seed-1-6-thinking-250615`
+- Vision: `doubao-1.5-vision-pro-250328`
+- Embedding: `doubao-embedding-large-text-240915`
+- Image generation: `doubao-seedream-4-5-251128`, `doubao-seedream-4-0-250828`
+- Video generation: `doubao-seedance-1-0-lite-i2v-250428`
+
+## Configuration
+
+<Tabs>
+<Tab title="Gateway">
+
+```bash
+curl --location 'http://localhost:8080/api/providers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "provider": "volcengine",
+  "network_config": {
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3"
+  },
+  "keys": [
+    {
+      "name": "volcengine-key-1",
+      "value": "env.VOLCENGINE_API_KEY",
+      "models": [],
+      "weight": 1.0
+    }
+  ]
+}'
+```
+
+</Tab>
+<Tab title="Go SDK">
+
+```go
+case schemas.Volcengine:
+    return []schemas.Key{{
+        Value:  *schemas.NewEnvVar("env.VOLCENGINE_API_KEY"),
+        Models: []string{},
+        Weight: 1.0,
+    }}, nil
+```
+
+</Tab>
+</Tabs>
+
+## Reference Links
+
+- [Volcengine text generation](https://www.volcengine.com/docs/82379/1399009?lang=zh)
+- [Volcengine vision image understanding](https://www.volcengine.com/docs/82379/1362931?lang=zh)
+- [Volcengine video understanding](https://www.volcengine.com/docs/82379/1895586?lang=zh)
+- [Volcengine files API](https://www.volcengine.com/docs/82379/1902647?lang=zh)
+- [Volcengine video generation](https://www.volcengine.com/docs/82379/1366799?lang=zh)
+- [Volcengine image generation](https://www.volcengine.com/docs/82379/1824121?lang=zh)
+- [Volcengine embeddings](https://www.volcengine.com/docs/82379/1409291?lang=zh)

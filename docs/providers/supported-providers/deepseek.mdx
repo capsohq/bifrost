@@ -1,0 +1,75 @@
+---
+title: "DeepSeek"
+description: "DeepSeek OpenAI-compatible provider guide with native thinking mode support via Bifrost."
+icon: "code"
+---
+
+## Overview
+
+DeepSeek is integrated as an OpenAI-compatible provider. Bifrost maps DeepSeek endpoints for models, text completion, chat completion, and Responses API fallback.
+
+### Supported Operations
+
+| Operation | Non-Streaming | Streaming | Endpoint |
+|-----------|---------------|-----------|----------|
+| List Models | ✅ | - | `/models` |
+| Text Completions | ✅ | ✅ | `/completions` |
+| Chat Completions | ✅ | ✅ | `/chat/completions` |
+| Responses API | ✅ | ✅ | Fallback to Chat Completions |
+| Embeddings | ❌ | ❌ | - |
+| Image / Audio / Files / Batch / Video | ❌ | ❌ | - |
+
+## Thinking Mode
+
+DeepSeek exposes reasoning controls through a `thinking` object.  
+Bifrost maps `reasoning` parameters to DeepSeek-compatible fields:
+
+- `reasoning.effort = "none"` → `thinking.type = "disabled"`
+- any other `reasoning.effort` → `thinking.type = "enabled"`
+- `reasoning.max_tokens` → `max_tokens`
+
+## Curated Models
+
+- `deepseek-chat`
+- `deepseek-reasoner`
+
+## Configuration
+
+<Tabs>
+<Tab title="Gateway">
+
+```bash
+curl --location 'http://localhost:8080/api/providers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "provider": "deepseek",
+  "keys": [
+    {
+      "name": "deepseek-key-1",
+      "value": "env.DEEPSEEK_API_KEY",
+      "models": [],
+      "weight": 1.0
+    }
+  ]
+}'
+```
+
+</Tab>
+<Tab title="Go SDK">
+
+```go
+case schemas.Deepseek:
+    return []schemas.Key{{
+        Value:  *schemas.NewEnvVar("env.DEEPSEEK_API_KEY"),
+        Models: []string{},
+        Weight: 1.0,
+    }}, nil
+```
+
+</Tab>
+</Tabs>
+
+## Reference Links
+
+- [DeepSeek Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode)
+- [DeepSeek Models & Pricing](https://api-docs.deepseek.com/quick_start/pricing)

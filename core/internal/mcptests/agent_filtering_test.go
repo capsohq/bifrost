@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -552,7 +552,7 @@ func TestAgent_FilteringWithMultipleClients(t *testing.T) {
 					ID:   schemas.Ptr("call-2"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-get_temperature"),
+						Name:      schemas.Ptr("bifrostInternal-get_temperature"),
 						Arguments: `{"location": "New York"}`,
 					},
 				},
@@ -638,7 +638,7 @@ func TestAgent_ToolConflictInAgentMode(t *testing.T) {
 					ID:   schemas.Ptr("call-1"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-get_temperature"),
+						Name:      schemas.Ptr("bifrostInternal-get_temperature"),
 						Arguments: `{"location": "New York"}`,
 					},
 				},
@@ -859,7 +859,7 @@ func TestAgent_Filtering_ResponsesFormat(t *testing.T) {
 			CreateResponsesResponseWithToolCalls([]schemas.ResponsesToolMessage{
 				{
 					CallID:    schemas.Ptr("call-1"),
-					Name: schemas.Ptr("bifrostInternal-echo"),
+					Name:      schemas.Ptr("bifrostInternal-echo"),
 					Arguments: schemas.Ptr(`{"message": "responses format"}`),
 				},
 			}),

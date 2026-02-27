@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -139,7 +139,7 @@ func TestAgent_ErrorHandling_TimeoutInLoop(t *testing.T) {
 			ID:   schemas.Ptr("call-timeout"),
 			Type: schemas.Ptr("function"),
 			Function: schemas.ChatAssistantMessageToolCallFunction{
-				Name: schemas.Ptr("bifrostInternal-slow_tool"),
+				Name:      schemas.Ptr("bifrostInternal-slow_tool"),
 				Arguments: "{}",
 			},
 		},
@@ -398,7 +398,7 @@ func TestAgent_ErrorHandling_RecoveryAndContinuation(t *testing.T) {
 					ID:   schemas.Ptr("call-fail"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-fail_tool"),
+						Name:      schemas.Ptr("bifrostInternal-fail_tool"),
 						Arguments: "{}",
 					},
 				},
@@ -480,7 +480,7 @@ func TestAgent_ErrorHandling_ErrorInToolArguments(t *testing.T) {
 				ID:   schemas.Ptr("call-" + tc.name),
 				Type: schemas.Ptr("function"),
 				Function: schemas.ChatAssistantMessageToolCallFunction{
-					Name: schemas.Ptr("bifrostInternal-calculator"),
+					Name:      schemas.Ptr("bifrostInternal-calculator"),
 					Arguments: tc.arguments,
 				},
 			}
@@ -533,7 +533,7 @@ func TestAgent_ErrorHandling_MultipleErrorsInSequence(t *testing.T) {
 					ID:   schemas.Ptr("call-fail-1"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-fail_tool"),
+						Name:      schemas.Ptr("bifrostInternal-fail_tool"),
 						Arguments: "{}",
 					},
 				},
@@ -544,7 +544,7 @@ func TestAgent_ErrorHandling_MultipleErrorsInSequence(t *testing.T) {
 					ID:   schemas.Ptr("call-fail-2"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-fail_tool"),
+						Name:      schemas.Ptr("bifrostInternal-fail_tool"),
 						Arguments: "{}",
 					},
 				},
@@ -619,7 +619,7 @@ func TestAgent_ErrorHandling_ErrorMessagePreservation(t *testing.T) {
 					ID:   schemas.Ptr("call-error"),
 					Type: schemas.Ptr("function"),
 					Function: schemas.ChatAssistantMessageToolCallFunction{
-						Name: schemas.Ptr("bifrostInternal-error_tool"),
+						Name:      schemas.Ptr("bifrostInternal-error_tool"),
 						Arguments: "{}",
 					},
 				},

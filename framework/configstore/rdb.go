@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/encrypt"
-	"github.com/maximhq/bifrost/framework/logstore"
-	"github.com/maximhq/bifrost/framework/migrator"
-	"github.com/maximhq/bifrost/framework/vectorstore"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/encrypt"
+	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/framework/migrator"
+	"github.com/capsohq/bifrost/framework/vectorstore"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -341,11 +341,11 @@ func (s *RDBConfigStore) UpdateProvidersConfig(ctx context.Context, providers ma
 
 			if result.Error == nil {
 				// Update existing key with new data
-				dbKey.ID = existingKey.ID                           // Keep the same database ID
-				dbKey.ProviderID = existingKey.ProviderID           // Preserve the existing ProviderID
-				dbKey.Enabled = existingKey.Enabled                 // Preserve the existing Enabled status
-				dbKey.Status = existingKey.Status                   // Preserve status (UI-managed)
-				dbKey.Description = existingKey.Description         // Preserve description (UI-managed)
+				dbKey.ID = existingKey.ID                             // Keep the same database ID
+				dbKey.ProviderID = existingKey.ProviderID             // Preserve the existing ProviderID
+				dbKey.Enabled = existingKey.Enabled                   // Preserve the existing Enabled status
+				dbKey.Status = existingKey.Status                     // Preserve status (UI-managed)
+				dbKey.Description = existingKey.Description           // Preserve description (UI-managed)
 				dbKey.EncryptionStatus = existingKey.EncryptionStatus // Preserve encryption status
 				if err := txDB.WithContext(ctx).Save(&dbKey).Error; err != nil {
 					return s.parseGormError(err)
@@ -355,12 +355,12 @@ func (s *RDBConfigStore) UpdateProvidersConfig(ctx context.Context, providers ma
 				result = txDB.WithContext(ctx).Where("name = ?", dbKey.Name).First(&existingKey)
 				if result.Error == nil {
 					// Found by name - update existing key, preserve original KeyID
-					dbKey.ID = existingKey.ID                           // Keep the same database ID
-					dbKey.KeyID = existingKey.KeyID                     // Preserve original KeyID
-					dbKey.ProviderID = existingKey.ProviderID           // Preserve the existing ProviderID
-					dbKey.Enabled = existingKey.Enabled                 // Preserve the existing Enabled status
-					dbKey.Status = existingKey.Status                   // Preserve status (UI-managed)
-					dbKey.Description = existingKey.Description         // Preserve description (UI-managed)
+					dbKey.ID = existingKey.ID                             // Keep the same database ID
+					dbKey.KeyID = existingKey.KeyID                       // Preserve original KeyID
+					dbKey.ProviderID = existingKey.ProviderID             // Preserve the existing ProviderID
+					dbKey.Enabled = existingKey.Enabled                   // Preserve the existing Enabled status
+					dbKey.Status = existingKey.Status                     // Preserve status (UI-managed)
+					dbKey.Description = existingKey.Description           // Preserve description (UI-managed)
 					dbKey.EncryptionStatus = existingKey.EncryptionStatus // Preserve encryption status
 					if err := txDB.WithContext(ctx).Save(&dbKey).Error; err != nil {
 						return s.parseGormError(err)
@@ -1246,6 +1246,89 @@ func (s *RDBConfigStore) DeleteModelPrices(ctx context.Context, tx ...*gorm.DB) 
 		txDB = s.db
 	}
 	return txDB.WithContext(ctx).Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&tables.TableModelPricing{}).Error
+}
+
+// GetAllProviderModelNames retrieves the persisted provider model inventories.
+func (s *RDBConfigStore) GetAllProviderModelNames(ctx context.Context) (map[schemas.ModelProvider][]string, error) {
+	type providerModelRow struct {
+		ProviderName string `gorm:"column:provider_name"`
+		ModelName    string `gorm:"column:model_name"`
+	}
+
+	var rows []providerModelRow
+	if err := s.db.WithContext(ctx).
+		Table("config_models AS m").
+		Select("p.name AS provider_name, m.name AS model_name").
+		Joins("JOIN config_providers p ON p.id = m.provider_id").
+		Order("p.name ASC, m.name ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, s.parseGormError(err)
+	}
+
+	modelsByProvider := make(map[schemas.ModelProvider][]string)
+	for _, row := range rows {
+		if strings.TrimSpace(row.ProviderName) == "" || strings.TrimSpace(row.ModelName) == "" {
+			continue
+		}
+		provider := schemas.ModelProvider(row.ProviderName)
+		modelsByProvider[provider] = append(modelsByProvider[provider], row.ModelName)
+	}
+
+	return modelsByProvider, nil
+}
+
+// ReplaceProviderModelNames replaces the persisted model inventory for a provider atomically.
+func (s *RDBConfigStore) ReplaceProviderModelNames(ctx context.Context, provider schemas.ModelProvider, models []string, tx ...*gorm.DB) error {
+	var txDB *gorm.DB
+	if len(tx) > 0 {
+		txDB = tx[0]
+	} else {
+		txDB = s.db
+	}
+
+	var dbProvider tables.TableProvider
+	if err := txDB.WithContext(ctx).Where("name = ?", string(provider)).First(&dbProvider).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		return s.parseGormError(err)
+	}
+
+	if err := txDB.WithContext(ctx).Where("provider_id = ?", dbProvider.ID).Delete(&tables.TableModel{}).Error; err != nil {
+		return s.parseGormError(err)
+	}
+
+	if len(models) == 0 {
+		return nil
+	}
+
+	seenModels := make(map[string]struct{}, len(models))
+	providerModels := make([]tables.TableModel, 0, len(models))
+	for _, model := range models {
+		trimmedModel := strings.TrimSpace(model)
+		if trimmedModel == "" {
+			continue
+		}
+		if _, exists := seenModels[trimmedModel]; exists {
+			continue
+		}
+		seenModels[trimmedModel] = struct{}{}
+		providerModels = append(providerModels, tables.TableModel{
+			ID:         fmt.Sprintf("%s:%s", provider, trimmedModel),
+			ProviderID: dbProvider.ID,
+			Name:       trimmedModel,
+		})
+	}
+
+	if len(providerModels) == 0 {
+		return nil
+	}
+
+	if err := txDB.WithContext(ctx).Create(&providerModels).Error; err != nil {
+		return s.parseGormError(err)
+	}
+
+	return nil
 }
 
 // PLUGINS METHODS

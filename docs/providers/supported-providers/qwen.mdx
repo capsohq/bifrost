@@ -1,0 +1,80 @@
+---
+title: "Qwen (Alibaba Cloud)"
+description: "Qwen OpenAI-compatible provider guide with enable_thinking/thinking_budget controls via Bifrost."
+icon: "code"
+---
+
+## Overview
+
+Qwen is integrated as an OpenAI-compatible provider. Bifrost maps Qwen endpoints for models, text completion, chat completion, and Responses API fallback.
+
+### Supported Operations
+
+| Operation | Non-Streaming | Streaming | Endpoint |
+|-----------|---------------|-----------|----------|
+| List Models | ✅ | - | `/models` |
+| Text Completions | ✅ | ✅ | `/completions` |
+| Chat Completions | ✅ | ✅ | `/chat/completions` |
+| Responses API | ✅ | ✅ | Fallback to Chat Completions |
+| Embeddings | ❌ | ❌ | - |
+| Image / Audio / Files / Batch / Video | ❌ | ❌ | - |
+
+## Thinking Mode
+
+Qwen exposes reasoning controls via `enable_thinking` and `thinking_budget`.  
+Bifrost maps `reasoning` parameters to Qwen-compatible fields:
+
+- `reasoning.effort = "none"` → `enable_thinking = false`
+- any other `reasoning.effort` → `enable_thinking = true`
+- `reasoning.max_tokens` → `thinking_budget`
+
+## Curated Models
+
+- `qwen-plus-latest`
+- `qwen-plus`
+- `qwen-turbo-latest`
+- `qwen-turbo`
+- `qwen-max-latest`
+- `qwen3-max-preview`
+- `qwen3-coder-plus`
+
+## Configuration
+
+<Tabs>
+<Tab title="Gateway">
+
+```bash
+curl --location 'http://localhost:8080/api/providers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "provider": "qwen",
+  "keys": [
+    {
+      "name": "qwen-key-1",
+      "value": "env.QWEN_API_KEY",
+      "models": [],
+      "weight": 1.0
+    }
+  ]
+}'
+```
+
+</Tab>
+<Tab title="Go SDK">
+
+```go
+case schemas.Qwen:
+    return []schemas.Key{{
+        Value:  *schemas.NewEnvVar("env.QWEN_API_KEY"),
+        Models: []string{},
+        Weight: 1.0,
+    }}, nil
+```
+
+</Tab>
+</Tabs>
+
+## Reference Links
+
+- [Qwen OpenAI-Compatible API](https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope)
+- [Qwen Thinking Control (`enable_thinking`, `thinking_budget`)](https://www.alibabacloud.com/help/en/model-studio/deep-thinking)

@@ -13,22 +13,22 @@ import (
 	"syscall"
 	"time"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/configstore"
+	"github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
+	dynamicPlugins "github.com/capsohq/bifrost/framework/plugins"
+	"github.com/capsohq/bifrost/framework/tracing"
+	"github.com/capsohq/bifrost/plugins/governance"
+	"github.com/capsohq/bifrost/plugins/logging"
+	"github.com/capsohq/bifrost/plugins/semanticcache"
+	"github.com/capsohq/bifrost/plugins/telemetry"
+	"github.com/capsohq/bifrost/transports/bifrost-http/handlers"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
 	"github.com/google/uuid"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/configstore"
-	"github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/logstore"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
-	dynamicPlugins "github.com/maximhq/bifrost/framework/plugins"
-	"github.com/maximhq/bifrost/framework/tracing"
-	"github.com/maximhq/bifrost/plugins/governance"
-	"github.com/maximhq/bifrost/plugins/logging"
-	"github.com/maximhq/bifrost/plugins/semanticcache"
-	"github.com/maximhq/bifrost/plugins/telemetry"
-	"github.com/maximhq/bifrost/transports/bifrost-http/handlers"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
@@ -503,6 +503,7 @@ func (s *BifrostHTTPServer) ReloadProvider(ctx context.Context, provider schemas
 	allModels, bifrostErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
 		Provider: provider,
 	})
+	s.recordProviderModelDiscoveryResult(provider, false, allModels, bifrostErr)
 	if allModels != nil && len(allModels.KeyStatuses) > 0 && s.Config.ConfigStore != nil {
 		s.updateKeyStatus(ctx, allModels.KeyStatuses)
 	}
@@ -535,6 +536,7 @@ func (s *BifrostHTTPServer) ReloadProvider(ctx context.Context, provider schemas
 		Provider:   provider,
 		Unfiltered: true,
 	})
+	s.recordProviderModelDiscoveryResult(provider, true, unfilteredModelData, listModelsErr)
 	if listModelsErr != nil {
 		logger.Error("failed to list unfiltered models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 	} else {
@@ -749,6 +751,7 @@ func (s *BifrostHTTPServer) ForceReloadPricing(ctx context.Context) error {
 			modelData, listModelsErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
 				Provider: provider,
 			})
+			s.recordProviderModelDiscoveryResult(provider, false, modelData, listModelsErr)
 			if listModelsErr != nil {
 				logger.Error("failed to list models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 			}
@@ -765,6 +768,7 @@ func (s *BifrostHTTPServer) ForceReloadPricing(ctx context.Context) error {
 				Provider:   provider,
 				Unfiltered: true,
 			})
+			s.recordProviderModelDiscoveryResult(provider, true, unfilteredModelData, listModelsErr)
 			if listModelsErr != nil {
 				logger.Error("failed to list unfiltered models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 			} else {
@@ -1210,6 +1214,7 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 			modelData, listModelsErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
 				Provider: provider,
 			})
+			s.recordProviderModelDiscoveryResult(provider, false, modelData, listModelsErr)
 			if modelData != nil && len(modelData.KeyStatuses) > 0 && s.Config.ConfigStore != nil {
 				s.updateKeyStatus(ctx, modelData.KeyStatuses)
 			}
@@ -1232,6 +1237,7 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 				Provider:   provider,
 				Unfiltered: true,
 			})
+			s.recordProviderModelDiscoveryResult(provider, true, unfilteredModelData, listModelsErr)
 			if listModelsErr != nil {
 				logger.Error("failed to list unfiltered models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 			} else {

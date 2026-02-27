@@ -1,6 +1,6 @@
 # Bifrost UI
 
-A modern, production-ready web interface for the [Bifrost AI Gateway](https://github.com/maximhq/bifrost) - providing real-time monitoring, configuration management, and comprehensive observability for your AI infrastructure.
+A modern, production-ready web interface for the [Bifrost AI Gateway](https://github.com/capsohq/bifrost) - providing real-time monitoring, configuration management, and comprehensive observability for your AI infrastructure.
 
 ## Overview
 
@@ -229,7 +229,7 @@ Get help with:
 
 ## Links
 
-- **Main Repository**: [github.com/maximhq/bifrost](https://github.com/maximhq/bifrost)
+- **Main Repository**: [github.com/capsohq/bifrost](https://github.com/capsohq/bifrost)
 - **HTTP Transport**: [../transports/bifrost-http](../transports/bifrost-http)
 - **Documentation**: [docs.getbifrost.ai](https://docs.getbifrost.ai)
 - **Website**: [getbifrost.ai](https://www.getbifrost.ai)
@@ -240,4 +240,4 @@ Licensed under the Apache 2.0 License - see the [LICENSE](../LICENSE) file for d
 
 ---
 
-Built with ❤️ by [Maxim](https://github.com/maximhq)
+Built with ❤️ by [Maxim](https://github.com/capsohq)
