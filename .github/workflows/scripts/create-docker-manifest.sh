@@ -5,9 +5,9 @@ if [ "${1:-}" = "" ]; then
 fi
 
 VERSION="$1"
-REGISTRY="docker.io"
-ACCOUNT="maximhq"
-IMAGE_NAME="bifrost"
+REGISTRY="${REGISTRY:-ghcr.io}"
+ACCOUNT="${ACCOUNT:-capsohq}"
+IMAGE_NAME="${IMAGE_NAME:-bifrost}"
 IMAGE="${REGISTRY}/${ACCOUNT}/${IMAGE_NAME}"
 
 # Get the actual image digests from the platform-specific builds

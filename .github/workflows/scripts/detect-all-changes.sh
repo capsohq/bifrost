@@ -211,14 +211,26 @@ if git rev-parse --verify "$TRANSPORT_TAG" >/dev/null 2>&1; then
   GIT_TAG_EXISTS="true"
 fi
 
-# Check if Docker tag exists on DockerHub
-echo "   🐳 Checking DockerHub for tag v${TRANSPORT_VERSION}..."
-DOCKER_CHECK_RESPONSE=$(curl -s "https://registry.hub.docker.com/v2/repositories/maximhq/bifrost/tags/v${TRANSPORT_VERSION}/" 2>/dev/null || echo "")
-if [ -n "$DOCKER_CHECK_RESPONSE" ] && echo "$DOCKER_CHECK_RESPONSE" | grep -q '"name"'; then
-  echo "   ⏭️ Docker tag v${TRANSPORT_VERSION} already exists on DockerHub"
+# Check if Docker tag exists on GHCR
+GHCR_OWNER="${GITHUB_REPOSITORY_OWNER:-capsohq}"
+GHCR_REPOSITORY="${GHCR_OWNER}/bifrost"
+echo "   🐳 Checking GHCR for tag v${TRANSPORT_VERSION} in ${GHCR_REPOSITORY}..."
+GHCR_TOKEN=$(curl -fsSL "https://ghcr.io/token?scope=repository:${GHCR_REPOSITORY}:pull" | jq -r '.token // empty' 2>/dev/null || true)
+if [ -n "$GHCR_TOKEN" ]; then
+  GHCR_MANIFEST_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer ${GHCR_TOKEN}" \
+    -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
+    "https://ghcr.io/v2/${GHCR_REPOSITORY}/manifests/v${TRANSPORT_VERSION}" \
+    2>/dev/null || true)
+else
+  GHCR_MANIFEST_STATUS=""
+fi
+
+if [ "$GHCR_MANIFEST_STATUS" = "200" ]; then
+  echo "   ⏭️ Docker tag v${TRANSPORT_VERSION} already exists on GHCR"
   DOCKER_TAG_EXISTS="true"
 else
-  echo "   ❌ Docker tag v${TRANSPORT_VERSION} not found on DockerHub"
+  echo "   ❌ Docker tag v${TRANSPORT_VERSION} not found on GHCR"
 fi
 
 # Determine if release is needed

@@ -246,7 +246,7 @@ $CHANGELOG_BODY
 
 #### Docker
 \`\`\`bash
-docker run -p 8080:8080 maximhq/bifrost:v$VERSION
+docker run -p 8080:8080 ghcr.io/${GITHUB_REPOSITORY_OWNER:-capsohq}/bifrost:v$VERSION
 \`\`\`
 
 #### Binary Download
@@ -255,8 +255,8 @@ npx @maximhq/bifrost --transport-version v$VERSION
 \`\`\`
 
 ### Docker Images
-- **\`maximhq/bifrost:v$VERSION\`** - This specific version
-- **\`maximhq/bifrost:latest\`** - Latest version (updated with this release)
+- **\`ghcr.io/${GITHUB_REPOSITORY_OWNER:-capsohq}/bifrost:v$VERSION\`** - This specific version
+- **\`ghcr.io/${GITHUB_REPOSITORY_OWNER:-capsohq}/bifrost:latest\`** - Latest version (updated with this release)
 
 ---
 _This release was automatically created with dependencies: core \`$CORE_VERSION\`, framework \`$FRAMEWORK_VERSION\`. All plugins have been validated and updated._"

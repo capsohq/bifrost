@@ -9,6 +9,7 @@ if [ -z "$VERSION" ]; then
 fi
 
 VERSION="v$VERSION"
+DOCKER_IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER:-capsohq}/bifrost"
 
 # Check if this page already exists in docs/changelogs/
 if [ -f "docs/changelogs/$VERSION.mdx" ]; then
@@ -35,8 +36,8 @@ description: \"$VERSION changelog - $CURRENT_DATE\"
   </Tab>
   <Tab title=\"Docker\">
     \`\`\`bash
-    docker pull maximhq/bifrost:$VERSION
-    docker run -p 8080:8080 maximhq/bifrost:$VERSION
+    docker pull $DOCKER_IMAGE:$VERSION
+    docker run -p 8080:8080 $DOCKER_IMAGE:$VERSION
     \`\`\`
   </Tab>
 </Tabs>
