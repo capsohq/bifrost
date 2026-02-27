@@ -3,7 +3,7 @@ package mcptests
 import (
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,7 +45,9 @@ func getActualToolsFromGoTestServer(t *testing.T) (tool1, tool2 string) {
 }
 
 // Helper to execute a tool via MCP manager and check if it's allowed
-func executeToolViaManager(t *testing.T, manager interface{ ExecuteToolCall(*schemas.BifrostContext, *schemas.BifrostMCPRequest) (*schemas.BifrostMCPResponse, error) }, toolName string) error {
+func executeToolViaManager(t *testing.T, manager interface {
+	ExecuteToolCall(*schemas.BifrostContext, *schemas.BifrostMCPRequest) (*schemas.BifrostMCPResponse, error)
+}, toolName string) error {
 	t.Helper()
 
 	ctx := createTestContext()

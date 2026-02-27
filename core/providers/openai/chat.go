@@ -3,8 +3,8 @@ package openai
 import (
 	"strings"
 
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostChatRequest converts an OpenAI chat request to Bifrost format
@@ -47,6 +47,14 @@ func ToOpenAIChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bifros
 		openaiReq.filterOpenAISpecificParameters()
 		openaiReq.applyXAICompatibility(bifrostReq.Model)
 		return openaiReq
+	case schemas.Deepseek:
+		openaiReq.filterOpenAISpecificParametersPreserveReasoning()
+		openaiReq.applyDeepseekCompatibility()
+		return openaiReq
+	case schemas.GLM:
+		openaiReq.filterOpenAISpecificParametersPreserveReasoning()
+		openaiReq.applyGLMCompatibility()
+		return openaiReq
 	case schemas.Gemini:
 		openaiReq.filterOpenAISpecificParameters()
 		// Removing extra parameters that are not supported by Gemini
@@ -64,6 +72,10 @@ func ToOpenAIChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bifros
 			openaiReq.applyMistralCompatibility()
 		}
 		return openaiReq
+	case schemas.Qwen:
+		openaiReq.filterOpenAISpecificParametersPreserveReasoning()
+		openaiReq.applyQwenCompatibility()
+		return openaiReq
 	default:
 		// Check if provider is a custom provider
 		if isCustomProvider, ok := ctx.Value(schemas.BifrostContextKeyIsCustomProvider).(bool); ok && isCustomProvider {
@@ -76,9 +88,17 @@ func ToOpenAIChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bifros
 
 // Filter OpenAI Specific Parameters
 func (req *OpenAIChatRequest) filterOpenAISpecificParameters() {
+	req.filterOpenAISpecificParametersInternal(true)
+}
+
+func (req *OpenAIChatRequest) filterOpenAISpecificParametersPreserveReasoning() {
+	req.filterOpenAISpecificParametersInternal(false)
+}
+
+func (req *OpenAIChatRequest) filterOpenAISpecificParametersInternal(normalizeReasoning bool) {
 	// Handle reasoning parameter: OpenAI uses effort-based reasoning
 	// Priority: effort (native) > max_tokens (estimated)
-	if req.ChatParameters.Reasoning != nil {
+	if normalizeReasoning && req.ChatParameters.Reasoning != nil {
 		if req.ChatParameters.Reasoning.Effort != nil {
 			// Native field is provided, use it (and clear max_tokens)
 			effort := *req.ChatParameters.Reasoning.Effort
@@ -120,6 +140,85 @@ func (req *OpenAIChatRequest) filterOpenAISpecificParameters() {
 	if req.ChatParameters.WebSearchOptions != nil {
 		req.ChatParameters.WebSearchOptions = nil
 	}
+}
+
+func (req *OpenAIChatRequest) applyDeepseekCompatibility() {
+	if req.ChatParameters.Reasoning == nil {
+		return
+	}
+
+	reasoning := req.ChatParameters.Reasoning
+	thinkingType := "enabled"
+	if reasoning.Effort != nil {
+		effort := strings.ToLower(strings.TrimSpace(*reasoning.Effort))
+		if effort == "none" || effort == "off" || effort == "disabled" {
+			thinkingType = "disabled"
+		}
+	}
+
+	req.Thinking = &OpenAIThinkingMode{Type: thinkingType}
+	req.EnableThinking = nil
+	req.ThinkingBudget = nil
+
+	if reasoning.MaxTokens != nil && *reasoning.MaxTokens > 0 {
+		req.MaxTokens = schemas.Ptr(*reasoning.MaxTokens)
+		req.MaxCompletionTokens = nil
+	}
+
+	req.ChatParameters.Reasoning = nil
+}
+
+func (req *OpenAIChatRequest) applyQwenCompatibility() {
+	if req.ChatParameters.Reasoning == nil {
+		return
+	}
+
+	reasoning := req.ChatParameters.Reasoning
+	enableThinking := true
+	if reasoning.Effort != nil {
+		effort := strings.ToLower(strings.TrimSpace(*reasoning.Effort))
+		if effort == "none" || effort == "off" || effort == "disabled" {
+			enableThinking = false
+		}
+	}
+
+	req.EnableThinking = schemas.Ptr(enableThinking)
+	req.Thinking = nil
+
+	if reasoning.MaxTokens != nil && *reasoning.MaxTokens >= 0 {
+		req.ThinkingBudget = schemas.Ptr(*reasoning.MaxTokens)
+	}
+
+	req.ChatParameters.Reasoning = nil
+}
+
+func (req *OpenAIChatRequest) applyGLMCompatibility() {
+	// GLM accepts max_tokens for chat completion output cap.
+	if req.MaxCompletionTokens != nil {
+		req.MaxTokens = req.MaxCompletionTokens
+		req.MaxCompletionTokens = nil
+	}
+
+	if req.ChatParameters.Reasoning == nil {
+		return
+	}
+
+	reasoning := req.ChatParameters.Reasoning
+	thinkingType := "enabled"
+	if reasoning.Effort != nil {
+		effort := strings.ToLower(strings.TrimSpace(*reasoning.Effort))
+		if effort == "none" || effort == "off" || effort == "disabled" {
+			thinkingType = "disabled"
+		}
+	}
+
+	req.Thinking = &OpenAIThinkingMode{Type: thinkingType}
+
+	// GLM doesn't support OpenAI's reasoning payload shape in chat completions.
+	if req.MaxTokens == nil && reasoning.MaxTokens != nil && *reasoning.MaxTokens > 0 {
+		req.MaxTokens = schemas.Ptr(*reasoning.MaxTokens)
+	}
+	req.ChatParameters.Reasoning = nil
 }
 
 // applyMistralCompatibility applies Mistral-specific transformations to the request

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // TestParameterVariations tests that different parameters don't cache hit inappropriately

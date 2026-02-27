@@ -3,8 +3,8 @@ package openai
 import (
 	"strings"
 
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostResponsesRequest converts an OpenAI responses request to Bifrost format

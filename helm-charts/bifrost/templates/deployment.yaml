@@ -3,7 +3,7 @@
 {{- $useStatefulSet := and (eq .Values.storage.mode "sqlite") .Values.storage.persistence.enabled (not .Values.storage.persistence.existingClaim) }}
 {{- if not $useStatefulSet }}
 {{- if not .Values.image.tag }}
-{{- fail "ERROR: image.tag is required. Please specify the Bifrost image version (e.g., --set image.tag=v1.3.36). See available tags at https://hub.docker.com/r/maximhq/bifrost/tags" }}
+{{- fail "ERROR: image.tag is required. Please specify the Bifrost image version (e.g., --set image.tag=v1.3.36). See available tags at https://hub.docker.com/r/capsohq/bifrost/tags" }}
 {{- end }}
 {{- include "bifrost.validate" . }}
 apiVersion: apps/v1

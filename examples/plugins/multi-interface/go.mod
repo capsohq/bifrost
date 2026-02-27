@@ -1,10 +1,10 @@
-module github.com/maximhq/bifrost/examples/plugins/multi-interface
+module github.com/capsohq/bifrost/examples/plugins/multi-interface
 
 go 1.26
 
-replace github.com/maximhq/bifrost/core => ../../../core
+replace github.com/capsohq/bifrost/core => ../../../core
 
-require github.com/maximhq/bifrost/core v0.0.0-00010101000000-000000000000
+require github.com/capsohq/bifrost/core v0.0.0-00010101000000-000000000000
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // BaseAccount implements the schemas.Account interface for testing purposes.

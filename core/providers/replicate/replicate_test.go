@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/internal/llmtests"
-	"github.com/maximhq/bifrost/core/providers/replicate"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/internal/llmtests"
+	"github.com/capsohq/bifrost/core/providers/replicate"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

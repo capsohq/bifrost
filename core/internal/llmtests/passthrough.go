@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/bytedance/sonic"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // RunPassthroughExtraParamsTest executes the passthrough extraParams test scenario

@@ -17,11 +17,11 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
+	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/fasthttp/router"
-	bifrost "github.com/maximhq/bifrost/core"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

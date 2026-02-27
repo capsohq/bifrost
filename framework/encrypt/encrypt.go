@@ -13,13 +13,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var encryptionKey []byte
-var logger schemas.Logger	
+var logger schemas.Logger
 
 var ErrEncryptionKeyNotInitialized = errors.New("encryption key is not initialized")
 

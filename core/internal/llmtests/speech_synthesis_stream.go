@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // RunSpeechSynthesisStreamTest executes the streaming speech synthesis test scenario
@@ -114,8 +114,6 @@ func RunSpeechSynthesisStreamTest(t *testing.T, client *bifrost.Bifrost, ctx con
 						"format":      tc.format,
 					},
 				}
-
-				
 
 				responseChannel, err := WithStreamRetry(t, retryConfig, retryContext, func() (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 					requestCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
@@ -307,7 +305,6 @@ func RunSpeechSynthesisStreamAdvancedTest(t *testing.T, client *bifrost.Bifrost,
 				},
 			}
 
-			
 			responseChannel, err := WithStreamRetry(t, retryConfig, retryContext, func() (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 				requestCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
 				return client.SpeechStreamRequest(requestCtx, request)
@@ -453,14 +450,13 @@ func RunSpeechSynthesisStreamAdvancedTest(t *testing.T, client *bifrost.Bifrost,
 						},
 					}
 
-					
 					// Use retry framework with stream validation
 					var accumulatedAudio bytes.Buffer // Accumulate audio for codec validation
 					validationResult := WithSpeechStreamValidationRetry(
 						t,
 						retryConfig,
 						retryContext,
-						func() (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {							
+						func() (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 							accumulatedAudio.Reset() // Reset buffer on retry
 							requestCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
 							return client.SpeechStreamRequest(requestCtx, request)

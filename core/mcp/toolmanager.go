@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // ClientManager interface for accessing MCP clients and tools

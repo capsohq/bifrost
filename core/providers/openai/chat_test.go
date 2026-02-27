@@ -3,7 +3,7 @@ package openai
 import (
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestApplyXAICompatibility(t *testing.T) {
@@ -314,4 +314,154 @@ func TestApplyXAICompatibility(t *testing.T) {
 			tt.validate(t, tt.request)
 		})
 	}
+}
+
+func TestApplyDeepseekCompatibility(t *testing.T) {
+	t.Run("reasoning enabled maps to thinking enabled and max_tokens", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				Reasoning: &schemas.ChatReasoning{
+					Effort:    schemas.Ptr("high"),
+					MaxTokens: schemas.Ptr(2048),
+				},
+				MaxCompletionTokens: schemas.Ptr(4096),
+			},
+		}
+
+		req.applyDeepseekCompatibility()
+
+		if req.Thinking == nil || req.Thinking.Type != "enabled" {
+			t.Fatalf("expected thinking.type=enabled, got %#v", req.Thinking)
+		}
+		if req.MaxTokens == nil || *req.MaxTokens != 2048 {
+			t.Fatalf("expected max_tokens=2048, got %#v", req.MaxTokens)
+		}
+		if req.MaxCompletionTokens != nil {
+			t.Fatalf("expected max_completion_tokens to be cleared, got %#v", req.MaxCompletionTokens)
+		}
+		if req.Reasoning != nil {
+			t.Fatalf("expected reasoning to be cleared, got %#v", req.Reasoning)
+		}
+	})
+
+	t.Run("reasoning none maps to thinking disabled", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				Reasoning: &schemas.ChatReasoning{
+					Effort: schemas.Ptr("none"),
+				},
+			},
+		}
+
+		req.applyDeepseekCompatibility()
+
+		if req.Thinking == nil || req.Thinking.Type != "disabled" {
+			t.Fatalf("expected thinking.type=disabled, got %#v", req.Thinking)
+		}
+	})
+}
+
+func TestApplyQwenCompatibility(t *testing.T) {
+	t.Run("reasoning maps to enable_thinking and thinking_budget", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				Reasoning: &schemas.ChatReasoning{
+					Effort:    schemas.Ptr("medium"),
+					MaxTokens: schemas.Ptr(1024),
+				},
+			},
+		}
+
+		req.applyQwenCompatibility()
+
+		if req.EnableThinking == nil || !*req.EnableThinking {
+			t.Fatalf("expected enable_thinking=true, got %#v", req.EnableThinking)
+		}
+		if req.ThinkingBudget == nil || *req.ThinkingBudget != 1024 {
+			t.Fatalf("expected thinking_budget=1024, got %#v", req.ThinkingBudget)
+		}
+		if req.Reasoning != nil {
+			t.Fatalf("expected reasoning to be cleared, got %#v", req.Reasoning)
+		}
+	})
+
+	t.Run("reasoning none disables thinking", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				Reasoning: &schemas.ChatReasoning{
+					Effort: schemas.Ptr("none"),
+				},
+			},
+		}
+
+		req.applyQwenCompatibility()
+
+		if req.EnableThinking == nil || *req.EnableThinking {
+			t.Fatalf("expected enable_thinking=false, got %#v", req.EnableThinking)
+		}
+	})
+}
+
+func TestApplyGLMCompatibility(t *testing.T) {
+	t.Run("maps max_completion_tokens and reasoning to glm thinking", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				MaxCompletionTokens: schemas.Ptr(2048),
+				Reasoning: &schemas.ChatReasoning{
+					Effort: schemas.Ptr("high"),
+				},
+			},
+		}
+
+		req.applyGLMCompatibility()
+
+		if req.MaxCompletionTokens != nil {
+			t.Fatalf("expected max_completion_tokens to be cleared, got %#v", req.MaxCompletionTokens)
+		}
+		if req.MaxTokens == nil || *req.MaxTokens != 2048 {
+			t.Fatalf("expected max_tokens=2048, got %#v", req.MaxTokens)
+		}
+		if req.Thinking == nil || req.Thinking.Type != "enabled" {
+			t.Fatalf("expected thinking.type=enabled, got %#v", req.Thinking)
+		}
+		if req.Reasoning != nil {
+			t.Fatalf("expected reasoning to be cleared, got %#v", req.Reasoning)
+		}
+	})
+
+	t.Run("maps disabled reasoning effort to glm thinking disabled", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				Reasoning: &schemas.ChatReasoning{
+					Effort: schemas.Ptr("none"),
+				},
+			},
+		}
+
+		req.applyGLMCompatibility()
+
+		if req.Thinking == nil || req.Thinking.Type != "disabled" {
+			t.Fatalf("expected thinking.type=disabled, got %#v", req.Thinking)
+		}
+	})
+
+	t.Run("maps reasoning max_tokens when max_completion_tokens not set", func(t *testing.T) {
+		req := &OpenAIChatRequest{
+			ChatParameters: schemas.ChatParameters{
+				Reasoning: &schemas.ChatReasoning{
+					Effort:    schemas.Ptr("medium"),
+					MaxTokens: schemas.Ptr(768),
+				},
+			},
+		}
+
+		req.applyGLMCompatibility()
+
+		if req.MaxTokens == nil || *req.MaxTokens != 768 {
+			t.Fatalf("expected max_tokens=768, got %#v", req.MaxTokens)
+		}
+		if req.Reasoning != nil {
+			t.Fatalf("expected reasoning to be cleared, got %#v", req.Reasoning)
+		}
+	})
 }

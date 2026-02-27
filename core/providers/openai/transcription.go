@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"mime/multipart"
 
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostTranscriptionRequest converts an OpenAI transcription request to Bifrost format

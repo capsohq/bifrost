@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostImageGenerationRequest converts a Gemini generation request to a Bifrost image generation request

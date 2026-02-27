@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // buildCompleteMessageFromAudioStreamChunks builds a complete message from accumulated audio chunks

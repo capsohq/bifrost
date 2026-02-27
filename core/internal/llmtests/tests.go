@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
+	bifrost "github.com/capsohq/bifrost/core"
 )
 
 // TestScenarioFunc defines the function signature for test scenario functions

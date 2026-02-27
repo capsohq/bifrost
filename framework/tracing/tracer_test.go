@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestTracer_StartSpan_RootSpanWithW3CParent(t *testing.T) {

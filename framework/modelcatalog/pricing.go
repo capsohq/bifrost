@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 )
 
 // CalculateCost calculates the cost of a Bifrost response
@@ -481,7 +481,7 @@ func (mc *ModelCatalog) CalculateCostFromUsage(provider string, model string, de
 		outputCost = float64(completionTokens-cachedCompletionTokens) * pricing.OutputCostPerToken
 		if pricing.CacheCreationInputTokenCost != nil {
 			outputCost += float64(cachedCompletionTokens) * *pricing.CacheCreationInputTokenCost
-		} 
+		}
 	}
 
 	totalCost := inputCost + outputCost

@@ -1,7 +1,7 @@
 package perplexity
 
 import (
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToPerplexityChatCompletionRequest converts a Bifrost request to Perplexity chat completion request

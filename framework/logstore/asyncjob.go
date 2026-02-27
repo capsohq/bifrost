@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/valyala/fasthttp"
 )
 

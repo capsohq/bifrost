@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/providers/anthropic"
+	"github.com/capsohq/bifrost/core/schemas"
 
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

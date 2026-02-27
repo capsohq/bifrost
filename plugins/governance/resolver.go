@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
 )
 
 // Decision represents the result of governance evaluation

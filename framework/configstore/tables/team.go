@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
+	bifrost "github.com/capsohq/bifrost/core"
 	"gorm.io/gorm"
 )
 

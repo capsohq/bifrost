@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func ToReplicateResponsesRequest(bifrostReq *schemas.BifrostResponsesRequest) (*ReplicatePredictionRequest, error) {

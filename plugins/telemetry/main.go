@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	schemas "github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
+	bifrost "github.com/capsohq/bifrost/core"
+	schemas "github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promauto"

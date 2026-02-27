@@ -2,7 +2,7 @@
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bifrost)](https://artifacthub.io/packages/helm/bifrost/bifrost)
 
-Official Helm charts for deploying [Bifrost](https://github.com/maximhq/bifrost) - a high-performance AI gateway with unified interface for multiple providers.
+Official Helm charts for deploying [Bifrost](https://github.com/capsohq/bifrost) - a high-performance AI gateway with unified interface for multiple providers.
 
 **Latest Version:** 2.0.9
 
@@ -90,7 +90,7 @@ Since Kubernetes doesn't allow in-place conversion from Deployment to StatefulSe
 
 ```bash
 # Add the Bifrost Helm repository
-helm repo add bifrost https://maximhq.github.io/bifrost/helm-charts
+helm repo add bifrost https://capsohq.github.io/bifrost/helm-charts
 
 # Update your local Helm chart repository cache
 helm repo update
@@ -111,7 +111,7 @@ helm install bifrost bifrost/bifrost --set image.tag=v1.4.3
 
 ```bash
 # Add repository
-helm repo add bifrost https://maximhq.github.io/bifrost/helm-charts
+helm repo add bifrost https://capsohq.github.io/bifrost/helm-charts
 helm repo update
 
 # Install with default values
@@ -125,7 +125,7 @@ helm install bifrost bifrost/bifrost -f my-values.yaml
 
 ```bash
 # Clone the repository
-git clone https://github.com/maximhq/bifrost.git
+git clone https://github.com/capsohq/bifrost.git
 cd bifrost/helm-charts
 
 # Install from local chart
@@ -147,11 +147,11 @@ cd bifrost/helm-charts/bifrost
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.repository` | Container image repository | `docker.io/maximhq/bifrost` |
+| `image.repository` | Container image repository | `docker.io/capsohq/bifrost` |
 | `image.tag` | Container image tag (required) | `""` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 
-> **Important:** You must specify the `image.tag`. See available tags at [Docker Hub](https://hub.docker.com/r/maximhq/bifrost/tags).
+> **Important:** You must specify the `image.tag`. See available tags at [Docker Hub](https://hub.docker.com/r/capsohq/bifrost/tags).
 
 ### Enterprise Private Registry
 
@@ -420,7 +420,7 @@ The chart includes pre-configured examples in `values-examples/`:
 ```bash
 # From Helm repository
 helm install bifrost bifrost/bifrost \
-  -f https://raw.githubusercontent.com/maximhq/bifrost/main/helm-charts/bifrost/values-examples/postgres-only.yaml \
+  -f https://raw.githubusercontent.com/capsohq/bifrost/main/helm-charts/bifrost/values-examples/postgres-only.yaml \
   --set image.tag=v1.5.2
 
 # From local source
@@ -607,8 +607,8 @@ kubectl get secret bifrost -o yaml
 ## Resources
 
 - [Bifrost Documentation](https://docs.getbifrost.ai)
-- [GitHub Repository](https://github.com/maximhq/bifrost)
-- [Docker Hub](https://hub.docker.com/r/maximhq/bifrost)
+- [GitHub Repository](https://github.com/capsohq/bifrost)
+- [Docker Hub](https://hub.docker.com/r/capsohq/bifrost)
 - [Discord Community](https://discord.gg/exN5KAydbU)
 
 ## License
@@ -616,4 +616,3 @@ kubectl get secret bifrost -o yaml
 This project is licensed under the Apache 2.0 License - see the [LICENSE](../LICENSE) file for details.
 
 Built with ❤️ by [Maxim](https://github.com/maximhq)
-

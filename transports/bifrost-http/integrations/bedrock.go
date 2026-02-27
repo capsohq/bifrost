@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/providers/bedrock"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/google/uuid"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/providers/bedrock"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

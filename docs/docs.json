@@ -27,7 +27,7 @@
       },
       {
         "label": "GitHub",
-        "href": "https://github.com/maximhq/bifrost",
+        "href": "https://github.com/capsohq/bifrost",
         "icon": "github"
       }
     ],
@@ -113,21 +113,27 @@
                   "providers/supported-providers/bedrock",
                   "providers/supported-providers/cerebras",
                   "providers/supported-providers/cohere",
+                  "providers/supported-providers/deepseek",
                   "providers/supported-providers/elevenlabs",
                   "providers/supported-providers/gemini",
+                  "providers/supported-providers/glm",
                   "providers/supported-providers/groq",
                   "providers/supported-providers/huggingface",
+                  "providers/supported-providers/minimax",
                   "providers/supported-providers/mistral",
+                  "providers/supported-providers/moonshot",
                   "providers/supported-providers/nebius",
                   "providers/supported-providers/ollama",
                   "providers/supported-providers/openai",
                   "providers/supported-providers/openrouter",
                   "providers/supported-providers/parasail",
                   "providers/supported-providers/perplexity",
+                  "providers/supported-providers/qwen",
                   "providers/supported-providers/replicate",
                   "providers/supported-providers/runway",
                   "providers/supported-providers/sgl",
                   "providers/supported-providers/vertex",
+                  "providers/supported-providers/volcengine",
                   "providers/supported-providers/vllm",
                   "providers/supported-providers/xai"
                 ]
@@ -602,7 +608,7 @@
   "footer": {
     "socials": {
       "x": "https://x.com/getmaximai",
-      "github": "https://github.com/maximhq/bifrost",
+      "github": "https://github.com/capsohq/bifrost",
       "linkedin": "https://linkedin.com/company/maxim-ai"
     }
   }

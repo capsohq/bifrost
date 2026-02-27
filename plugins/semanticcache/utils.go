@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/cespare/xxhash/v2"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // normalizeText applies consistent normalization to text inputs for better cache hit rates.

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestOpenAIChatRequest_UnmarshalJSON_BaseFieldsPreserved(t *testing.T) {
@@ -460,4 +460,3 @@ func TestOpenAIChatRequest_UnmarshalJSON_ValueAssertions(t *testing.T) {
 		t.Errorf("Expected Stop value ['END', 'STOP'], got %v", req.Stop)
 	}
 }
-

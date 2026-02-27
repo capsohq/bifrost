@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )

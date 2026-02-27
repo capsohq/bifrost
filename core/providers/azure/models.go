@@ -3,7 +3,7 @@ package azure
 import (
 	"slices"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // findMatchingAllowedModel finds a matching item in a slice, considering both

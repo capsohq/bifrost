@@ -18,10 +18,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	"github.com/maximhq/bifrost/core/providers/openai"
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/anthropic"
+	"github.com/capsohq/bifrost/core/providers/openai"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 
 	"github.com/valyala/fasthttp"
 )

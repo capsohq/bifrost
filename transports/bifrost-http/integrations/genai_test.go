@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/providers/vertex"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/vertex"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

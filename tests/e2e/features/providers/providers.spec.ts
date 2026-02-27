@@ -1,5 +1,10 @@
 import { expect, test } from '../../core/fixtures/base.fixture';
-import { createCustomProviderData, createProviderKeyData } from './providers.data';
+import {
+  createCustomProviderData,
+  createProviderKeyData,
+  NEWLY_ADDED_PROVIDERS,
+  NEW_PROVIDER_MODEL_CANARIES,
+} from './providers.data';
 
 // Track created resources for cleanup
 const createdKeys: { provider: string; keyName: string }[] = []
@@ -66,6 +71,33 @@ test.describe('Providers', () => {
       // Switch to Anthropic
       await providersPage.selectProvider('anthropic')
       await expect(providersPage.page).toHaveURL(/provider=anthropic/)
+    })
+
+    test('should expose newly added providers in add-provider flow', async ({ providersPage }) => {
+      await providersPage.addProviderBtn.click()
+
+      for (const provider of NEWLY_ADDED_PROVIDERS) {
+        const addOption = providersPage.page.getByTestId(`add-provider-option-${provider}`)
+        const isOptionVisible = await addOption.isVisible().catch(() => false)
+
+        if (!isOptionVisible) {
+          await expect(providersPage.getProviderItem(provider)).toBeVisible()
+        }
+      }
+
+      await providersPage.page.keyboard.press('Escape')
+    })
+
+    test('should return canary models for newly added providers', async ({ providersPage }) => {
+      for (const [provider, expectedModel] of Object.entries(NEW_PROVIDER_MODEL_CANARIES)) {
+        const response = await providersPage.page.request.get(`/api/models?provider=${provider}&limit=100`)
+        expect(response.ok()).toBe(true)
+
+        const payload = await response.json()
+        const modelNames = Array.isArray(payload.models) ? payload.models.map((model: { name?: string }) => model?.name) : []
+
+        expect(modelNames).toContain(expectedModel)
+      }
     })
   })
 

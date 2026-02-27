@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework"
-	"github.com/maximhq/bifrost/framework/vectorstore"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework"
+	"github.com/capsohq/bifrost/framework/vectorstore"
 )
 
 // Config contains configuration for the semantic cache plugin.
@@ -38,9 +38,9 @@ type Config struct {
 	// Advanced caching behavior
 	DefaultCacheKey              string `json:"default_cache_key,omitempty"`              // Default cache key used when no per-request key is provided (optional, caching is disabled when empty and no per-request key is set)
 	ConversationHistoryThreshold int    `json:"conversation_history_threshold,omitempty"` // Skip caching for requests with more than this number of messages in the conversation history (default: 3)
-	CacheByModel                 *bool  `json:"cache_by_model,omitempty"`                // Include model in cache key (default: true)
-	CacheByProvider              *bool  `json:"cache_by_provider,omitempty"`             // Include provider in cache key (default: true)
-	ExcludeSystemPrompt          *bool  `json:"exclude_system_prompt,omitempty"`         // Exclude system prompt in cache key (default: false)
+	CacheByModel                 *bool  `json:"cache_by_model,omitempty"`                 // Include model in cache key (default: true)
+	CacheByProvider              *bool  `json:"cache_by_provider,omitempty"`              // Include provider in cache key (default: true)
+	ExcludeSystemPrompt          *bool  `json:"exclude_system_prompt,omitempty"`          // Exclude system prompt in cache key (default: false)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for semantic cache Config.

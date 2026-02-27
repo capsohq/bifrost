@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
 	"github.com/fasthttp/websocket"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/logstore"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

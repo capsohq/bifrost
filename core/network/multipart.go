@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ParseMultipartFormFields extracts text form fields from a multipart/form-data body,

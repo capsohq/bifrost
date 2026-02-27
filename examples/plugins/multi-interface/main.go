@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // Plugin configuration

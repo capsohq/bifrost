@@ -3,7 +3,7 @@ package huggingface
 import (
 	"fmt"
 
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 func ToHuggingFaceSpeechRequest(request *schemas.BifrostSpeechRequest) (*HuggingFaceSpeechRequest, error) {

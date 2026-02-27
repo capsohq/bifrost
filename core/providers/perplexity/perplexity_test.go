@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/internal/llmtests"
-	"github.com/maximhq/bifrost/core/providers/perplexity"
+	"github.com/capsohq/bifrost/core/internal/llmtests"
+	"github.com/capsohq/bifrost/core/providers/perplexity"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestPerplexity(t *testing.T) {

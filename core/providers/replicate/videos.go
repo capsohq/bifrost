@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 func ToReplicateVideoGenerationInput(bifrostReq *schemas.BifrostVideoGenerationRequest) (*ReplicatePredictionRequest, error) {

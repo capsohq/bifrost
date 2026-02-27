@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // TestDefaultCacheKey_CachesWithoutPerRequestKey verifies that when DefaultCacheKey

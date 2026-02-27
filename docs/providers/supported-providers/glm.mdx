@@ -1,0 +1,72 @@
+---
+title: "GLM (Zhipu)"
+description: "GLM OpenAI-compatible provider guide for chat and text completions via Bifrost."
+icon: "code"
+---
+
+## Overview
+
+GLM is integrated as an OpenAI-compatible provider. Bifrost maps GLM endpoints for models, text completion, chat completion, and Responses API fallback.
+
+### Supported Operations
+
+| Operation | Non-Streaming | Streaming | Endpoint |
+|-----------|---------------|-----------|----------|
+| List Models | ✅ | - | `/api/paas/v4/models` |
+| Text Completions | ✅ | ✅ | `/api/paas/v4/completions` |
+| Chat Completions | ✅ | ✅ | `/api/paas/v4/chat/completions` |
+| Responses API | ✅ | ✅ | Fallback to Chat Completions |
+| Embeddings | ❌ | ❌ | - |
+| Image Generation | ❌ | ❌ | - |
+| Files / Batch / Video | ❌ | ❌ | - |
+
+## Curated Models
+
+- `glm-5`
+- `glm-4.7`
+- `glm-4.7-flash`
+- `glm-4.7-flashx`
+- `glm-4.6`
+- `glm-4.5-air`
+- `glm-4.5-airx`
+- `glm-4.5-flash`
+
+## Configuration
+
+<Tabs>
+<Tab title="Gateway">
+
+```bash
+curl --location 'http://localhost:8080/api/providers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "provider": "glm",
+  "keys": [
+    {
+      "name": "glm-key-1",
+      "value": "env.GLM_API_KEY",
+      "models": [],
+      "weight": 1.0
+    }
+  ]
+}'
+```
+
+</Tab>
+<Tab title="Go SDK">
+
+```go
+case schemas.GLM:
+    return []schemas.Key{{
+        Value:  *schemas.NewEnvVar("env.GLM_API_KEY"),
+        Models: []string{},
+        Weight: 1.0,
+    }}, nil
+```
+
+</Tab>
+</Tabs>
+
+## Reference Links
+
+- [GLM OpenAI-compatible API docs](https://docs.bigmodel.cn/cn/api/openapi/chat-completion)

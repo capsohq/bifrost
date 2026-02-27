@@ -6,7 +6,7 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // sanitizeMessagesForHuggingFace removes unsupported ChatAssistantMessage fields

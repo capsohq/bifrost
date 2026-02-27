@@ -3,11 +3,11 @@
 package handlers
 
 import (
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/transports/bifrost-http/integrations"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 )
 
 // IntegrationHandler manages HTTP requests for AI provider integrations

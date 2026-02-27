@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/qdrant/go-client/qdrant"
 )
 

@@ -3,8 +3,8 @@ package cohere
 import (
 	"sort"
 
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 	"gopkg.in/yaml.v3"
 )
 

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func Init(config any) error {

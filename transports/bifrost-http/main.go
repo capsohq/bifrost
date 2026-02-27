@@ -59,11 +59,11 @@ import (
 	"os"
 	"strings"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	schemas "github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/transports/bifrost-http/handlers"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
-	bifrostServer "github.com/maximhq/bifrost/transports/bifrost-http/server"
+	bifrost "github.com/capsohq/bifrost/core"
+	schemas "github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/transports/bifrost-http/handlers"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	bifrostServer "github.com/capsohq/bifrost/transports/bifrost-http/server"
 )
 
 //go:embed all:ui
@@ -85,7 +85,12 @@ var server *bifrostServer.BifrostHTTPServer
 
 func init() {
 	if Version == "" {
-		Version = "v1.0.0"
+		envVersion := strings.TrimSpace(os.Getenv("BIFROST_VERSION"))
+		if envVersion != "" {
+			Version = envVersion
+		} else {
+			Version = "dev"
+		}
 	}
 	// Set default host from environment variable or use localhost
 	defaultHost := os.Getenv("BIFROST_HOST")
@@ -129,7 +134,7 @@ func main() {
 ║═══════════════════════════════════════════════════════════║
 ║                 The Fastest LLM Gateway                   ║
 ║═══════════════════════════════════════════════════════════║
-║             https://github.com/maximhq/bifrost            ║
+║             https://github.com/capsohq/bifrost            ║
 ╚═══════════════════════════════════════════════════════════╝
 
 `, versionLine)

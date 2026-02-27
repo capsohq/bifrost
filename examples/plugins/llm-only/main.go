@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // Plugin configuration

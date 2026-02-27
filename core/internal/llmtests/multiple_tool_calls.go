@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // getKeysFromMap returns the keys of a map[string]bool as a slice

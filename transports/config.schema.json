@@ -185,6 +185,18 @@
         "gemini": {
           "$ref": "#/$defs/provider"
         },
+        "glm": {
+          "$ref": "#/$defs/provider"
+        },
+        "deepseek": {
+          "$ref": "#/$defs/provider"
+        },
+        "minimax": {
+          "$ref": "#/$defs/provider"
+        },
+        "moonshot": {
+          "$ref": "#/$defs/provider"
+        },
         "openrouter": {
           "$ref": "#/$defs/provider"
         },
@@ -210,6 +222,12 @@
           "$ref": "#/$defs/provider_with_vllm_config"
         },
         "huggingface": {
+          "$ref": "#/$defs/provider"
+        },
+        "volcengine": {
+          "$ref": "#/$defs/provider"
+        },
+        "qwen": {
           "$ref": "#/$defs/provider"
         }
       },
@@ -999,8 +1017,14 @@
                         "parasail",
                         "perplexity",
                         "replicate",
+                        "glm",
+                        "deepseek",
+                        "minimax",
+                        "moonshot",
                         "sgl",
-                        "huggingface"
+                        "huggingface",
+                        "volcengine",
+                        "qwen"
                       ]
                     },
                     "keys": {
@@ -1604,6 +1628,13 @@
           "default": 86400,
           "optional": true,
           "minimum": 3600
+        },
+        "provider_model_health_persist_debounce_ms": {
+          "type": "integer",
+          "description": "Debounce interval in milliseconds for persisting provider model health metadata. Lower values write more frequently; higher values batch more updates.",
+          "default": 500,
+          "optional": true,
+          "minimum": 1
         }
       },
       "additionalProperties": false

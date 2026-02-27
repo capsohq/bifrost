@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"strings"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/providers/openai"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/providers/openai"
-	"github.com/maximhq/bifrost/core/schemas"
 
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

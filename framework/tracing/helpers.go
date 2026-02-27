@@ -4,7 +4,7 @@ package tracing
 import (
 	"context"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // GetTraceID retrieves the trace ID from the context
@@ -80,4 +80,3 @@ func AddSpanEvent(ctx context.Context, store *TraceStore, spanID string, event s
 	}
 	span.AddEvent(event)
 }
-

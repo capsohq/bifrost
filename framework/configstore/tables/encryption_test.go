@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/encrypt"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/encrypt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -1268,9 +1268,9 @@ func TestTableMCPClient_EncryptionDisabled_StoresPlaintext(t *testing.T) {
 	db := setupTestDB(t)
 
 	client := &TableMCPClient{
-		ClientID:       "mcp-dis-1",
-		Name:           "disabled-mcp",
-		ConnectionType: "sse",
+		ClientID:         "mcp-dis-1",
+		Name:             "disabled-mcp",
+		ConnectionType:   "sse",
 		ConnectionString: schemas.NewEnvVar("https://mcp.example.com"),
 		Headers: map[string]schemas.EnvVar{
 			"Authorization": *schemas.NewEnvVar("Bearer secret-token"),

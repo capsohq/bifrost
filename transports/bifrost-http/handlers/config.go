@@ -10,17 +10,17 @@ import (
 	"strings"
 	"time"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/network"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework"
+	"github.com/capsohq/bifrost/framework/configstore"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/encrypt"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
+	"github.com/capsohq/bifrost/plugins/litellmcompat"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/network"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework"
-	"github.com/maximhq/bifrost/framework/configstore"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/encrypt"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
-	"github.com/maximhq/bifrost/plugins/litellmcompat"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 
@@ -111,24 +111,49 @@ func (h *ConfigHandler) getConfig(ctx *fasthttp.RequestCtx) {
 			return
 		}
 		if fc != nil {
-			mapConfig["framework_config"] = *fc
+			frameworkConfig := *fc
+			if frameworkConfig.PricingURL == nil {
+				frameworkConfig.PricingURL = bifrost.Ptr(modelcatalog.DefaultPricingURL)
+			}
+			if frameworkConfig.PricingSyncInterval == nil {
+				frameworkConfig.PricingSyncInterval = bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds()))
+			}
+			if frameworkConfig.ProviderModelHealthPersistDebounce == nil {
+				frameworkConfig.ProviderModelHealthPersistDebounce = bifrost.Ptr(int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds()))
+			}
+			mapConfig["framework_config"] = frameworkConfig
 		} else {
 			mapConfig["framework_config"] = configstoreTables.TableFrameworkConfig{
-				PricingURL:          bifrost.Ptr(modelcatalog.DefaultPricingURL),
-				PricingSyncInterval: bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
+				PricingURL:                         bifrost.Ptr(modelcatalog.DefaultPricingURL),
+				PricingSyncInterval:                bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
+				ProviderModelHealthPersistDebounce: bifrost.Ptr(int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())),
 			}
 		}
 	} else {
 		mapConfig["client_config"] = h.store.ClientConfig
 		if h.store.FrameworkConfig == nil {
 			mapConfig["framework_config"] = configstoreTables.TableFrameworkConfig{
-				PricingURL:          bifrost.Ptr(modelcatalog.DefaultPricingURL),
-				PricingSyncInterval: bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
+				PricingURL:                         bifrost.Ptr(modelcatalog.DefaultPricingURL),
+				PricingSyncInterval:                bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
+				ProviderModelHealthPersistDebounce: bifrost.Ptr(int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())),
 			}
-		} else if h.store.FrameworkConfig.Pricing != nil && h.store.FrameworkConfig.Pricing.PricingURL != nil {
+		} else if h.store.FrameworkConfig.Pricing != nil {
+			pricingURL := bifrost.Ptr(modelcatalog.DefaultPricingURL)
+			if h.store.FrameworkConfig.Pricing.PricingURL != nil {
+				pricingURL = h.store.FrameworkConfig.Pricing.PricingURL
+			}
+			syncIntervalSeconds := int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
+			if h.store.FrameworkConfig.Pricing.PricingSyncInterval != nil {
+				syncIntervalSeconds = int64((*h.store.FrameworkConfig.Pricing.PricingSyncInterval).Seconds())
+			}
+			debounceMilliseconds := int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())
+			if h.store.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce != nil {
+				debounceMilliseconds = int64((*h.store.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce).Milliseconds())
+			}
 			mapConfig["framework_config"] = configstoreTables.TableFrameworkConfig{
-				PricingURL:          h.store.FrameworkConfig.Pricing.PricingURL,
-				PricingSyncInterval: bifrost.Ptr(int64((*h.store.FrameworkConfig.Pricing.PricingSyncInterval).Seconds())),
+				PricingURL:                         pricingURL,
+				PricingSyncInterval:                bifrost.Ptr(syncIntervalSeconds),
+				ProviderModelHealthPersistDebounce: bifrost.Ptr(debounceMilliseconds),
 			}
 		}
 	}
@@ -250,6 +275,11 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 	if payload.FrameworkConfig.PricingSyncInterval != nil && *payload.FrameworkConfig.PricingSyncInterval <= 0 {
 		logger.Warn("pricing sync interval must be greater than 0")
 		SendError(ctx, fasthttp.StatusBadRequest, "pricing sync interval must be greater than 0")
+		return
+	}
+	if payload.FrameworkConfig.ProviderModelHealthPersistDebounce != nil && *payload.FrameworkConfig.ProviderModelHealthPersistDebounce <= 0 {
+		logger.Warn("provider model health persist debounce must be greater than 0")
+		SendError(ctx, fasthttp.StatusBadRequest, "provider model health persist debounce must be greater than 0")
 		return
 	}
 
@@ -439,9 +469,10 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 	// if framework config is nil, we will use the default pricing config
 	if frameworkConfig == nil {
 		frameworkConfig = &configstoreTables.TableFrameworkConfig{
-			ID:                  0,
-			PricingURL:          bifrost.Ptr(modelcatalog.DefaultPricingURL),
-			PricingSyncInterval: bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
+			ID:                                 0,
+			PricingURL:                         bifrost.Ptr(modelcatalog.DefaultPricingURL),
+			PricingSyncInterval:                bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
+			ProviderModelHealthPersistDebounce: bifrost.Ptr(int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())),
 		}
 	}
 	// Handling individual nil cases
@@ -450,6 +481,9 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 	}
 	if frameworkConfig.PricingSyncInterval == nil {
 		frameworkConfig.PricingSyncInterval = bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds()))
+	}
+	if frameworkConfig.ProviderModelHealthPersistDebounce == nil {
+		frameworkConfig.ProviderModelHealthPersistDebounce = bifrost.Ptr(int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds()))
 	}
 	// Updating framework config
 	shouldReloadFrameworkConfig := false
@@ -477,6 +511,13 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 			shouldReloadFrameworkConfig = true
 		}
 	}
+	if payload.FrameworkConfig.ProviderModelHealthPersistDebounce != nil {
+		persistDebounceMs := int64(*payload.FrameworkConfig.ProviderModelHealthPersistDebounce)
+		if persistDebounceMs != *frameworkConfig.ProviderModelHealthPersistDebounce {
+			frameworkConfig.ProviderModelHealthPersistDebounce = &persistDebounceMs
+			shouldReloadFrameworkConfig = true
+		}
+	}
 	// Reload config if required
 	if shouldReloadFrameworkConfig {
 		var syncDuration time.Duration
@@ -485,10 +526,17 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 		} else {
 			syncDuration = modelcatalog.DefaultPricingSyncInterval
 		}
+		var providerModelHealthPersistDebounce time.Duration
+		if frameworkConfig.ProviderModelHealthPersistDebounce != nil {
+			providerModelHealthPersistDebounce = time.Duration(*frameworkConfig.ProviderModelHealthPersistDebounce) * time.Millisecond
+		} else {
+			providerModelHealthPersistDebounce = modelcatalog.DefaultProviderModelHealthPersistDebounce
+		}
 		h.store.FrameworkConfig = &framework.FrameworkConfig{
 			Pricing: &modelcatalog.Config{
-				PricingURL:          frameworkConfig.PricingURL,
-				PricingSyncInterval: &syncDuration,
+				PricingURL:                         frameworkConfig.PricingURL,
+				PricingSyncInterval:                &syncDuration,
+				ProviderModelHealthPersistDebounce: &providerModelHealthPersistDebounce,
 			},
 		}
 		// Saving framework config

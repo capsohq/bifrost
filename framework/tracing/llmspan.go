@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // PopulateRequestAttributes extracts common request attributes from a BifrostRequest.

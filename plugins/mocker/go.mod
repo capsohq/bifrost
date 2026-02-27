@@ -1,10 +1,10 @@
-module github.com/maximhq/bifrost/plugins/mocker
+module github.com/capsohq/bifrost/plugins/mocker
 
 go 1.26
 
 require (
+	github.com/capsohq/bifrost/core v1.4.4
 	github.com/jaswdr/faker/v2 v2.8.0
-	github.com/maximhq/bifrost/core v1.4.4
 )
 
 require (
@@ -67,3 +67,5 @@ require (
 	golang.org/x/text v0.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../../core

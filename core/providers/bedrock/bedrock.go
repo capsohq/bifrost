@@ -20,11 +20,11 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/bytedance/sonic"
+	"github.com/capsohq/bifrost/core/providers/anthropic"
+	"github.com/capsohq/bifrost/core/providers/cohere"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	"github.com/maximhq/bifrost/core/providers/cohere"
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	schemas "github.com/maximhq/bifrost/core/schemas"
 )
 
 // BedrockProvider implements the Provider interface for AWS Bedrock.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostSpeechRequest converts a GeminiGenerationRequest to a BifrostSpeechRequest

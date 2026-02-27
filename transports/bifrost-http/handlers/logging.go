@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/plugins/logging"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/logstore"
-	"github.com/maximhq/bifrost/plugins/logging"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/sync/errgroup"
 )

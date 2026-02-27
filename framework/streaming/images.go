@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // buildCompleteImageFromImageStreamChunks builds a complete image generation response from accumulated chunks

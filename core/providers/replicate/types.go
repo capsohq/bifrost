@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // ==================== REQUEST TYPES ====================

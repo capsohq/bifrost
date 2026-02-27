@@ -10,9 +10,9 @@ import (
 	"sync"
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/mcp"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/mcp"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,27 +56,27 @@ func setupCodeModeWithSTDIOServers(t *testing.T, serverNames ...string) (*mcp.MC
 			config = GetTemperatureMCPClientConfig(bifrostRoot)
 			config.IsCodeModeClient = true
 			config.ID = "temperature-client" // Match test expectations
-			config.Name = "temperature" // Use lowercase to match test code
+			config.Name = "temperature"      // Use lowercase to match test code
 			config.ToolsToAutoExecute = []string{"executeToolCode", "listToolFiles", "readToolFile"}
 		case "go-test-server":
 			config = GetGoTestServerConfig(bifrostRoot)
 			config.ID = "goTestServer-client" // Match test expectations
-			config.Name = "goTestServer" // Use camelCase to match test code
+			config.Name = "goTestServer"      // Use camelCase to match test code
 			config.ToolsToAutoExecute = []string{"executeToolCode", "listToolFiles", "readToolFile"}
 		case "edge-case-server":
 			config = GetEdgeCaseServerConfig(bifrostRoot)
 			config.ID = "edgeCaseServer-client" // Match test expectations
-			config.Name = "edgeCaseServer" // Use camelCase to match test code
+			config.Name = "edgeCaseServer"      // Use camelCase to match test code
 			config.ToolsToAutoExecute = []string{"executeToolCode", "listToolFiles", "readToolFile"}
 		case "error-test-server":
 			config = GetErrorTestServerConfig(bifrostRoot)
 			config.ID = "errorTestServer-client" // Match test expectations
-			config.Name = "errorTestServer" // Use camelCase to match test code
+			config.Name = "errorTestServer"      // Use camelCase to match test code
 			config.ToolsToAutoExecute = []string{"executeToolCode", "listToolFiles", "readToolFile"}
 		case "parallel-test-server":
 			config = GetParallelTestServerConfig(bifrostRoot)
 			config.ID = "parallelTestServer-client" // Match test expectations
-			config.Name = "parallelTestServer" // Use camelCase to match test code
+			config.Name = "parallelTestServer"      // Use camelCase to match test code
 			config.ToolsToAutoExecute = []string{"executeToolCode", "listToolFiles", "readToolFile"}
 		case "test-tools-server":
 			// test-tools-server doesn't have a fixture, set up manually
@@ -367,9 +367,9 @@ func TestCodeMode_STDIO_ServerFiltering(t *testing.T) {
 		expectedError    string
 	}{
 		{
-			name:           "allow_only_test_tools_server",
-			includeClients: []string{"testToolsServer"},
-			code:           `result = testToolsServer.echo(message="allowed")`,
+			name:             "allow_only_test_tools_server",
+			includeClients:   []string{"testToolsServer"},
+			code:             `result = testToolsServer.echo(message="allowed")`,
 			shouldSucceed:    true,
 			expectedInResult: "allowed",
 		},
@@ -377,13 +377,13 @@ func TestCodeMode_STDIO_ServerFiltering(t *testing.T) {
 			name:           "block_test_tools_server",
 			includeClients: []string{"temperature"},
 			code:           `result = testToolsServer.echo(message="blocked")`,
-			shouldSucceed: false,
-			expectedError: "undefined: testToolsServer",
+			shouldSucceed:  false,
+			expectedError:  "undefined: testToolsServer",
 		},
 		{
-			name:           "allow_only_temperature_server",
-			includeClients: []string{"temperature"},
-			code:           `result = temperature.get_temperature(location="Paris")`,
+			name:             "allow_only_temperature_server",
+			includeClients:   []string{"temperature"},
+			code:             `result = temperature.get_temperature(location="Paris")`,
 			shouldSucceed:    true,
 			expectedInResult: "Paris",
 		},
@@ -391,8 +391,8 @@ func TestCodeMode_STDIO_ServerFiltering(t *testing.T) {
 			name:           "block_temperature_server",
 			includeClients: []string{"testToolsServer"},
 			code:           `result = temperature.get_temperature(location="blocked")`,
-			shouldSucceed: false,
-			expectedError: "undefined: temperature",
+			shouldSucceed:  false,
+			expectedError:  "undefined: temperature",
 		},
 		{
 			name:           "allow_both_servers",

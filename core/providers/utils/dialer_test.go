@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/network"
+	"github.com/capsohq/bifrost/core/network"
 	"github.com/valyala/fasthttp"
 )
 

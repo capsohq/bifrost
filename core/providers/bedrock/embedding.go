@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/providers/cohere"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/cohere"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBedrockTitanEmbeddingRequest converts a Bifrost embedding request to Bedrock Titan format

@@ -6,7 +6,7 @@ import (
 	"maps"
 	"sync"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 type MCPCatalog struct {

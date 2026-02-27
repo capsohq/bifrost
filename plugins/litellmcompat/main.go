@@ -11,8 +11,8 @@
 package litellmcompat
 
 import (
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/modelcatalog"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
 )
 
 const (

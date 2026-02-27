@@ -3,8 +3,8 @@ package encrypt
 import (
 	"testing"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestEncryptDecrypt(t *testing.T) {
@@ -216,7 +216,7 @@ func TestKDFDeterministic(t *testing.T) {
 
 	// Re-initialize with same passphrase (simulating restart)
 	Init(passphrase, bifrost.NewDefaultLogger(schemas.LogLevelInfo))
-	
+
 	// Should be able to decrypt the previously encrypted data
 	decrypted, err := Decrypt(encrypted1)
 	if err != nil {

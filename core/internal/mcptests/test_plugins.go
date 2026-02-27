@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // =============================================================================
@@ -122,13 +122,13 @@ func (p *TestLoggingPlugin) Reset() {
 
 // TestGovernancePlugin blocks tool execution based on configurable rules
 type TestGovernancePlugin struct {
-	mu                sync.RWMutex
-	blockedToolNames  map[string]bool
-	blockedClientIDs  map[string]bool
-	blockAllTools     bool
-	blockMessage      string
-	allowedToolNames  map[string]bool
-	requireApproval   bool
+	mu               sync.RWMutex
+	blockedToolNames map[string]bool
+	blockedClientIDs map[string]bool
+	blockAllTools    bool
+	blockMessage     string
+	allowedToolNames map[string]bool
+	requireApproval  bool
 }
 
 // NewTestGovernancePlugin creates a new test governance plugin
@@ -281,9 +281,9 @@ func (p *TestGovernancePlugin) createShortCircuit(toolName, message string) *sch
 
 // TestModifyRequestPlugin modifies MCP requests in PreHook
 type TestModifyRequestPlugin struct {
-	mu                 sync.RWMutex
-	argumentModifier   func(string) string
-	shouldModify       bool
+	mu               sync.RWMutex
+	argumentModifier func(string) string
+	shouldModify     bool
 }
 
 // NewTestModifyRequestPlugin creates a new test modify request plugin

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

@@ -12,11 +12,11 @@ image:
   #   repository: us-west1-docker.pkg.dev/bifrost-enterprise/your-org/bifrost
   #   repository: your-registry.example.com/your-org/bifrost
   #   repository: 123456789.dkr.ecr.us-east-1.amazonaws.com/bifrost
-  repository: docker.io/maximhq/bifrost
+  repository: docker.io/capsohq/bifrost
   pullPolicy: IfNotPresent
   # REQUIRED: Specify the image tag (e.g., v1.5.0, latest)
   # Docker images are tagged with v prefix (e.g., v1.5.0)
-  # See available tags at: https://hub.docker.com/r/maximhq/bifrost/tags
+  # See available tags at: https://hub.docker.com/r/capsohq/bifrost/tags
   tag: ""
 
 imagePullSecrets: []

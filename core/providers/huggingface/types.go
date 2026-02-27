@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // # MODELS TYPES

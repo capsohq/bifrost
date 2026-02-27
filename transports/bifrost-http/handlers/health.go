@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/modelcatalog"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 
@@ -26,6 +27,7 @@ func NewHealthHandler(config *lib.Config) *HealthHandler {
 // RegisterRoutes registers the health-related routes.
 func (h *HealthHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.BifrostHTTPMiddleware) {
 	r.GET("/health", lib.ChainMiddlewares(h.getHealth, middlewares...))
+	r.GET("/api/internal/health/model-catalog", lib.ChainMiddlewares(h.getModelCatalogHealth, middlewares...))
 }
 
 // getHealth handles GET /api/health - Get the health status of the server.
@@ -87,4 +89,20 @@ func (h *HealthHandler) getHealth(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	SendJSON(ctx, map[string]any{"status": "ok", "components": map[string]any{"db_pings": "ok"}})
+}
+
+// getModelCatalogHealth handles GET /api/internal/health/model-catalog.
+func (h *HealthHandler) getModelCatalogHealth(ctx *fasthttp.RequestCtx) {
+	if h.config == nil || h.config.ModelCatalog == nil {
+		SendError(ctx, fasthttp.StatusServiceUnavailable, "model catalog is not initialized")
+		return
+	}
+
+	report := h.config.ModelCatalog.GetProviderModelSnapshotHealthReport()
+	statusCode := fasthttp.StatusOK
+	if report.Status == modelcatalog.ProviderModelHealthError {
+		statusCode = fasthttp.StatusServiceUnavailable
+	}
+
+	SendJSONWithStatus(ctx, report, statusCode)
 }

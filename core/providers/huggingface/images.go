@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	nebiusProvider "github.com/maximhq/bifrost/core/providers/nebius"
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	nebiusProvider "github.com/capsohq/bifrost/core/providers/nebius"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // Models that support multiple images (image_urls)

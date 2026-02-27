@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // ToBedrockChatCompletionRequest converts a Bifrost request to Bedrock Converse API format

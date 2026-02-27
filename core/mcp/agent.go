@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	
-	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
-)
 
+	"github.com/bytedance/sonic"
+	"github.com/capsohq/bifrost/core/schemas"
+)
 
 type AgentModeExecutor struct {
 	logger schemas.Logger
@@ -39,7 +38,7 @@ func (a *AgentModeExecutor) ExecuteAgentForChatRequest(
 	makeReq func(ctx *schemas.BifrostContext, req *schemas.BifrostChatRequest) (*schemas.BifrostChatResponse, *schemas.BifrostError),
 	fetchNewRequestIDFunc func(ctx *schemas.BifrostContext) string,
 	executeToolFunc func(ctx *schemas.BifrostContext, request *schemas.BifrostMCPRequest) (*schemas.BifrostMCPResponse, error),
-	clientManager ClientManager,	
+	clientManager ClientManager,
 ) (*schemas.BifrostChatResponse, *schemas.BifrostError) {
 	// Create adapter for Chat API
 	adapter := &chatAPIAdapter{
@@ -142,7 +141,7 @@ func (a *AgentModeExecutor) executeAgent(
 	adapter agentAPIAdapter,
 	fetchNewRequestIDFunc func(ctx *schemas.BifrostContext) string,
 	executeToolFunc func(ctx *schemas.BifrostContext, request *schemas.BifrostMCPRequest) (*schemas.BifrostMCPResponse, error),
-	clientManager ClientManager,	
+	clientManager ClientManager,
 ) (interface{}, *schemas.BifrostError) {
 	// Get initial response from adapter
 	currentResponse := adapter.getInitialResponse()

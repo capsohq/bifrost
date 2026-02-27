@@ -1343,6 +1343,60 @@ export const ProviderIcons = {
 			<svg fill="currentColor" fillRule="evenodd" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}><title>Replicate</title><path d="M22 10.552v2.26h-7.932V22H11.54V10.552H22zM22 2v2.264H4.528V22H2V2h20zm0 4.276V8.54H9.296V22H6.768V6.276H22z"></path></svg>
 		);
 	},
+	deepseek: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>DeepSeek</title>
+				<path d="M3 4h9a8 8 0 1 1 0 16H3V4zm8.8 12A4.8 4.8 0 1 0 12 6.4H7v9.6h4.8z" />
+			</svg>
+		);
+	},
+	glm: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>GLM</title>
+				<path d="M3 4h18v3H9l12 13H3v-3h12L3 4z" />
+			</svg>
+		);
+	},
+	minimax: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>MiniMax</title>
+				<path d="M2 20V4h4l6 8 6-8h4v16h-4V10l-6 8-6-8v10H2z" />
+			</svg>
+		);
+	},
+	moonshot: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>Moonshot</title>
+				<path d="M14.5 2A9.5 9.5 0 1 0 22 17.3 8 8 0 1 1 14.5 2z" />
+			</svg>
+		);
+	},
+	qwen: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>Qwen</title>
+				<path d="M12 2a10 10 0 1 1-7.07 2.93L2 2h7.17l1.77 1.77A10 10 0 0 1 12 2zm0 4a6 6 0 1 0 4.24 1.76L14 10h4v-4l-2.38 2.38A5.98 5.98 0 0 0 12 6z" />
+			</svg>
+		);
+	},
+	volcengine: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>Volcengine</title>
+				<path d="M12 2l5 7-2 13H9L7 9l5-7zm0 6L9.5 12h5L12 8z" />
+			</svg>
+		);
+	},
 	vllm: ({ size = "md", className = "" }: IconProps) => {
 		const resolvedSize = resolveSize(size);
 		return (

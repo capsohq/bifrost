@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // NebiusImageGenerationRequest represents a Nebius image generation request

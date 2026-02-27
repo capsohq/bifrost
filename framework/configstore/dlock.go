@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/configstore/tables"
 )
 
 // Default lock configuration values

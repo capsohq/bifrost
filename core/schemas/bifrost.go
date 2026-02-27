@@ -48,14 +48,20 @@ const (
 	Perplexity  ModelProvider = "perplexity"
 	Cerebras    ModelProvider = "cerebras"
 	Gemini      ModelProvider = "gemini"
+	Deepseek    ModelProvider = "deepseek"
+	GLM         ModelProvider = "glm"
 	OpenRouter  ModelProvider = "openrouter"
 	Elevenlabs  ModelProvider = "elevenlabs"
 	HuggingFace ModelProvider = "huggingface"
 	Nebius      ModelProvider = "nebius"
+	Qwen        ModelProvider = "qwen"
 	XAI         ModelProvider = "xai"
 	Replicate   ModelProvider = "replicate"
 	VLLM        ModelProvider = "vllm"
 	Runway      ModelProvider = "runway"
+	Minimax     ModelProvider = "minimax"
+	Moonshot    ModelProvider = "moonshot"
+	Volcengine  ModelProvider = "volcengine"
 )
 
 // SupportedBaseProviders is the list of base providers allowed for custom providers.
@@ -76,15 +82,21 @@ var StandardProviders = []ModelProvider{
 	Bedrock,
 	Cerebras,
 	Cohere,
+	Deepseek,
 	Gemini,
+	GLM,
 	Groq,
 	Mistral,
+	Minimax,
+	Moonshot,
 	Ollama,
 	OpenAI,
 	Parasail,
 	Perplexity,
+	Qwen,
 	SGL,
 	Vertex,
+	Volcengine,
 	OpenRouter,
 	Elevenlabs,
 	HuggingFace,

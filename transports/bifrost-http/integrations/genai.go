@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	bifrost "github.com/maximhq/bifrost/core"
+	bifrost "github.com/capsohq/bifrost/core"
 
-	"github.com/maximhq/bifrost/core/providers/gemini"
-	"github.com/maximhq/bifrost/core/providers/vertex"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/gemini"
+	"github.com/capsohq/bifrost/core/providers/vertex"
+	"github.com/capsohq/bifrost/core/schemas"
 
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

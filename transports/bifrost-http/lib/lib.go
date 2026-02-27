@@ -1,7 +1,7 @@
 package lib
 
 import (
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 var logger schemas.Logger
