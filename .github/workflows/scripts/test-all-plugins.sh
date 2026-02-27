@@ -10,6 +10,11 @@ source "$(dirname "$0")/setup-go-workspace.sh"
 
 echo "🧪 Running plugin tests..."
 
+# Normalize Maxim repo ID env var naming across workflows
+if [ -z "${MAXIM_LOG_REPO_ID:-}" ] && [ -n "${MAXIM_LOGGER_ID:-}" ]; then
+  export MAXIM_LOG_REPO_ID="$MAXIM_LOGGER_ID"
+fi
+
 # Cleanup function to ensure Docker services are stopped
 cleanup_docker() {
   echo "🧹 Cleaning up Docker services..."
@@ -85,6 +90,7 @@ for p in "${PLUGINS[@]}"; do
 done
 
 FAILED_PLUGINS=()
+SKIPPED_PLUGINS=()
 SUCCESS_COUNT=0
 OVERALL_EXIT_CODE=0
 
@@ -92,6 +98,18 @@ OVERALL_EXIT_CODE=0
 for plugin in "${PLUGINS[@]}"; do
   echo ""
   echo "🔌 Testing plugin: $plugin"
+
+  if [ "$plugin" = "maxim" ] && [ -z "${MAXIM_API_KEY:-}" ]; then
+    echo "⏭️ Skipping maxim tests: MAXIM_API_KEY is not set"
+    SKIPPED_PLUGINS+=("$plugin")
+    continue
+  fi
+
+  if [ "$plugin" = "semanticcache" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+    echo "⏭️ Skipping semanticcache tests: OPENAI_API_KEY is not set"
+    SKIPPED_PLUGINS+=("$plugin")
+    continue
+  fi
   
   PLUGIN_DIR="plugins/$plugin"
   
@@ -167,7 +185,12 @@ done
 echo ""
 echo "📋 Plugin Test Summary:"
 echo "   ✅ Successful: $SUCCESS_COUNT/${#PLUGINS[@]}"
+echo "   ⏭️ Skipped: ${#SKIPPED_PLUGINS[@]}"
 echo "   ❌ Failed: ${#FAILED_PLUGINS[@]}"
+
+if [ ${#SKIPPED_PLUGINS[@]} -gt 0 ]; then
+  echo "   Skipped plugins: ${SKIPPED_PLUGINS[*]}"
+fi
 
 if [ ${#FAILED_PLUGINS[@]} -gt 0 ]; then
   echo "   Failed plugins: ${FAILED_PLUGINS[*]}"

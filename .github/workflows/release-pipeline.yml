@@ -1136,6 +1136,11 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
+          if [ -z "${DISCORD_WEBHOOK:-}" ]; then
+            echo "DISCORD_WEBHOOK is not set, skipping notification"
+            exit 0
+          fi
+
           # Build status summary
           CORE_STATUS="⏭️ Skipped"
           FRAMEWORK_STATUS="⏭️ Skipped"
