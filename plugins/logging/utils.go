@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/logstore"
-	"github.com/maximhq/bifrost/framework/streaming"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/framework/streaming"
 )
 
 // KeyPair represents an ID-Name pair for keys

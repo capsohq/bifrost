@@ -1,6 +1,6 @@
 package litellmcompat
 
-import "github.com/maximhq/bifrost/core/schemas"
+import "github.com/capsohq/bifrost/core/schemas"
 
 // TransformContextKey is the key used to store TransformContext in BifrostContext
 const TransformContextKey schemas.BifrostContextKey = "litellmcompat-transform-context"

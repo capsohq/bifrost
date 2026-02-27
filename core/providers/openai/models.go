@@ -3,7 +3,7 @@ package openai
 import (
 	"slices"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostListModelsResponse converts an OpenAI list models response to a Bifrost list models response

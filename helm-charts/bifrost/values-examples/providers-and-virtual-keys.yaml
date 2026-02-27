@@ -11,7 +11,7 @@
 
 # Image configuration
 image:
-  repository: docker.io/maximhq/bifrost
+  repository: docker.io/capsohq/bifrost
   pullPolicy: IfNotPresent
   tag: "v1.3.55"
 

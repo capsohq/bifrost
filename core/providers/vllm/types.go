@@ -1,7 +1,7 @@
 package vllm
 
 import (
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // vLLMTranscriptionStreamChunk represents a single transcription streaming chunk from vLLM.

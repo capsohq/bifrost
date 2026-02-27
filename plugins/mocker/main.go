@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/jaswdr/faker/v2"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 const (

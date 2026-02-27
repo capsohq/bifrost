@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/internal/llmtests"
+	"github.com/capsohq/bifrost/core/internal/llmtests"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestNebius(t *testing.T) {

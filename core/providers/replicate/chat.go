@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 // unsupportedSystemPromptModels is a set of models that don't support the system_prompt field.

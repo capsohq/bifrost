@@ -1,10 +1,10 @@
-module github.com/maximhq/bifrost/tests/scripts/1millogs
+module github.com/capsohq/bifrost/tests/scripts/1millogs
 
 go 1.26
 
 require (
-	github.com/maximhq/bifrost/core v1.2.37
-	github.com/maximhq/bifrost/framework v0.0.0
+	github.com/capsohq/bifrost/core v1.2.37
+	github.com/capsohq/bifrost/framework v0.0.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
@@ -73,6 +73,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/maximhq/bifrost/core => ../../../core
+replace github.com/capsohq/bifrost/core => ../../../core
 
-replace github.com/maximhq/bifrost/framework => ../../../framework
+replace github.com/capsohq/bifrost/framework => ../../../framework

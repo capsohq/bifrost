@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // TestCacheTypeDirectOnly tests that CacheTypeKey set to "direct" only performs direct hash matching

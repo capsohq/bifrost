@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"gorm.io/gorm"
 )
 

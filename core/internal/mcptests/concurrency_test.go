@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	core "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1,6 +1,6 @@
 package cohere
 
-import "github.com/maximhq/bifrost/core/schemas"
+import "github.com/capsohq/bifrost/core/schemas"
 
 var (
 	// Maps provider-specific finish reasons to Bifrost format

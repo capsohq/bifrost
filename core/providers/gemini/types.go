@@ -13,7 +13,7 @@ import (
 
 	"cloud.google.com/go/civil"
 	"github.com/bytedance/sonic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 const MinReasoningMaxTokens = 1         // Minimum max tokens for reasoning - used for estimation of effort level

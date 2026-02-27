@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/maximhq/bifrost/framework/migrator"
+	"github.com/capsohq/bifrost/framework/migrator"
 	"gorm.io/gorm"
 )
 

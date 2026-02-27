@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/stretchr/testify/require"
 )
 

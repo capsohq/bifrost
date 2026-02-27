@@ -4,8 +4,8 @@ package governance
 import (
 	"strings"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // parseVirtualKeyFromHTTPRequest parses the virtual key from HTTP request headers.

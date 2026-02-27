@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // BedrockRerankRequest is the Bedrock Agent Runtime rerank request body.

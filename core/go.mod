@@ -1,4 +1,4 @@
-module github.com/maximhq/bifrost/core
+module github.com/capsohq/bifrost/core
 
 go 1.26
 

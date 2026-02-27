@@ -5,8 +5,8 @@ import (
 
 	"github.com/valyala/fasthttp"
 
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 func parseElevenlabsError(resp *fasthttp.Response, meta *providerUtils.RequestMetadata) *schemas.BifrostError {

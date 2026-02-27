@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // buildCompleteMessageFromTranscriptionStreamChunks builds a complete message from accumulated transcription chunks

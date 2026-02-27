@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	schemas "github.com/maximhq/bifrost/core/schemas"
+	schemas "github.com/capsohq/bifrost/core/schemas"
 )
 
 type StreamType string

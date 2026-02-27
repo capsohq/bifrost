@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 )
 
 // AnthropicResponsesStreamState tracks state during streaming conversion for responses API

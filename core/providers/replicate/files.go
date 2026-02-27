@@ -3,7 +3,7 @@ package replicate
 import (
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // Replicate File API Converters

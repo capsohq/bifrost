@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // DeferredSpanInfo stores information about a deferred span for streaming requests

@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/plugins/governance"
+	"github.com/capsohq/bifrost/plugins/maxim"
+	"github.com/capsohq/bifrost/plugins/semanticcache"
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/plugins/governance"
-	"github.com/maximhq/bifrost/plugins/maxim"
-	"github.com/maximhq/bifrost/plugins/semanticcache"
 	"github.com/valyala/fasthttp"
 )
 

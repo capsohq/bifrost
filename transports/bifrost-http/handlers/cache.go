@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/plugins/semanticcache"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/fasthttp/router"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/plugins/semanticcache"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 

@@ -3,7 +3,7 @@ package llmtests
 import (
 	"regexp"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // =============================================================================

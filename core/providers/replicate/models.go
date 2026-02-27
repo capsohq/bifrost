@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ToBifrostListModelsResponse converts Replicate models and deployments to a Bifrost list models response

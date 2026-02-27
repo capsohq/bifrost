@@ -3,7 +3,7 @@ package cohere
 import (
 	"slices"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // CohereRerankRequest represents a Cohere rerank API request.

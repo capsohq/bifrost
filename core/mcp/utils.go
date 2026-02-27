@@ -12,9 +12,9 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // RetryConfig defines the retry behavior with exponential backoff

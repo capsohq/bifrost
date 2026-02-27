@@ -141,7 +141,7 @@ variable "image_tag" {
 variable "image_repository" {
   description = "Bifrost Docker image repository."
   type        = string
-  default     = "maximhq/bifrost"
+  default     = "capsohq/bifrost"
 }
 
 # --- Infrastructure ---

@@ -16,7 +16,7 @@ Choose your preferred method:
 
 ```bash
 # Install and run locally
-npx -y @maximhq/bifrost
+npx -y @capsohq/bifrost
 
 # Open web interface at http://localhost:8080
 ```
@@ -25,11 +25,11 @@ npx -y @maximhq/bifrost
 
 ```bash
 # Pull and run Bifrost Gateway
-docker pull maximhq/bifrost
-docker run -p 8080:8080 maximhq/bifrost
+docker pull capsohq/bifrost
+docker run -p 8080:8080 capsohq/bifrost
 
 # For persistent configuration
-docker run -p 8080:8080 -v $(pwd)/data:/app/data maximhq/bifrost
+docker run -p 8080:8080 -v $(pwd)/data:/app/data capsohq/bifrost
 ```
 
 ### Configuration

@@ -8,11 +8,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // GetClients returns all MCP clients managed by the manager.

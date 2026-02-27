@@ -3,8 +3,8 @@ package modelcatalog
 import (
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 )
 
 // makeKey creates a unique key for a model, provider, and mode for pricingData map

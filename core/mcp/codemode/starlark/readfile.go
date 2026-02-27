@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	codemcp "github.com/maximhq/bifrost/core/mcp"
-	"github.com/maximhq/bifrost/core/schemas"
+	codemcp "github.com/capsohq/bifrost/core/mcp"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // createReadToolFileTool creates the readToolFile tool definition for code mode.

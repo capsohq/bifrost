@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/plugins/governance"
-	"github.com/maximhq/bifrost/plugins/litellmcompat"
-	"github.com/maximhq/bifrost/plugins/logging"
-	"github.com/maximhq/bifrost/plugins/maxim"
-	"github.com/maximhq/bifrost/plugins/otel"
-	"github.com/maximhq/bifrost/plugins/semanticcache"
-	"github.com/maximhq/bifrost/plugins/telemetry"
-	"github.com/maximhq/bifrost/transports/bifrost-http/handlers"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/plugins/governance"
+	"github.com/capsohq/bifrost/plugins/litellmcompat"
+	"github.com/capsohq/bifrost/plugins/logging"
+	"github.com/capsohq/bifrost/plugins/maxim"
+	"github.com/capsohq/bifrost/plugins/otel"
+	"github.com/capsohq/bifrost/plugins/semanticcache"
+	"github.com/capsohq/bifrost/plugins/telemetry"
+	"github.com/capsohq/bifrost/transports/bifrost-http/handlers"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 )
 
 // InferPluginTypes determines which interface types a plugin implements

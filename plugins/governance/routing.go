@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/google/cel-go/cel"
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 )
 
 // headerKeyPattern matches header map access patterns like headers["X-Api-Key"] or headers['X-Api-Key']

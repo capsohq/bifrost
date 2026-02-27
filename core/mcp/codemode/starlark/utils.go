@@ -10,8 +10,8 @@ import (
 	"unicode"
 
 	"github.com/bytedance/sonic"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/maximhq/bifrost/core/schemas"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )

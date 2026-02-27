@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/framework/vectorstore"
-	mocker "github.com/maximhq/bifrost/plugins/mocker"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/framework/vectorstore"
+	mocker "github.com/capsohq/bifrost/plugins/mocker"
 )
 
 // getWeaviateConfigFromEnv retrieves Weaviate configuration from environment variables

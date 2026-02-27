@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 const (
