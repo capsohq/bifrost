@@ -2,6 +2,7 @@ package volcengine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,23 +15,23 @@ import (
 
 type testLogger struct{}
 
-func (l *testLogger) Debug(msg string, args ...any)                              {}
-func (l *testLogger) Info(msg string, args ...any)                               {}
-func (l *testLogger) Warn(msg string, args ...any)                               {}
-func (l *testLogger) Error(msg string, args ...any)                              {}
-func (l *testLogger) Fatal(msg string, args ...any)                              {}
-func (l *testLogger) SetLevel(level schemas.LogLevel)                            {}
-func (l *testLogger) SetOutputType(outputType schemas.LoggerOutputType)          {}
+func (l *testLogger) Debug(msg string, args ...any)                     {}
+func (l *testLogger) Info(msg string, args ...any)                      {}
+func (l *testLogger) Warn(msg string, args ...any)                      {}
+func (l *testLogger) Error(msg string, args ...any)                     {}
+func (l *testLogger) Fatal(msg string, args ...any)                     {}
+func (l *testLogger) SetLevel(level schemas.LogLevel)                   {}
+func (l *testLogger) SetOutputType(outputType schemas.LoggerOutputType) {}
 func (l *testLogger) LogHTTPRequest(level schemas.LogLevel, msg string) schemas.LogEventBuilder {
 	return &noopLogEventBuilder{}
 }
 
 type noopLogEventBuilder struct{}
 
-func (b *noopLogEventBuilder) Str(key, val string) schemas.LogEventBuilder    { return b }
-func (b *noopLogEventBuilder) Int(key string, val int) schemas.LogEventBuilder    { return b }
+func (b *noopLogEventBuilder) Str(key, val string) schemas.LogEventBuilder         { return b }
+func (b *noopLogEventBuilder) Int(key string, val int) schemas.LogEventBuilder     { return b }
 func (b *noopLogEventBuilder) Int64(key string, val int64) schemas.LogEventBuilder { return b }
-func (b *noopLogEventBuilder) Send()                                              {}
+func (b *noopLogEventBuilder) Send()                                               {}
 
 func newTestVolcengineProvider(baseURL string) *VolcengineProvider {
 	return &VolcengineProvider{
@@ -61,13 +62,54 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer test-key" {
 			t.Errorf("expected Authorization Bearer test-key, got %s", r.Header.Get("Authorization"))
 		}
+		var requestBody struct {
+			Model           string `json:"model"`
+			Instructions    string `json:"instructions"`
+			EncodingFormat  string `json:"encoding_format"`
+			Dimensions      int    `json:"dimensions"`
+			SparseEmbedding struct {
+				Type string `json:"type"`
+			} `json:"sparse_embedding"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		if requestBody.Model != "doubao-embedding-vision-250615" {
+			t.Errorf("expected model doubao-embedding-vision-250615, got %s", requestBody.Model)
+		}
+		if requestBody.Instructions != "Target_modality: text and video.\nInstruction:Compress the text\\video into one word.\nQuery:" {
+			t.Errorf("unexpected instructions: %s", requestBody.Instructions)
+		}
+		if requestBody.EncodingFormat != "float" {
+			t.Errorf("expected encoding_format float, got %s", requestBody.EncodingFormat)
+		}
+		if requestBody.Dimensions != 2048 {
+			t.Errorf("expected dimensions 2048, got %d", requestBody.Dimensions)
+		}
+		if requestBody.SparseEmbedding.Type != "enabled" {
+			t.Errorf("expected sparse_embedding.type enabled, got %s", requestBody.SparseEmbedding.Type)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, `{
-			"data": {"embedding": [0.1, 0.2, 0.3, 0.4]},
+			"data": {
+				"embedding": [0.1, 0.2, 0.3, 0.4],
+				"sparse_embedding": [
+					{"index": 1, "value": 0.0887451171875},
+					{"index": 13, "value": 0.0125}
+				],
+				"object": "embedding"
+			},
+			"id": "test-id",
+			"created": 1752133360,
 			"model": "doubao-embedding-vision-250615",
-			"usage": {"total_tokens": 42}
+			"object": "list",
+			"usage": {
+				"prompt_tokens": 42,
+				"prompt_tokens_details": {"text_tokens": 42, "image_tokens": 0},
+				"total_tokens": 42
+			}
 		}`)
 	}))
 	defer server.Close()
@@ -75,6 +117,8 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 	provider := newTestVolcengineProvider(server.URL)
 
 	text := "a photo of a cat"
+	instructions := "Target_modality: text and video.\nInstruction:Compress the text\\video into one word.\nQuery:"
+	encodingFormat := "float"
 	request := &schemas.BifrostEmbeddingRequest{
 		Provider: schemas.Volcengine,
 		Model:    "doubao-embedding-vision-250615",
@@ -85,7 +129,12 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 			},
 		},
 		Params: &schemas.EmbeddingParameters{
-			Dimensions: intPtr(2048),
+			Instructions:   &instructions,
+			EncodingFormat: &encodingFormat,
+			Dimensions:     intPtr(2048),
+			SparseEmbedding: map[string]interface{}{
+				"type": "enabled",
+			},
 		},
 	}
 
@@ -110,6 +159,15 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 	if resp.Data[0].Object != "embedding" {
 		t.Fatalf("expected object 'embedding', got '%s'", resp.Data[0].Object)
 	}
+	if len(resp.Data[0].SparseEmbedding) != 2 {
+		t.Fatalf("expected 2 sparse embedding entries, got %d", len(resp.Data[0].SparseEmbedding))
+	}
+	if resp.Data[0].SparseEmbedding[0].Index != 1 {
+		t.Fatalf("expected first sparse embedding index 1, got %d", resp.Data[0].SparseEmbedding[0].Index)
+	}
+	if resp.Data[0].SparseEmbedding[0].Value <= 0 {
+		t.Fatalf("expected first sparse embedding value > 0, got %f", resp.Data[0].SparseEmbedding[0].Value)
+	}
 	if resp.Model != "doubao-embedding-vision-250615" {
 		t.Fatalf("expected model 'doubao-embedding-vision-250615', got '%s'", resp.Model)
 	}
@@ -118,6 +176,12 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 	}
 	if resp.Usage == nil || resp.Usage.TotalTokens != 42 {
 		t.Fatalf("expected usage.total_tokens=42, got %v", resp.Usage)
+	}
+	if resp.Usage == nil || resp.Usage.PromptTokens != 42 {
+		t.Fatalf("expected usage.prompt_tokens=42, got %v", resp.Usage)
+	}
+	if resp.Usage == nil || resp.Usage.PromptTokensDetails == nil || resp.Usage.PromptTokensDetails.TextTokens != 42 {
+		t.Fatalf("expected usage.prompt_tokens_details.text_tokens=42, got %v", resp.Usage)
 	}
 	if resp.ExtraFields.Provider != schemas.Volcengine {
 		t.Fatalf("expected provider volcengine, got %s", resp.ExtraFields.Provider)

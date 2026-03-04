@@ -246,24 +246,34 @@ func (provider *VolcengineProvider) Embedding(ctx *schemas.BifrostContext, key s
 
 // volcengineMultiModalEmbeddingRequest is the native Volcengine request for /embeddings/multimodal.
 type volcengineMultiModalEmbeddingRequest struct {
-	Model      string                              `json:"model"`
-	Input      []schemas.MultiModalEmbeddingInput  `json:"input"`
-	Dimensions *int                                `json:"dimensions,omitempty"`
+	Model           string                             `json:"model"`
+	Input           []schemas.MultiModalEmbeddingInput `json:"input"`
+	Instructions    *string                            `json:"instructions,omitempty"`
+	EncodingFormat  *string                            `json:"encoding_format,omitempty"`
+	Dimensions      *int                               `json:"dimensions,omitempty"`
+	SparseEmbedding map[string]interface{}             `json:"sparse_embedding,omitempty"`
 }
 
 // volcengineMultiModalEmbeddingResponse is the native Volcengine response from /embeddings/multimodal.
 type volcengineMultiModalEmbeddingResponse struct {
-	Data  volcengineMultiModalEmbeddingData `json:"data"`
-	Model string                            `json:"model"`
-	Usage *volcengineMultiModalUsage        `json:"usage,omitempty"`
+	ID      string                            `json:"id,omitempty"`
+	Created int64                             `json:"created,omitempty"`
+	Data    volcengineMultiModalEmbeddingData `json:"data"`
+	Model   string                            `json:"model"`
+	Object  string                            `json:"object,omitempty"`
+	Usage   *volcengineMultiModalUsage        `json:"usage,omitempty"`
 }
 
 type volcengineMultiModalEmbeddingData struct {
-	Embedding []float32 `json:"embedding"`
+	Embedding       []float32                      `json:"embedding"`
+	SparseEmbedding []schemas.EmbeddingSparseValue `json:"sparse_embedding,omitempty"`
+	Object          string                         `json:"object,omitempty"`
 }
 
 type volcengineMultiModalUsage struct {
-	TotalTokens int `json:"total_tokens"`
+	PromptTokens        int                              `json:"prompt_tokens,omitempty"`
+	PromptTokensDetails *schemas.ChatPromptTokensDetails `json:"prompt_tokens_details,omitempty"`
+	TotalTokens         int                              `json:"total_tokens"`
 }
 
 func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
@@ -285,8 +295,11 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		Model: request.Model,
 		Input: request.Input.MultiModalInputs,
 	}
-	if request.Params != nil && request.Params.Dimensions != nil {
+	if request.Params != nil {
+		nativeReq.Instructions = request.Params.Instructions
+		nativeReq.EncodingFormat = request.Params.EncodingFormat
 		nativeReq.Dimensions = request.Params.Dimensions
+		nativeReq.SparseEmbedding = request.Params.SparseEmbedding
 	}
 
 	jsonData, err := schemas.Marshal(nativeReq)
@@ -316,18 +329,27 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 	}
 
 	// Convert to standard bifrost embedding response
+	object := nativeResp.Data.Object
+	if object == "" {
+		object = "embedding"
+	}
+	responseObject := nativeResp.Object
+	if responseObject == "" {
+		responseObject = "list"
+	}
 	response := &schemas.BifrostEmbeddingResponse{
 		Data: []schemas.EmbeddingData{
 			{
-				Index:  0,
-				Object: "embedding",
+				Index:           0,
+				Object:          object,
+				SparseEmbedding: nativeResp.Data.SparseEmbedding,
 				Embedding: schemas.EmbeddingStruct{
 					EmbeddingArray: nativeResp.Data.Embedding,
 				},
 			},
 		},
 		Model:  nativeResp.Model,
-		Object: "list",
+		Object: responseObject,
 		ExtraFields: schemas.BifrostResponseExtraFields{
 			Provider:       provider.GetProviderKey(),
 			ModelRequested: request.Model,
@@ -338,7 +360,9 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 
 	if nativeResp.Usage != nil {
 		response.Usage = &schemas.BifrostLLMUsage{
-			TotalTokens: nativeResp.Usage.TotalTokens,
+			PromptTokens:        nativeResp.Usage.PromptTokens,
+			PromptTokensDetails: nativeResp.Usage.PromptTokensDetails,
+			TotalTokens:         nativeResp.Usage.TotalTokens,
 		}
 	}
 

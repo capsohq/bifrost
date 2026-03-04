@@ -36,10 +36,10 @@ const (
 
 // MultiModalEmbeddingInput represents a single input item for multimodal embedding.
 type MultiModalEmbeddingInput struct {
-	Type     MultiModalEmbeddingInputType  `json:"type"`
-	Text     *string                       `json:"text,omitempty"`
-	ImageURL *MultiModalEmbeddingMediaURL  `json:"image_url,omitempty"`
-	VideoURL *MultiModalEmbeddingMediaURL  `json:"video_url,omitempty"`
+	Type     MultiModalEmbeddingInputType `json:"type"`
+	Text     *string                      `json:"text,omitempty"`
+	ImageURL *MultiModalEmbeddingMediaURL `json:"image_url,omitempty"`
+	VideoURL *MultiModalEmbeddingMediaURL `json:"video_url,omitempty"`
 }
 
 // MultiModalEmbeddingMediaURL holds the URL for an image or video input.
@@ -148,6 +148,11 @@ func (e *EmbeddingInput) UnmarshalJSON(data []byte) error {
 type EmbeddingParameters struct {
 	EncodingFormat *string `json:"encoding_format,omitempty"` // Format for embedding output (e.g., "float", "base64")
 	Dimensions     *int    `json:"dimensions,omitempty"`      // Number of dimensions for embedding output
+	Instructions   *string `json:"instructions,omitempty"`    // Optional provider-specific embedding instruction/prompt
+
+	// Optional provider-specific sparse embedding configuration.
+	// Example: {"type":"enabled"}
+	SparseEmbedding map[string]interface{} `json:"sparse_embedding,omitempty"`
 
 	// Dynamic parameters that can be provider-specific, they are directly
 	// added to the request as is.
@@ -155,9 +160,15 @@ type EmbeddingParameters struct {
 }
 
 type EmbeddingData struct {
-	Index     int             `json:"index"`
-	Object    string          `json:"object"`    // "embedding"
-	Embedding EmbeddingStruct `json:"embedding"` // can be string, []float32 or [][]float32
+	Index           int                    `json:"index"`
+	Object          string                 `json:"object"`                     // "embedding"
+	Embedding       EmbeddingStruct        `json:"embedding"`                  // can be string, []float32 or [][]float32
+	SparseEmbedding []EmbeddingSparseValue `json:"sparse_embedding,omitempty"` // optional sparse vector entries
+}
+
+type EmbeddingSparseValue struct {
+	Index int     `json:"index"`
+	Value float32 `json:"value"`
 }
 
 type EmbeddingStruct struct {

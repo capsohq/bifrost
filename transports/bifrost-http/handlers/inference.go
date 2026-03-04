@@ -136,11 +136,13 @@ var responsesParamsKnownFields = map[string]bool{
 }
 
 var embeddingParamsKnownFields = map[string]bool{
-	"model":           true,
-	"input":           true,
-	"fallbacks":       true,
-	"encoding_format": true,
-	"dimensions":      true,
+	"model":            true,
+	"input":            true,
+	"fallbacks":        true,
+	"encoding_format":  true,
+	"dimensions":       true,
+	"instructions":     true,
+	"sparse_embedding": true,
 }
 
 var rerankParamsKnownFields = map[string]bool{
