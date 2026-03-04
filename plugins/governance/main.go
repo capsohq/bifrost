@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -79,6 +80,8 @@ type GovernancePlugin struct {
 
 	// Transport dependencies
 	inMemoryStore InMemoryStore
+
+	cfgMutex sync.RWMutex
 
 	isVkMandatory   *bool
 	requiredHeaders *[]string // pointer to live config slice; lowercased at check time
@@ -211,6 +214,7 @@ func Init(
 		mcpCatalog:      mcpCatalog,
 		logger:          logger,
 		isVkMandatory:   isVkMandatory,
+		cfgMutex:        sync.RWMutex{},
 		requiredHeaders: requiredHeaders,
 		isEnterprise:    config != nil && config.IsEnterprise,
 		inMemoryStore:   inMemoryStore,
@@ -296,6 +300,7 @@ func InitFromStore(
 		logger:          logger,
 		inMemoryStore:   inMemoryStore,
 		isVkMandatory:   isVkMandatory,
+		cfgMutex:        sync.RWMutex{},
 		requiredHeaders: requiredHeaders,
 		isEnterprise:    config != nil && config.IsEnterprise,
 	}
@@ -305,6 +310,13 @@ func InitFromStore(
 // GetName returns the name of the plugin
 func (p *GovernancePlugin) GetName() string {
 	return PluginName
+}
+
+// UpdateEnforceAuthOnInference updates the enforce auth on inference config
+func (p *GovernancePlugin) UpdateEnforceAuthOnInference(enforceAuthOnInference bool) {
+	p.cfgMutex.Lock()
+	defer p.cfgMutex.Unlock()
+	p.isVkMandatory = bifrost.Ptr(enforceAuthOnInference)
 }
 
 // HTTPTransportPreHook intercepts requests before they are processed (governance decision point)
@@ -423,10 +435,24 @@ func (p *GovernancePlugin) HTTPTransportStreamChunkHook(ctx *schemas.BifrostCont
 func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, body map[string]any, virtualKey *configstoreTables.TableVirtualKey) (map[string]any, error) {
 	// Check if the request has a model field
 	modelValue, hasModel := body["model"]
+	isGeminiPath := strings.Contains(req.Path, "/genai")
+	isBedrockPath := strings.Contains(req.Path, "/bedrock")
 	if !hasModel {
 		// For genai integration, model is present in URL path instead of the request body
-		if strings.Contains(req.Path, "/genai") {
+		if isGeminiPath {
 			modelValue = req.CaseInsensitivePathParamLookup("model")
+		} else if isBedrockPath {
+			// For bedrock integration, model is present in URL path as modelId
+			rawModelID := req.CaseInsensitivePathParamLookup("modelId")
+			if rawModelID == "" {
+				return body, nil
+			}
+			// URL-decode the modelId (Bedrock model IDs may be URL-encoded, e.g. anthropic%2Fclaude-3-5-sonnet)
+			decoded, err := url.PathUnescape(rawModelID)
+			if err != nil {
+				decoded = rawModelID
+			}
+			modelValue = decoded
 		} else {
 			return body, nil
 		}
@@ -437,7 +463,7 @@ func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req 
 	}
 	var genaiRequestSuffix string
 	// Remove Google GenAI API endpoint suffixes if present
-	if strings.Contains(req.Path, "/genai") {
+	if isGeminiPath {
 		for _, sfx := range gemini.GeminiRequestSuffixPaths {
 			if before, ok := strings.CutSuffix(modelStr, sfx); ok {
 				modelStr = before
@@ -550,9 +576,12 @@ func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req 
 	ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, fmt.Sprintf("Selected provider %s for model %s (from %d eligible: %v)", selectedProvider, modelStr, len(allowedProviderConfigs), allowedProviders))
 
 	// For genai integration, model is present in URL path instead of the request body
-	if strings.Contains(req.Path, "/genai") {
+	if isGeminiPath {
 		newModelWithRequestSuffix := string(selectedProvider) + "/" + modelStr + genaiRequestSuffix
 		ctx.SetValue("model", newModelWithRequestSuffix)
+	} else if isBedrockPath {
+		// For bedrock integration, model is present in URL path as modelId
+		ctx.SetValue("modelId", string(selectedProvider)+"/"+modelStr)
 	} else {
 		var err error
 		refinedModel := modelStr
@@ -618,10 +647,24 @@ func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req 
 func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, body map[string]any, virtualKey *configstoreTables.TableVirtualKey) (map[string]any, *RoutingDecision, error) {
 	// Check if the request has a model field
 	modelValue, hasModel := body["model"]
+	isGeminiPath := strings.Contains(req.Path, "/genai")
+	isBedrockPath := strings.Contains(req.Path, "/bedrock")
 	if !hasModel {
 		// For genai integration, model is present in URL path
-		if strings.Contains(req.Path, "/genai") {
+		if isGeminiPath {
 			modelValue = req.CaseInsensitivePathParamLookup("model")
+		} else if isBedrockPath {
+			// For bedrock integration, model is present in URL path as modelId
+			rawModelID := req.CaseInsensitivePathParamLookup("modelId")
+			if rawModelID == "" {
+				return body, nil, nil
+			}
+			// URL-decode the modelId (Bedrock model IDs may be URL-encoded)
+			decoded, err := url.PathUnescape(rawModelID)
+			if err != nil {
+				decoded = rawModelID
+			}
+			modelValue = decoded
 		} else {
 			return body, nil, nil
 		}
@@ -692,6 +735,14 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 				newModel = decision.Provider + "/" + newModel
 			}
 			ctx.SetValue("model", newModel)
+		} else if isBedrockPath {
+			// For bedrock, model is in URL path as modelId
+			// Set new modelId in context so bedrockPreCallback picks it up via ctx.UserValue("modelId")
+			newModel := decision.Model
+			if decision.Provider != "" {
+				newModel = decision.Provider + "/" + newModel
+			}
+			ctx.SetValue("modelId", newModel)
 		} else {
 			// For regular requests, update in body
 			newModel := decision.Model
@@ -798,11 +849,21 @@ func (p *GovernancePlugin) validateRequiredHeaders(ctx *schemas.BifrostContext) 
 //   - *schemas.BifrostError: The error to return if request is not allowed, nil if allowed
 func (p *GovernancePlugin) evaluateGovernanceRequest(ctx *schemas.BifrostContext, evaluationRequest *EvaluationRequest, requestType schemas.RequestType) (*EvaluationResult, *schemas.BifrostError) {
 	// Check if authentication is mandatory (either VK or user auth)
-	if evaluationRequest.VirtualKey == "" && evaluationRequest.UserID == "" && p.isVkMandatory != nil && *p.isVkMandatory {
+	// Checking if the virtual key is valid or not
+	isVirtualKeyValid := false
+	if evaluationRequest.VirtualKey != "" {
+		_, exists := p.store.GetVirtualKey(evaluationRequest.VirtualKey)
+		if exists {
+			isVirtualKeyValid = true
+		}
+	}
+	p.cfgMutex.RLock()
+	if !isVirtualKeyValid && evaluationRequest.UserID == "" && p.isVkMandatory != nil && *p.isVkMandatory {
 		message := "virtual key is required. Provide a virtual key via the x-bf-vk header."
 		if p.isEnterprise {
 			message = "authentication is required. Provide a virtual key (x-bf-vk), API key, or user token."
 		}
+		p.cfgMutex.RUnlock()
 		return nil, &schemas.BifrostError{
 			Type:       bifrost.Ptr("virtual_key_required"),
 			StatusCode: bifrost.Ptr(401),
@@ -811,6 +872,7 @@ func (p *GovernancePlugin) evaluateGovernanceRequest(ctx *schemas.BifrostContext
 			},
 		}
 	}
+	p.cfgMutex.RUnlock()
 
 	// First evaluate model and provider checks (applies even when virtual keys are disabled or not present)
 	result := p.resolver.EvaluateModelAndProviderRequest(ctx, evaluationRequest.Provider, evaluationRequest.Model)

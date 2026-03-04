@@ -390,7 +390,7 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				}
 				compare, err := encrypt.CompareHash(authConfig.AdminPassword.GetValue(), password)
 				if err != nil {
-					SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to compare password: %v", err))
+					SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
 					return
 				}
 				if !compare {
@@ -405,7 +405,38 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 			if scheme == "Bearer" {
 				// Verify the session
 				if !validateSession(ctx, m.store, token) {
-					SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
+					// Here we will check if its the base64 of username:password
+					// This is for backward compatibility with the old auth system
+					decodedBytes, err := base64.StdEncoding.DecodeString(token)
+					if err != nil {
+						SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
+						return
+					}
+					username, password, ok := strings.Cut(string(decodedBytes), ":")
+					if !ok {
+						SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
+						return
+					}
+					// Verify the username and password
+					if authConfig.AdminUserName == nil || username != authConfig.AdminUserName.GetValue() {
+						SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
+						return
+					}
+					if authConfig.AdminPassword == nil {
+						SendError(ctx, fasthttp.StatusInternalServerError, "Authentication not properly configured")
+						return
+					}
+					compare, err := encrypt.CompareHash(authConfig.AdminPassword.GetValue(), password)
+					if err != nil {
+						SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+						return
+					}
+					if !compare {
+						SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
+						return
+					}
+					// Continue with the next handler
+					next(ctx)
 					return
 				}
 				// Continue with the next handler

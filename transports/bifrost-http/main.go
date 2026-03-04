@@ -59,6 +59,8 @@ import (
 	"os"
 	"strings"
 
+	_ "go.uber.org/automaxprocs" // Automatically set GOMAXPROCS based on container cgroup limits
+
 	bifrost "github.com/capsohq/bifrost/core"
 	schemas "github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/transports/bifrost-http/handlers"

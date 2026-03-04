@@ -34,6 +34,7 @@ var AsyncPathToTypeMapping = map[string]schemas.RequestType{
 	"/v1/async/images/generations":   schemas.ImageGenerationRequest,
 	"/v1/async/images/edits":         schemas.ImageEditRequest,
 	"/v1/async/images/variations":    schemas.ImageVariationRequest,
+	"/v1/async/rerank":               schemas.RerankRequest,
 }
 
 // RegisterAsyncRequestTypeMiddleware handles exact path matching for non-parameterized routes
@@ -77,6 +78,7 @@ func (h *AsyncHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.B
 	r.POST("/v1/async/images/generations", lib.ChainMiddlewares(h.asyncImageGeneration, baseMiddlewares...))
 	r.POST("/v1/async/images/edits", lib.ChainMiddlewares(h.asyncImageEdit, baseMiddlewares...))
 	r.POST("/v1/async/images/variations", lib.ChainMiddlewares(h.asyncImageVariation, baseMiddlewares...))
+	r.POST("/v1/async/rerank", lib.ChainMiddlewares(h.asyncRerank, baseMiddlewares...))
 
 	// Async job retrieval endpoints
 	r.GET("/v1/async/completions/{job_id}", lib.ChainMiddlewares(h.getJob(schemas.TextCompletionRequest), middlewares...))
@@ -88,6 +90,7 @@ func (h *AsyncHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.B
 	r.GET("/v1/async/images/generations/{job_id}", lib.ChainMiddlewares(h.getJob(schemas.ImageGenerationRequest), middlewares...))
 	r.GET("/v1/async/images/edits/{job_id}", lib.ChainMiddlewares(h.getJob(schemas.ImageEditRequest), middlewares...))
 	r.GET("/v1/async/images/variations/{job_id}", lib.ChainMiddlewares(h.getJob(schemas.ImageVariationRequest), middlewares...))
+	r.GET("/v1/async/rerank/{job_id}", lib.ChainMiddlewares(h.getJob(schemas.RerankRequest), middlewares...))
 }
 
 // --- Async submission handlers ---
@@ -107,7 +110,7 @@ func (h *AsyncHandler) asyncTextCompletion(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -145,7 +148,7 @@ func (h *AsyncHandler) asyncChatCompletion(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -162,7 +165,7 @@ func (h *AsyncHandler) asyncChatCompletion(ctx *fasthttp.RequestCtx) {
 		schemas.ChatCompletionRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
@@ -183,7 +186,7 @@ func (h *AsyncHandler) asyncResponses(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -200,7 +203,7 @@ func (h *AsyncHandler) asyncResponses(ctx *fasthttp.RequestCtx) {
 		schemas.ResponsesRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to create async job: %v", err))
+		SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Failed to create async job: %v", err))
 		return
 	}
 
@@ -217,7 +220,7 @@ func (h *AsyncHandler) asyncEmbeddings(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -234,7 +237,7 @@ func (h *AsyncHandler) asyncEmbeddings(ctx *fasthttp.RequestCtx) {
 		schemas.EmbeddingRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
@@ -255,7 +258,7 @@ func (h *AsyncHandler) asyncSpeech(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -272,7 +275,7 @@ func (h *AsyncHandler) asyncSpeech(ctx *fasthttp.RequestCtx) {
 		schemas.SpeechRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
@@ -293,7 +296,7 @@ func (h *AsyncHandler) asyncTranscription(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -310,7 +313,7 @@ func (h *AsyncHandler) asyncTranscription(ctx *fasthttp.RequestCtx) {
 		schemas.TranscriptionRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
@@ -331,7 +334,7 @@ func (h *AsyncHandler) asyncImageGeneration(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -348,7 +351,7 @@ func (h *AsyncHandler) asyncImageGeneration(ctx *fasthttp.RequestCtx) {
 		schemas.ImageGenerationRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
@@ -369,7 +372,7 @@ func (h *AsyncHandler) asyncImageEdit(ctx *fasthttp.RequestCtx) {
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 	if bifrostCtx == nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
 	}
 	defer cancel()
@@ -386,7 +389,7 @@ func (h *AsyncHandler) asyncImageEdit(ctx *fasthttp.RequestCtx) {
 		schemas.ImageEditRequest,
 	)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
@@ -395,6 +398,39 @@ func (h *AsyncHandler) asyncImageEdit(ctx *fasthttp.RequestCtx) {
 // asyncImageVariation handles POST /v1/async/images/variations
 func (h *AsyncHandler) asyncImageVariation(ctx *fasthttp.RequestCtx) {
 	bifrostReq, err := prepareImageVariationRequest(ctx)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
+		return
+	}
+
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
+	if bifrostCtx == nil {
+		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
+		return
+	}
+	defer cancel()
+
+	virtualKeyValue := getVirtualKeyFromContext(bifrostCtx)
+	resultTTL := getResultTTLFromHeaderWithDefault(ctx, h.config.ClientConfig.AsyncJobResultTTL)
+
+	job, err := h.executor.SubmitJob(
+		virtualKeyValue,
+		resultTTL,
+		func(bgCtx *schemas.BifrostContext) (interface{}, *schemas.BifrostError) {
+			return h.client.ImageVariationRequest(bgCtx, bifrostReq)
+		},
+		schemas.ImageVariationRequest,
+	)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
+		return
+	}
+	SendJSONWithStatus(ctx, job.ToResponse(), fasthttp.StatusAccepted)
+}
+
+// asyncRerank handles POST /v1/async/rerank
+func (h *AsyncHandler) asyncRerank(ctx *fasthttp.RequestCtx) {
+	_, bifrostReq, err := prepareRerankRequest(ctx)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
@@ -414,9 +450,9 @@ func (h *AsyncHandler) asyncImageVariation(ctx *fasthttp.RequestCtx) {
 		virtualKeyValue,
 		resultTTL,
 		func(bgCtx *schemas.BifrostContext) (interface{}, *schemas.BifrostError) {
-			return h.client.ImageVariationRequest(bgCtx, bifrostReq)
+			return h.client.RerankRequest(bgCtx, bifrostReq)
 		},
-		schemas.ImageVariationRequest,
+		schemas.RerankRequest,
 	)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusInternalServerError, err.Error())
@@ -439,7 +475,7 @@ func (h *AsyncHandler) getJob(operationType schemas.RequestType) fasthttp.Reques
 		// Get the requesting user's VK for auth check
 		bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderFilterConfig())
 		if bifrostCtx == nil {
-			SendError(ctx, fasthttp.StatusInternalServerError, "Failed to convert context")
+			SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 			return
 		}
 		defer cancel()

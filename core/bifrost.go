@@ -3800,6 +3800,7 @@ func (bifrost *Bifrost) handleRequest(ctx *schemas.BifrostContext, req *schemas.
 				ModelRequested: model,
 				RawRequest:     primaryErr.ExtraFields.RawRequest,
 				RawResponse:    primaryErr.ExtraFields.RawResponse,
+				KeyStatuses:    primaryErr.ExtraFields.KeyStatuses,
 			}
 		}
 		return primaryResult, primaryErr
@@ -3849,6 +3850,7 @@ func (bifrost *Bifrost) handleRequest(ctx *schemas.BifrostContext, req *schemas.
 				ModelRequested: fallback.Model,
 				RawRequest:     fallbackErr.ExtraFields.RawRequest,
 				RawResponse:    fallbackErr.ExtraFields.RawResponse,
+				KeyStatuses:    fallbackErr.ExtraFields.KeyStatuses,
 			}
 			return nil, fallbackErr
 		}
@@ -3861,6 +3863,7 @@ func (bifrost *Bifrost) handleRequest(ctx *schemas.BifrostContext, req *schemas.
 			ModelRequested: model,
 			RawRequest:     primaryErr.ExtraFields.RawRequest,
 			RawResponse:    primaryErr.ExtraFields.RawResponse,
+			KeyStatuses:    primaryErr.ExtraFields.KeyStatuses,
 		}
 	}
 
@@ -3911,6 +3914,7 @@ func (bifrost *Bifrost) handleStreamRequest(ctx *schemas.BifrostContext, req *sc
 				ModelRequested: model,
 				RawRequest:     primaryErr.ExtraFields.RawRequest,
 				RawResponse:    primaryErr.ExtraFields.RawResponse,
+				KeyStatuses:    primaryErr.ExtraFields.KeyStatuses,
 			}
 		}
 		return primaryResult, primaryErr
@@ -3958,6 +3962,7 @@ func (bifrost *Bifrost) handleStreamRequest(ctx *schemas.BifrostContext, req *sc
 				ModelRequested: fallback.Model,
 				RawRequest:     fallbackErr.ExtraFields.RawRequest,
 				RawResponse:    fallbackErr.ExtraFields.RawResponse,
+				KeyStatuses:    fallbackErr.ExtraFields.KeyStatuses,
 			}
 			return nil, fallbackErr
 		}
@@ -3970,6 +3975,7 @@ func (bifrost *Bifrost) handleStreamRequest(ctx *schemas.BifrostContext, req *sc
 			ModelRequested: model,
 			RawRequest:     primaryErr.ExtraFields.RawRequest,
 			RawResponse:    primaryErr.ExtraFields.RawResponse,
+			KeyStatuses:    primaryErr.ExtraFields.KeyStatuses,
 		}
 	}
 
@@ -5732,7 +5738,7 @@ func (bifrost *Bifrost) getAllSupportedKeys(ctx *schemas.BifrostContext, provide
 		if k.Enabled != nil && !*k.Enabled {
 			continue
 		}
-		if strings.TrimSpace(k.Value.GetValue()) != "" || canProviderKeyValueBeEmpty(baseProviderType) || hasAzureEntraIDCredentials(baseProviderType, k) {
+		if strings.TrimSpace(k.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType) {
 			supportedKeys = append(supportedKeys, k)
 		}
 	}
@@ -5792,7 +5798,7 @@ func (bifrost *Bifrost) getKeysForBatchAndFileOps(ctx *schemas.BifrostContext, p
 		}
 
 		// Check key value (or if provider allows empty keys or has Azure Entra ID credentials)
-		if strings.TrimSpace(k.Value.GetValue()) != "" || canProviderKeyValueBeEmpty(baseProviderType) || hasAzureEntraIDCredentials(baseProviderType, k) {
+		if strings.TrimSpace(k.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType) {
 			filteredKeys = append(filteredKeys, k)
 		}
 	}
@@ -5867,7 +5873,7 @@ func (bifrost *Bifrost) selectKeyFromProviderForModel(ctx *schemas.BifrostContex
 			if k.Enabled != nil && !*k.Enabled {
 				continue
 			}
-			if strings.TrimSpace(k.Value.GetValue()) != "" || canProviderKeyValueBeEmpty(baseProviderType) || hasAzureEntraIDCredentials(baseProviderType, k) {
+			if strings.TrimSpace(k.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType) {
 				supportedKeys = append(supportedKeys, k)
 			}
 		}
@@ -5878,7 +5884,7 @@ func (bifrost *Bifrost) selectKeyFromProviderForModel(ctx *schemas.BifrostContex
 			if key.Enabled != nil && !*key.Enabled {
 				continue
 			}
-			hasValue := strings.TrimSpace(key.Value.GetValue()) != "" || canProviderKeyValueBeEmpty(baseProviderType) || hasAzureEntraIDCredentials(baseProviderType, key)
+			hasValue := strings.TrimSpace(key.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType)
 			modelSupported := (len(key.Models) == 0 && hasValue) || (slices.Contains(key.Models, model) && hasValue)
 			// Additional deployment checks for Azure, Bedrock and Vertex
 			deploymentSupported := true
