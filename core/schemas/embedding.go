@@ -25,12 +25,40 @@ type BifrostEmbeddingResponse struct {
 	ExtraFields BifrostResponseExtraFields `json:"extra_fields"`
 }
 
+// MultiModalEmbeddingInputType represents the type of multimodal embedding input.
+type MultiModalEmbeddingInputType string
+
+const (
+	MultiModalEmbeddingText     MultiModalEmbeddingInputType = "text"
+	MultiModalEmbeddingImageURL MultiModalEmbeddingInputType = "image_url"
+	MultiModalEmbeddingVideoURL MultiModalEmbeddingInputType = "video_url"
+)
+
+// MultiModalEmbeddingInput represents a single input item for multimodal embedding.
+type MultiModalEmbeddingInput struct {
+	Type     MultiModalEmbeddingInputType  `json:"type"`
+	Text     *string                       `json:"text,omitempty"`
+	ImageURL *MultiModalEmbeddingMediaURL  `json:"image_url,omitempty"`
+	VideoURL *MultiModalEmbeddingMediaURL  `json:"video_url,omitempty"`
+}
+
+// MultiModalEmbeddingMediaURL holds the URL for an image or video input.
+type MultiModalEmbeddingMediaURL struct {
+	URL string `json:"url"`
+}
+
 // EmbeddingInput represents the input for an embedding request.
 type EmbeddingInput struct {
-	Text       *string
-	Texts      []string
-	Embedding  []int
-	Embeddings [][]int
+	Text             *string
+	Texts            []string
+	Embedding        []int
+	Embeddings       [][]int
+	MultiModalInputs []MultiModalEmbeddingInput // For multimodal embedding (text + image_url + video_url)
+}
+
+// IsMultiModal returns true if the input contains multimodal inputs.
+func (e *EmbeddingInput) IsMultiModal() bool {
+	return len(e.MultiModalInputs) > 0
 }
 
 func (e *EmbeddingInput) MarshalJSON() ([]byte, error) {
@@ -48,11 +76,14 @@ func (e *EmbeddingInput) MarshalJSON() ([]byte, error) {
 	if e.Embeddings != nil {
 		set++
 	}
+	if e.MultiModalInputs != nil {
+		set++
+	}
 	if set == 0 {
 		return nil, fmt.Errorf("embedding input is empty")
 	}
 	if set > 1 {
-		return nil, fmt.Errorf("embedding input must set exactly one of: text, texts, embedding, embeddings")
+		return nil, fmt.Errorf("embedding input must set exactly one of: text, texts, embedding, embeddings, multimodal")
 	}
 
 	if e.Text != nil {
@@ -67,6 +98,9 @@ func (e *EmbeddingInput) MarshalJSON() ([]byte, error) {
 	if e.Embeddings != nil {
 		return Marshal(e.Embeddings)
 	}
+	if e.MultiModalInputs != nil {
+		return Marshal(e.MultiModalInputs)
+	}
 
 	return nil, fmt.Errorf("invalid embedding input")
 }
@@ -76,10 +110,17 @@ func (e *EmbeddingInput) UnmarshalJSON(data []byte) error {
 	e.Texts = nil
 	e.Embedding = nil
 	e.Embeddings = nil
+	e.MultiModalInputs = nil
 	// Try string
 	var s string
 	if err := Unmarshal(data, &s); err == nil {
 		e.Text = &s
+		return nil
+	}
+	// Try multimodal (array of objects with "type" field) — must try before []string
+	var mm []MultiModalEmbeddingInput
+	if err := Unmarshal(data, &mm); err == nil && len(mm) > 0 && mm[0].Type != "" {
+		e.MultiModalInputs = mm
 		return nil
 	}
 	// Try []string
