@@ -18,14 +18,15 @@ import (
 )
 
 const (
-	volcenginePathModels          = "/models"
-	volcenginePathCompletions     = "/completions"
-	volcenginePathChatCompletions = "/chat/completions"
-	volcenginePathEmbeddings      = "/embeddings"
-	volcenginePathImages          = "/images/generations"
-	volcenginePathVideos          = "/contents/generations/tasks"
-	volcenginePathFiles           = "/files"
-	volcenginePathResponses       = "/responses"
+	volcenginePathModels               = "/models"
+	volcenginePathCompletions          = "/completions"
+	volcenginePathChatCompletions      = "/chat/completions"
+	volcenginePathEmbeddings           = "/embeddings"
+	volcenginePathMultiModalEmbeddings = "/embeddings/multimodal"
+	volcenginePathImages               = "/images/generations"
+	volcenginePathVideos               = "/contents/generations/tasks"
+	volcenginePathFiles                = "/files"
+	volcenginePathResponses            = "/responses"
 )
 
 // VolcengineProvider implements the Provider interface for Volcengine's API.
@@ -224,6 +225,10 @@ func (provider *VolcengineProvider) ResponsesStream(ctx *schemas.BifrostContext,
 }
 
 func (provider *VolcengineProvider) Embedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
+	// Route to multimodal endpoint when input contains multimodal data
+	if request.Input != nil && request.Input.IsMultiModal() {
+		return provider.multiModalEmbedding(ctx, key, request)
+	}
 	return openai.HandleOpenAIEmbeddingRequest(
 		ctx,
 		provider.client,
@@ -237,6 +242,114 @@ func (provider *VolcengineProvider) Embedding(ctx *schemas.BifrostContext, key s
 		nil,
 		provider.logger,
 	)
+}
+
+// volcengineMultiModalEmbeddingRequest is the native Volcengine request for /embeddings/multimodal.
+type volcengineMultiModalEmbeddingRequest struct {
+	Model      string                              `json:"model"`
+	Input      []schemas.MultiModalEmbeddingInput  `json:"input"`
+	Dimensions *int                                `json:"dimensions,omitempty"`
+}
+
+// volcengineMultiModalEmbeddingResponse is the native Volcengine response from /embeddings/multimodal.
+type volcengineMultiModalEmbeddingResponse struct {
+	Data  volcengineMultiModalEmbeddingData `json:"data"`
+	Model string                            `json:"model"`
+	Usage *volcengineMultiModalUsage        `json:"usage,omitempty"`
+}
+
+type volcengineMultiModalEmbeddingData struct {
+	Embedding []float32 `json:"embedding"`
+}
+
+type volcengineMultiModalUsage struct {
+	TotalTokens int `json:"total_tokens"`
+}
+
+func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
+	req := fasthttp.AcquireRequest()
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseRequest(req)
+	defer fasthttp.ReleaseResponse(resp)
+
+	providerUtils.SetExtraHeaders(ctx, req, provider.networkConfig.ExtraHeaders, nil)
+	req.SetRequestURI(provider.networkConfig.BaseURL + providerUtils.GetPathFromContext(ctx, volcenginePathMultiModalEmbeddings))
+	req.Header.SetMethod(http.MethodPost)
+	req.Header.SetContentType("application/json")
+
+	if key.Value.GetValue() != "" {
+		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
+	}
+
+	nativeReq := volcengineMultiModalEmbeddingRequest{
+		Model: request.Model,
+		Input: request.Input.MultiModalInputs,
+	}
+	if request.Params != nil && request.Params.Dimensions != nil {
+		nativeReq.Dimensions = request.Params.Dimensions
+	}
+
+	jsonData, err := schemas.Marshal(nativeReq)
+	if err != nil {
+		return nil, providerUtils.NewBifrostOperationError("failed to marshal multimodal embedding request", err, provider.GetProviderKey())
+	}
+	req.SetBody(jsonData)
+
+	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	if bifrostErr != nil {
+		return nil, bifrostErr
+	}
+
+	if resp.StatusCode() != fasthttp.StatusOK {
+		provider.logger.Debug(fmt.Sprintf("error from volcengine multimodal embedding: %s", string(resp.Body())))
+		return nil, openai.ParseOpenAIError(resp, schemas.EmbeddingRequest, provider.GetProviderKey(), request.Model)
+	}
+
+	body, err := providerUtils.CheckAndDecodeBody(resp)
+	if err != nil {
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+	}
+
+	var nativeResp volcengineMultiModalEmbeddingResponse
+	if err := schemas.Unmarshal(body, &nativeResp); err != nil {
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+	}
+
+	// Convert to standard bifrost embedding response
+	response := &schemas.BifrostEmbeddingResponse{
+		Data: []schemas.EmbeddingData{
+			{
+				Index:  0,
+				Object: "embedding",
+				Embedding: schemas.EmbeddingStruct{
+					EmbeddingArray: nativeResp.Data.Embedding,
+				},
+			},
+		},
+		Model:  nativeResp.Model,
+		Object: "list",
+		ExtraFields: schemas.BifrostResponseExtraFields{
+			Provider:       provider.GetProviderKey(),
+			ModelRequested: request.Model,
+			RequestType:    schemas.EmbeddingRequest,
+			Latency:        latency.Milliseconds(),
+		},
+	}
+
+	if nativeResp.Usage != nil {
+		response.Usage = &schemas.BifrostLLMUsage{
+			TotalTokens: nativeResp.Usage.TotalTokens,
+		}
+	}
+
+	if providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest) {
+		response.ExtraFields.RawRequest = jsonData
+	}
+	if providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse) {
+		response.ExtraFields.RawResponse = body
+	}
+
+	return response, nil
 }
 
 // Speech is not supported by the Volcengine provider.

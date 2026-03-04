@@ -1055,7 +1055,7 @@ func prepareEmbeddingRequest(ctx *fasthttp.RequestCtx) (*EmbeddingRequest, *sche
 	if err != nil {
 		return nil, nil, err
 	}
-	if req.Input == nil || (req.Input.Text == nil && req.Input.Texts == nil && req.Input.Embedding == nil && req.Input.Embeddings == nil) {
+	if req.Input == nil || (req.Input.Text == nil && req.Input.Texts == nil && req.Input.Embedding == nil && req.Input.Embeddings == nil && req.Input.MultiModalInputs == nil) {
 		return nil, nil, fmt.Errorf("input is required for embeddings")
 	}
 	if req.EmbeddingParameters == nil {
