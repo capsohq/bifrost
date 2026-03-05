@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -276,7 +277,295 @@ type volcengineMultiModalUsage struct {
 	TotalTokens         int                              `json:"total_tokens"`
 }
 
+const (
+	volcengineInstructionsConfigKey = "volcengine_instructions_config"
+
+	volcengineVisionVersionSparseSupported       = 250615
+	volcengineVisionVersionInstructionsSupported = 251215
+)
+
+type volcengineInstructionsConfig struct {
+	TaskType         string `json:"task_type,omitempty"`         // retrieval_ranking | clustering_classification_sts
+	Role             string `json:"role,omitempty"`              // query | corpus (for retrieval/ranking task types)
+	TargetModality   string `json:"target_modality,omitempty"`   // text | image | video | text and video | text/image/video ...
+	CorpusModality   string `json:"corpus_modality,omitempty"`   // text | image | video | text and image | text and video ...
+	Instruction      string `json:"instruction,omitempty"`       // user-defined instruction body
+	ValidateTemplate *bool  `json:"validate_template,omitempty"` // optional strict template validation
+}
+
+func parseVolcengineVisionModelDate(model string) (int, bool) {
+	const prefix = "doubao-embedding-vision-"
+	idx := strings.Index(model, prefix)
+	if idx < 0 {
+		return 0, false
+	}
+	verPart := model[idx+len(prefix):]
+	if len(verPart) < 6 {
+		return 0, false
+	}
+	verPart = verPart[:6]
+	for _, r := range verPart {
+		if r < '0' || r > '9' {
+			return 0, false
+		}
+	}
+	version, err := strconv.Atoi(verPart)
+	if err != nil {
+		return 0, false
+	}
+	return version, true
+}
+
+func parseVolcengineInstructionsConfig(params *schemas.EmbeddingParameters) (*volcengineInstructionsConfig, error) {
+	if params == nil || params.ExtraParams == nil {
+		return nil, nil
+	}
+	raw, ok := params.ExtraParams[volcengineInstructionsConfigKey]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	payload, err := schemas.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", volcengineInstructionsConfigKey, err)
+	}
+	var cfg volcengineInstructionsConfig
+	if err := schemas.Unmarshal(payload, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", volcengineInstructionsConfigKey, err)
+	}
+	return &cfg, nil
+}
+
+func normalizeVolcengineTaskType(taskType string) string {
+	switch strings.ToLower(strings.TrimSpace(taskType)) {
+	case "retrieval", "ranking", "retrieval_ranking", "recall", "rerank", "召回", "排序", "召回排序":
+		return "retrieval_ranking"
+	case "clustering", "classification", "sts", "clustering_classification_sts", "semantic_similarity", "聚类", "分类", "语义文本相似度":
+		return "clustering_classification_sts"
+	default:
+		return ""
+	}
+}
+
+func normalizeVolcengineRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "query", "查询":
+		return "query"
+	case "corpus", "语料":
+		return "corpus"
+	default:
+		return ""
+	}
+}
+
+func buildVolcengineInstructionsFromConfig(cfg *volcengineInstructionsConfig) (string, error) {
+	taskType := normalizeVolcengineTaskType(cfg.TaskType)
+	if taskType == "" {
+		return "", fmt.Errorf("%s.task_type must be one of retrieval/ranking or clustering/classification/sts", volcengineInstructionsConfigKey)
+	}
+
+	targetModality := strings.TrimSpace(cfg.TargetModality)
+	instructionBody := strings.TrimSpace(cfg.Instruction)
+	role := normalizeVolcengineRole(cfg.Role)
+
+	if taskType == "retrieval_ranking" {
+		if role == "" {
+			return "", fmt.Errorf("%s.role is required for retrieval/ranking and must be query or corpus", volcengineInstructionsConfigKey)
+		}
+		if role == "query" {
+			if targetModality == "" || instructionBody == "" {
+				return "", fmt.Errorf("%s.query requires target_modality and instruction", volcengineInstructionsConfigKey)
+			}
+			return fmt.Sprintf("Target_modality: %s.\nInstruction:%s\nQuery:", targetModality, instructionBody), nil
+		}
+
+		corpusModality := strings.TrimSpace(cfg.CorpusModality)
+		if corpusModality == "" {
+			corpusModality = targetModality
+		}
+		if corpusModality == "" {
+			return "", fmt.Errorf("%s.corpus requires corpus_modality (or target_modality)", volcengineInstructionsConfigKey)
+		}
+		return fmt.Sprintf("Instruction:Compress the %s into one word.\nQuery:", corpusModality), nil
+	}
+
+	if targetModality == "" || instructionBody == "" {
+		return "", fmt.Errorf("%s for clustering/classification/sts requires target_modality and instruction", volcengineInstructionsConfigKey)
+	}
+	return fmt.Sprintf("Target_modality: %s.\nInstruction:%s\nQuery:", targetModality, instructionBody), nil
+}
+
+func validateVolcengineInstructionTemplate(instructions string) error {
+	instructions = strings.TrimSpace(instructions)
+	if instructions == "" {
+		return fmt.Errorf("instructions must not be empty")
+	}
+
+	const queryPrefix = "Target_modality: "
+	const querySplit = ".\nInstruction:"
+	const querySuffix = "\nQuery:"
+	if strings.HasPrefix(instructions, queryPrefix) && strings.HasSuffix(instructions, querySuffix) {
+		rest := strings.TrimSuffix(strings.TrimPrefix(instructions, queryPrefix), querySuffix)
+		parts := strings.SplitN(rest, querySplit, 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("instructions must follow template: Target_modality: {}.\\nInstruction:{}\\nQuery:")
+		}
+		targetModality := strings.TrimSpace(parts[0])
+		instructionBody := strings.TrimSpace(parts[1])
+		if targetModality == "" || instructionBody == "" {
+			return fmt.Errorf("instructions must follow template: Target_modality: {}.\\nInstruction:{}\\nQuery:")
+		}
+		return nil
+	}
+
+	const corpusPrefix = "Instruction:Compress the "
+	const corpusSuffix = " into one word.\nQuery:"
+	if strings.HasPrefix(instructions, corpusPrefix) && strings.HasSuffix(instructions, corpusSuffix) {
+		modality := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(instructions, corpusPrefix), corpusSuffix))
+		if modality == "" {
+			return fmt.Errorf("instructions must follow template: Instruction:Compress the {} into one word.\\nQuery:")
+		}
+		return nil
+	}
+
+	return fmt.Errorf("instructions must follow one of templates: Target_modality: {}.\\nInstruction:{}\\nQuery: OR Instruction:Compress the {} into one word.\\nQuery:")
+}
+
+func isDisallowedDefaultInstruction(instructions string) bool {
+	defaultBody := "compress the text into one word"
+	normalized := strings.ToLower(strings.TrimSpace(instructions))
+	normalized = strings.TrimSuffix(normalized, ".")
+	if normalized == defaultBody {
+		return true
+	}
+
+	const queryPrefix = "Target_modality: "
+	const querySplit = ".\nInstruction:"
+	const querySuffix = "\nQuery:"
+	if strings.HasPrefix(instructions, queryPrefix) && strings.HasSuffix(instructions, querySuffix) {
+		rest := strings.TrimSuffix(strings.TrimPrefix(instructions, queryPrefix), querySuffix)
+		parts := strings.SplitN(rest, querySplit, 2)
+		if len(parts) == 2 {
+			body := strings.ToLower(strings.TrimSpace(parts[1]))
+			body = strings.TrimSuffix(body, ".")
+			return body == defaultBody
+		}
+	}
+	return false
+}
+
+func isSparseEmbeddingEnabled(sparseEmbedding map[string]interface{}) bool {
+	if sparseEmbedding == nil {
+		return false
+	}
+	rawType, ok := sparseEmbedding["type"]
+	if !ok {
+		return false
+	}
+	typeValue, ok := rawType.(string)
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(typeValue), "enabled")
+}
+
+func isTextOnlyMultiModalInputs(inputs []schemas.MultiModalEmbeddingInput) bool {
+	if len(inputs) == 0 {
+		return false
+	}
+	for _, input := range inputs {
+		if input.Type != schemas.MultiModalEmbeddingText {
+			return false
+		}
+	}
+	return true
+}
+
+func resolveAndValidateVolcengineInstructions(request *schemas.BifrostEmbeddingRequest) (*string, bool, *schemas.BifrostError) {
+	var params *schemas.EmbeddingParameters
+	if request != nil {
+		params = request.Params
+	}
+
+	var instructions *string
+	if params != nil {
+		instructions = params.Instructions
+	}
+
+	config, err := parseVolcengineInstructionsConfig(params)
+	if err != nil {
+		return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, schemas.Volcengine)
+	}
+
+	shouldValidateTemplate := false
+	if config != nil && config.ValidateTemplate != nil {
+		shouldValidateTemplate = *config.ValidateTemplate
+	}
+
+	if (instructions == nil || strings.TrimSpace(*instructions) == "") && config != nil {
+		generated, genErr := buildVolcengineInstructionsFromConfig(config)
+		if genErr != nil {
+			return nil, false, providerUtils.NewBifrostOperationError(genErr.Error(), genErr, schemas.Volcengine)
+		}
+		instructions = &generated
+		shouldValidateTemplate = true
+	}
+
+	modelVersion, hasModelVersion := parseVolcengineVisionModelDate(request.Model)
+	hasInstructions := instructions != nil && strings.TrimSpace(*instructions) != ""
+
+	if hasModelVersion && hasInstructions && modelVersion < volcengineVisionVersionInstructionsSupported {
+		return nil, false, providerUtils.NewBifrostOperationError(
+			fmt.Sprintf("instructions are supported only for doubao-embedding-vision-%d and later models", volcengineVisionVersionInstructionsSupported),
+			nil,
+			schemas.Volcengine,
+		)
+	}
+	if hasModelVersion && modelVersion >= volcengineVisionVersionInstructionsSupported && !hasInstructions {
+		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao-embedding-vision-251215 and later models", nil, schemas.Volcengine)
+	}
+	if hasInstructions && isDisallowedDefaultInstruction(*instructions) {
+		return nil, false, providerUtils.NewBifrostOperationError("instructions must be customized for your business scenario; default instruction is not allowed", nil, schemas.Volcengine)
+	}
+	if hasInstructions && shouldValidateTemplate {
+		if err := validateVolcengineInstructionTemplate(*instructions); err != nil {
+			return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, schemas.Volcengine)
+		}
+	}
+
+	return instructions, shouldValidateTemplate, nil
+}
+
+func validateVolcengineSparseEmbeddingConstraints(request *schemas.BifrostEmbeddingRequest, sparseEmbedding map[string]interface{}) *schemas.BifrostError {
+	if !isSparseEmbeddingEnabled(sparseEmbedding) {
+		return nil
+	}
+
+	modelVersion, hasModelVersion := parseVolcengineVisionModelDate(request.Model)
+	if hasModelVersion && modelVersion < volcengineVisionVersionSparseSupported {
+		return providerUtils.NewBifrostOperationError(
+			fmt.Sprintf("sparse_embedding is supported only for doubao-embedding-vision-%d and later models", volcengineVisionVersionSparseSupported),
+			nil,
+			schemas.Volcengine,
+		)
+	}
+
+	if request.Input == nil || !isTextOnlyMultiModalInputs(request.Input.MultiModalInputs) {
+		return providerUtils.NewBifrostOperationError("sparse_embedding supports text-only multimodal input", nil, schemas.Volcengine)
+	}
+
+	return nil
+}
+
 func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
+	if request == nil || request.Input == nil {
+		return nil, providerUtils.NewBifrostOperationError("invalid request: multimodal embedding input is required", nil, provider.GetProviderKey())
+	}
+
+	resolvedInstructions, _, bifrostErr := resolveAndValidateVolcengineInstructions(request)
+	if bifrostErr != nil {
+		return nil, bifrostErr
+	}
+
 	req := fasthttp.AcquireRequest()
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseRequest(req)
@@ -296,10 +585,13 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		Input: request.Input.MultiModalInputs,
 	}
 	if request.Params != nil {
-		nativeReq.Instructions = request.Params.Instructions
+		nativeReq.Instructions = resolvedInstructions
 		nativeReq.EncodingFormat = request.Params.EncodingFormat
 		nativeReq.Dimensions = request.Params.Dimensions
 		nativeReq.SparseEmbedding = request.Params.SparseEmbedding
+	}
+	if bifrostErr := validateVolcengineSparseEmbeddingConstraints(request, nativeReq.SparseEmbedding); bifrostErr != nil {
+		return nil, bifrostErr
 	}
 
 	jsonData, err := schemas.Marshal(nativeReq)
