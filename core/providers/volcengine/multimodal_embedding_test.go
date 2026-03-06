@@ -444,6 +444,112 @@ func TestMultiModalEmbedding_TextOnlySparse(t *testing.T) {
 	}
 }
 
+func TestMultiModalEmbedding_TextInputUsesMultimodalEndpointAndHelperConfig(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/embeddings/multimodal" {
+			t.Fatalf("expected path /embeddings/multimodal, got %s", r.URL.Path)
+		}
+
+		var requestBody struct {
+			Input        []schemas.MultiModalEmbeddingInput `json:"input"`
+			Instructions string                             `json:"instructions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		if len(requestBody.Input) != 1 || requestBody.Input[0].Type != schemas.MultiModalEmbeddingText || requestBody.Input[0].Text == nil || *requestBody.Input[0].Text != "hello" {
+			t.Fatalf("unexpected multimodal input payload: %+v", requestBody.Input)
+		}
+		expectedInstructions := "Instruction:Compress the text into one word.\nQuery:"
+		if requestBody.Instructions != expectedInstructions {
+			t.Fatalf("unexpected generated instructions.\nexpected: %s\ngot: %s", expectedInstructions, requestBody.Instructions)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"embedding":[0.1,0.2]},"model":"doubao-embedding-vision-251215","object":"list","usage":{"total_tokens":2}}`)
+	}))
+	defer server.Close()
+
+	provider := newTestVolcengineProvider(server.URL)
+	text := "hello"
+	request := &schemas.BifrostEmbeddingRequest{
+		Provider: schemas.Volcengine,
+		Model:    "doubao-embedding-vision-251215",
+		Input: &schemas.EmbeddingInput{
+			Text: &text,
+		},
+		Params: &schemas.EmbeddingParameters{
+			ExtraParams: map[string]interface{}{
+				"volcengine_instructions_config": map[string]interface{}{
+					"task_type":         "retrieval/ranking",
+					"role":              "corpus",
+					"target_modality":   "text",
+					"validate_template": true,
+				},
+			},
+		},
+	}
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	if bifrostErr != nil {
+		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
+	}
+	if len(resp.Data) != 1 || len(resp.Data[0].Embedding.EmbeddingArray) != 2 {
+		t.Fatalf("expected embedding response, got %+v", resp)
+	}
+}
+
+func TestMultiModalEmbedding_HelperConfigAcceptsRetrievalQueryAlias(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var requestBody struct {
+			Instructions string `json:"instructions"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		expected := "Target_modality: image.\nInstruction:Find me an everyday image that matches the given caption\nQuery:"
+		if requestBody.Instructions != expected {
+			t.Fatalf("unexpected generated instructions.\nexpected: %s\ngot: %s", expected, requestBody.Instructions)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"embedding":[0.1]},"model":"doubao-embedding-vision-251215","object":"list","usage":{"total_tokens":1}}`)
+	}))
+	defer server.Close()
+
+	provider := newTestVolcengineProvider(server.URL)
+	text := "blue sea view"
+	request := &schemas.BifrostEmbeddingRequest{
+		Provider: schemas.Volcengine,
+		Model:    "doubao-embedding-vision-251215",
+		Input: &schemas.EmbeddingInput{
+			MultiModalInputs: []schemas.MultiModalEmbeddingInput{
+				{Type: schemas.MultiModalEmbeddingText, Text: &text},
+			},
+		},
+		Params: &schemas.EmbeddingParameters{
+			ExtraParams: map[string]interface{}{
+				"volcengine_instructions_config": map[string]interface{}{
+					"task_type":       "retrieval_query",
+					"role":            "query",
+					"target_modality": "image",
+					"instruction":     "Find me an everyday image that matches the given caption",
+				},
+			},
+		},
+	}
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	if _, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request); bifrostErr != nil {
+		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
+	}
+}
+
 func TestMultiModalEmbedding_InstructionRequiredFor251215(t *testing.T) {
 	t.Parallel()
 

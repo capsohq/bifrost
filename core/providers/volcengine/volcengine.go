@@ -75,6 +75,10 @@ func (provider *VolcengineProvider) GetProviderKey() schemas.ModelProvider {
 	return schemas.Volcengine
 }
 
+func isVolcengineVisionEmbeddingModel(model string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(model)), "doubao-embedding-vision-")
+}
+
 // ListModels performs a list models request to Volcengine's API.
 func (provider *VolcengineProvider) ListModels(ctx *schemas.BifrostContext, keys []schemas.Key, request *schemas.BifrostListModelsRequest) (*schemas.BifrostListModelsResponse, *schemas.BifrostError) {
 	return openai.HandleOpenAIListModelsRequest(
@@ -226,8 +230,8 @@ func (provider *VolcengineProvider) ResponsesStream(ctx *schemas.BifrostContext,
 }
 
 func (provider *VolcengineProvider) Embedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
-	// Route to multimodal endpoint when input contains multimodal data
-	if request.Input != nil && request.Input.IsMultiModal() {
+	// Doubao vision embeddings use the multimodal endpoint even for text-only input.
+	if request != nil && request.Input != nil && (request.Input.IsMultiModal() || (isVolcengineVisionEmbeddingModel(request.Model) && request.Input.Text != nil)) {
 		return provider.multiModalEmbedding(ctx, key, request)
 	}
 	return openai.HandleOpenAIEmbeddingRequest(
@@ -336,14 +340,27 @@ func parseVolcengineInstructionsConfig(params *schemas.EmbeddingParameters) (*vo
 }
 
 func normalizeVolcengineTaskType(taskType string) string {
-	switch strings.ToLower(strings.TrimSpace(taskType)) {
-	case "retrieval", "ranking", "retrieval_ranking", "recall", "rerank", "召回", "排序", "召回排序":
-		return "retrieval_ranking"
-	case "clustering", "classification", "sts", "clustering_classification_sts", "semantic_similarity", "聚类", "分类", "语义文本相似度":
-		return "clustering_classification_sts"
-	default:
+	normalized := strings.ToLower(strings.TrimSpace(taskType))
+	if normalized == "" {
 		return ""
 	}
+	normalized = strings.NewReplacer("/", "_", "-", "_", " ", "_").Replace(normalized)
+
+	switch normalized {
+	case "retrieval", "ranking", "retrieval_ranking", "retrieval_query", "retrieval_document", "recall", "rerank", "召回", "排序", "召回排序":
+		return "retrieval_ranking"
+	case "clustering", "classification", "sts", "clustering_classification_sts", "semantic_similarity", "semantic_text_similarity", "聚类", "分类", "语义文本相似度":
+		return "clustering_classification_sts"
+	}
+
+	if strings.Contains(normalized, "retrieval") || strings.Contains(normalized, "ranking") || strings.Contains(normalized, "recall") || strings.Contains(normalized, "rerank") || strings.Contains(normalized, "query") || strings.Contains(normalized, "document") {
+		return "retrieval_ranking"
+	}
+	if strings.Contains(normalized, "clustering") || strings.Contains(normalized, "classification") || strings.Contains(normalized, "sts") || strings.Contains(normalized, "semantic") || strings.Contains(normalized, "similarity") {
+		return "clustering_classification_sts"
+	}
+
+	return ""
 }
 
 func normalizeVolcengineRole(role string) string {
@@ -583,6 +600,17 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 	nativeReq := volcengineMultiModalEmbeddingRequest{
 		Model: request.Model,
 		Input: request.Input.MultiModalInputs,
+	}
+	if len(nativeReq.Input) == 0 && request.Input.Text != nil {
+		nativeReq.Input = []schemas.MultiModalEmbeddingInput{
+			{
+				Type: schemas.MultiModalEmbeddingText,
+				Text: request.Input.Text,
+			},
+		}
+	}
+	if len(nativeReq.Input) == 0 {
+		return nil, providerUtils.NewBifrostOperationError("volcengine multimodal embedding requires multimodal input or a single text input", nil, provider.GetProviderKey())
 	}
 	if request.Params != nil {
 		nativeReq.Instructions = resolvedInstructions
