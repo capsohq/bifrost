@@ -254,6 +254,9 @@
         "huggingface": {
           "$ref": "#/$defs/provider"
         },
+        "modelark": {
+          "$ref": "#/$defs/provider"
+        },
         "volcengine": {
           "$ref": "#/$defs/provider"
         },
@@ -1151,6 +1154,7 @@
                         "moonshot",
                         "sgl",
                         "huggingface",
+                        "modelark",
                         "volcengine",
                         "qwen"
                       ]

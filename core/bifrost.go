@@ -3457,6 +3457,8 @@ func (bifrost *Bifrost) createBaseProvider(providerKey schemas.ModelProvider, co
 		return moonshot.NewMoonshotProvider(config, bifrost.logger)
 	case schemas.Qwen:
 		return qwen.NewQwenProvider(config, bifrost.logger)
+	case schemas.ModelArk:
+		return volcengine.NewModelArkProvider(config, bifrost.logger)
 	case schemas.Volcengine:
 		return volcengine.NewVolcengineProvider(config, bifrost.logger)
 	default:

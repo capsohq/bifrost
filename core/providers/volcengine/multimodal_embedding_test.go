@@ -34,7 +34,7 @@ func (b *noopLogEventBuilder) Int(key string, val int) schemas.LogEventBuilder  
 func (b *noopLogEventBuilder) Int64(key string, val int64) schemas.LogEventBuilder { return b }
 func (b *noopLogEventBuilder) Send()                                               {}
 
-func newTestVolcengineProvider(baseURL string) *VolcengineProvider {
+func newTestVolcengineCompatibleProvider(baseURL string, providerKey schemas.ModelProvider) *VolcengineProvider {
 	return &VolcengineProvider{
 		logger: &testLogger{},
 		client: &fasthttp.Client{
@@ -44,6 +44,27 @@ func newTestVolcengineProvider(baseURL string) *VolcengineProvider {
 		networkConfig: schemas.NetworkConfig{
 			BaseURL: baseURL,
 		},
+		providerKey: providerKey,
+	}
+}
+
+func newTestVolcengineProvider(baseURL string) *VolcengineProvider {
+	return newTestVolcengineCompatibleProvider(baseURL, schemas.Volcengine)
+}
+
+func TestNewModelArkProvider_Defaults(t *testing.T) {
+	t.Parallel()
+
+	provider, err := NewModelArkProvider(&schemas.ProviderConfig{}, &testLogger{})
+	if err != nil {
+		t.Fatalf("NewModelArkProvider returned error: %v", err)
+	}
+
+	if provider.GetProviderKey() != schemas.ModelArk {
+		t.Fatalf("expected provider key %s, got %s", schemas.ModelArk, provider.GetProviderKey())
+	}
+	if provider.networkConfig.BaseURL != "https://ark.ap-southeast.bytepluses.com/api/v3" {
+		t.Fatalf("unexpected default base URL: %s", provider.networkConfig.BaseURL)
 	}
 }
 
@@ -221,6 +242,50 @@ func TestMultiModalEmbedding_VideoInput(t *testing.T) {
 	// Usage should be nil when not returned
 	if resp.Usage != nil {
 		t.Fatalf("expected nil usage when not in response, got %v", resp.Usage)
+	}
+}
+
+func TestMultiModalEmbedding_ModelArkMetadata(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/embeddings/multimodal" {
+			t.Errorf("expected path /embeddings/multimodal, got %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{
+			"data": {"embedding": [0.5, 0.6], "object": "embedding"},
+			"model": "doubao-embedding-vision-251215",
+			"object": "list",
+			"usage": {"prompt_tokens": 2, "total_tokens": 2}
+		}`)
+	}))
+	defer server.Close()
+
+	provider := newTestVolcengineCompatibleProvider(server.URL, schemas.ModelArk)
+	text := "hello"
+	instructions := "Target_modality: text.\nInstruction:Retrieve semantically similar text\nQuery:"
+	request := &schemas.BifrostEmbeddingRequest{
+		Provider: schemas.ModelArk,
+		Model:    "doubao-embedding-vision-251215",
+		Input: &schemas.EmbeddingInput{
+			MultiModalInputs: []schemas.MultiModalEmbeddingInput{
+				{Type: schemas.MultiModalEmbeddingText, Text: &text},
+			},
+		},
+		Params: &schemas.EmbeddingParameters{
+			Instructions: &instructions,
+		},
+	}
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{}, request)
+	if bifrostErr != nil {
+		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
+	}
+
+	if resp.ExtraFields.Provider != schemas.ModelArk {
+		t.Fatalf("expected provider %s, got %s", schemas.ModelArk, resp.ExtraFields.Provider)
 	}
 }
 

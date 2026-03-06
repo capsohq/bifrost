@@ -121,6 +121,7 @@
                   "providers/supported-providers/huggingface",
                   "providers/supported-providers/minimax",
                   "providers/supported-providers/mistral",
+                  "providers/supported-providers/modelark",
                   "providers/supported-providers/moonshot",
                   "providers/supported-providers/nebius",
                   "providers/supported-providers/ollama",

@@ -1388,6 +1388,15 @@ export const ProviderIcons = {
 			</svg>
 		);
 	},
+	modelark: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+		return (
+			<svg fill="currentColor" height={resolvedSize} style={{ flex: "none", lineHeight: "1" }} viewBox="0 0 24 24" width={resolvedSize} xmlns="http://www.w3.org/2000/svg" className={className}>
+				<title>ModelArk</title>
+				<path d="M12 2l5 7-2 13H9L7 9l5-7zm0 6L9.5 12h5L12 8z" />
+			</svg>
+		);
+	},
 	volcengine: ({ size = "md", className = "" }: IconProps) => {
 		const resolvedSize = resolveSize(size);
 		return (

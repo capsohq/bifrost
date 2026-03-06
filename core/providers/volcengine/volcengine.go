@@ -37,12 +37,23 @@ type VolcengineProvider struct {
 	networkConfig       schemas.NetworkConfig // Network configuration including extra headers
 	sendBackRawRequest  bool                  // Whether to include raw request in BifrostResponse
 	sendBackRawResponse bool                  // Whether to include raw response in BifrostResponse
+	providerKey         schemas.ModelProvider // Provider identifier for error/response metadata
 }
 
 // NewVolcengineProvider creates a new Volcengine provider instance.
 // It initializes the HTTP client with the provided configuration and sets up response pools.
 // The client is configured with timeouts, concurrency limits, and optional proxy settings.
 func NewVolcengineProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*VolcengineProvider, error) {
+	return newVolcengineCompatibleProvider(config, logger, schemas.Volcengine, "https://ark.cn-beijing.volces.com/api/v3")
+}
+
+// NewModelArkProvider creates a new ModelArk provider instance.
+// ModelArk uses the BytePlus-hosted international ARK endpoint but otherwise shares Volcengine behavior.
+func NewModelArkProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*VolcengineProvider, error) {
+	return newVolcengineCompatibleProvider(config, logger, schemas.ModelArk, "https://ark.ap-southeast.bytepluses.com/api/v3")
+}
+
+func newVolcengineCompatibleProvider(config *schemas.ProviderConfig, logger schemas.Logger, providerKey schemas.ModelProvider, defaultBaseURL string) (*VolcengineProvider, error) {
 	config.CheckAndSetDefaults()
 
 	client := &fasthttp.Client{
@@ -57,7 +68,7 @@ func NewVolcengineProvider(config *schemas.ProviderConfig, logger schemas.Logger
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
 	client = providerUtils.ConfigureDialer(client)
 	if config.NetworkConfig.BaseURL == "" {
-		config.NetworkConfig.BaseURL = "https://ark.cn-beijing.volces.com/api/v3"
+		config.NetworkConfig.BaseURL = defaultBaseURL
 	}
 	config.NetworkConfig.BaseURL = strings.TrimRight(config.NetworkConfig.BaseURL, "/")
 
@@ -67,12 +78,13 @@ func NewVolcengineProvider(config *schemas.ProviderConfig, logger schemas.Logger
 		networkConfig:       config.NetworkConfig,
 		sendBackRawRequest:  config.SendBackRawRequest,
 		sendBackRawResponse: config.SendBackRawResponse,
+		providerKey:         providerKey,
 	}, nil
 }
 
 // GetProviderKey returns the provider identifier for Volcengine.
 func (provider *VolcengineProvider) GetProviderKey() schemas.ModelProvider {
-	return schemas.Volcengine
+	return provider.providerKey
 }
 
 func isVolcengineVisionEmbeddingModel(model string) bool {
@@ -88,7 +100,7 @@ func (provider *VolcengineProvider) ListModels(ctx *schemas.BifrostContext, keys
 		provider.networkConfig.BaseURL+providerUtils.GetPathFromContext(ctx, volcenginePathModels),
 		keys,
 		provider.networkConfig.ExtraHeaders,
-		schemas.Volcengine,
+		provider.GetProviderKey(),
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
 		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
 	)
@@ -175,7 +187,7 @@ func (provider *VolcengineProvider) ChatCompletionStream(ctx *schemas.BifrostCon
 		provider.networkConfig.ExtraHeaders,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
 		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
-		schemas.Volcengine,
+		provider.GetProviderKey(),
 		postHookRunner,
 		nil,
 		nil,
@@ -497,7 +509,7 @@ func isTextOnlyMultiModalInputs(inputs []schemas.MultiModalEmbeddingInput) bool 
 	return true
 }
 
-func resolveAndValidateVolcengineInstructions(request *schemas.BifrostEmbeddingRequest) (*string, bool, *schemas.BifrostError) {
+func resolveAndValidateVolcengineInstructions(providerKey schemas.ModelProvider, request *schemas.BifrostEmbeddingRequest) (*string, bool, *schemas.BifrostError) {
 	var params *schemas.EmbeddingParameters
 	if request != nil {
 		params = request.Params
@@ -510,7 +522,7 @@ func resolveAndValidateVolcengineInstructions(request *schemas.BifrostEmbeddingR
 
 	config, err := parseVolcengineInstructionsConfig(params)
 	if err != nil {
-		return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, schemas.Volcengine)
+		return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, providerKey)
 	}
 
 	shouldValidateTemplate := false
@@ -521,7 +533,7 @@ func resolveAndValidateVolcengineInstructions(request *schemas.BifrostEmbeddingR
 	if (instructions == nil || strings.TrimSpace(*instructions) == "") && config != nil {
 		generated, genErr := buildVolcengineInstructionsFromConfig(config)
 		if genErr != nil {
-			return nil, false, providerUtils.NewBifrostOperationError(genErr.Error(), genErr, schemas.Volcengine)
+			return nil, false, providerUtils.NewBifrostOperationError(genErr.Error(), genErr, providerKey)
 		}
 		instructions = &generated
 		shouldValidateTemplate = true
@@ -534,25 +546,25 @@ func resolveAndValidateVolcengineInstructions(request *schemas.BifrostEmbeddingR
 		return nil, false, providerUtils.NewBifrostOperationError(
 			fmt.Sprintf("instructions are supported only for doubao-embedding-vision-%d and later models", volcengineVisionVersionInstructionsSupported),
 			nil,
-			schemas.Volcengine,
+			providerKey,
 		)
 	}
 	if hasModelVersion && modelVersion >= volcengineVisionVersionInstructionsSupported && !hasInstructions {
-		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao-embedding-vision-251215 and later models", nil, schemas.Volcengine)
+		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao-embedding-vision-251215 and later models", nil, providerKey)
 	}
 	if hasInstructions && isDisallowedDefaultInstruction(*instructions) {
-		return nil, false, providerUtils.NewBifrostOperationError("instructions must be customized for your business scenario; default instruction is not allowed", nil, schemas.Volcengine)
+		return nil, false, providerUtils.NewBifrostOperationError("instructions must be customized for your business scenario; default instruction is not allowed", nil, providerKey)
 	}
 	if hasInstructions && shouldValidateTemplate {
 		if err := validateVolcengineInstructionTemplate(*instructions); err != nil {
-			return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, schemas.Volcengine)
+			return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, providerKey)
 		}
 	}
 
 	return instructions, shouldValidateTemplate, nil
 }
 
-func validateVolcengineSparseEmbeddingConstraints(request *schemas.BifrostEmbeddingRequest, sparseEmbedding map[string]interface{}) *schemas.BifrostError {
+func validateVolcengineSparseEmbeddingConstraints(providerKey schemas.ModelProvider, request *schemas.BifrostEmbeddingRequest, sparseEmbedding map[string]interface{}) *schemas.BifrostError {
 	if !isSparseEmbeddingEnabled(sparseEmbedding) {
 		return nil
 	}
@@ -562,12 +574,12 @@ func validateVolcengineSparseEmbeddingConstraints(request *schemas.BifrostEmbedd
 		return providerUtils.NewBifrostOperationError(
 			fmt.Sprintf("sparse_embedding is supported only for doubao-embedding-vision-%d and later models", volcengineVisionVersionSparseSupported),
 			nil,
-			schemas.Volcengine,
+			providerKey,
 		)
 	}
 
 	if request.Input == nil || !isTextOnlyMultiModalInputs(request.Input.MultiModalInputs) {
-		return providerUtils.NewBifrostOperationError("sparse_embedding supports text-only multimodal input", nil, schemas.Volcengine)
+		return providerUtils.NewBifrostOperationError("sparse_embedding supports text-only multimodal input", nil, providerKey)
 	}
 
 	return nil
@@ -578,7 +590,7 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		return nil, providerUtils.NewBifrostOperationError("invalid request: multimodal embedding input is required", nil, provider.GetProviderKey())
 	}
 
-	resolvedInstructions, _, bifrostErr := resolveAndValidateVolcengineInstructions(request)
+	resolvedInstructions, _, bifrostErr := resolveAndValidateVolcengineInstructions(provider.GetProviderKey(), request)
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -618,7 +630,7 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		nativeReq.Dimensions = request.Params.Dimensions
 		nativeReq.SparseEmbedding = request.Params.SparseEmbedding
 	}
-	if bifrostErr := validateVolcengineSparseEmbeddingConstraints(request, nativeReq.SparseEmbedding); bifrostErr != nil {
+	if bifrostErr := validateVolcengineSparseEmbeddingConstraints(provider.GetProviderKey(), request, nativeReq.SparseEmbedding); bifrostErr != nil {
 		return nil, bifrostErr
 	}
 

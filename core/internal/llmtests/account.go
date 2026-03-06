@@ -160,6 +160,7 @@ func (account *ComprehensiveTestAccount) GetConfiguredProviders() ([]schemas.Mod
 		schemas.XAI,
 		schemas.Replicate,
 		schemas.VLLM,
+		schemas.ModelArk,
 		schemas.Volcengine,
 		schemas.Runway,
 		ProviderOpenAICustom,
@@ -502,6 +503,15 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.VOLCENGINE_API_KEY"),
+				Models:         []string{},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
+	case schemas.ModelArk:
+		return []schemas.Key{
+			{
+				Value:          *schemas.NewEnvVar("env.MODELARK_API_KEY"),
 				Models:         []string{},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
@@ -905,6 +915,20 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
 				BaseURL:                        getEnvWithDefault("VOLCENGINE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
+				DefaultRequestTimeoutInSeconds: 300,
+				MaxRetries:                     10,
+				RetryBackoffInitial:            1 * time.Second,
+				RetryBackoffMax:                12 * time.Second,
+			},
+			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
+				Concurrency: Concurrency,
+				BufferSize:  10,
+			},
+		}, nil
+	case schemas.ModelArk:
+		return &schemas.ProviderConfig{
+			NetworkConfig: schemas.NetworkConfig{
+				BaseURL:                        getEnvWithDefault("MODELARK_BASE_URL", "https://ark.ap-southeast.bytepluses.com/api/v3"),
 				DefaultRequestTimeoutInSeconds: 300,
 				MaxRetries:                     10,
 				RetryBackoffInitial:            1 * time.Second,

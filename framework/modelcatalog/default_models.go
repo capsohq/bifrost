@@ -62,6 +62,16 @@ var defaultProviderModels = map[schemas.ModelProvider][]string{
 		"glm-4-7-251222",
 		"kimi-k2-thinking-251104",
 	},
+	schemas.ModelArk: {
+		"doubao-embedding",
+		"doubao-embedding-text-240715",
+		"doubao-embedding-large",
+		"doubao-embedding-large-text-240915",
+		"doubao-embedding-large-text-250515",
+		"deepseek-v3-2-251201",
+		"glm-4-7-251222",
+		"kimi-k2-thinking-251104",
+	},
 	schemas.Qwen: {
 		"qwen-plus-latest",
 		"qwen-plus",

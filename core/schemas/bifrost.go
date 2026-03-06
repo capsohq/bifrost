@@ -61,6 +61,7 @@ const (
 	Runway      ModelProvider = "runway"
 	Minimax     ModelProvider = "minimax"
 	Moonshot    ModelProvider = "moonshot"
+	ModelArk    ModelProvider = "modelark"
 	Volcengine  ModelProvider = "volcengine"
 )
 
@@ -89,6 +90,7 @@ var StandardProviders = []ModelProvider{
 	Mistral,
 	Minimax,
 	Moonshot,
+	ModelArk,
 	Ollama,
 	OpenAI,
 	Parasail,
@@ -96,6 +98,7 @@ var StandardProviders = []ModelProvider{
 	Qwen,
 	SGL,
 	Vertex,
+	ModelArk,
 	Volcengine,
 	OpenRouter,
 	Elevenlabs,
@@ -223,9 +226,9 @@ const (
 	BifrostContextKeySCIMClaims                          BifrostContextKey = "scim_claims"
 	BifrostContextKeyUserID                              BifrostContextKey = "user_id"
 	BifrostContextKeyTargetUserID                        BifrostContextKey = "target_user_id"
-	BifrostContextKeyIsAzureUserAgent                    BifrostContextKey = "bifrost-is-azure-user-agent"     // bool (set by bifrost - DO NOT SET THIS MANUALLY)) - whether the request is an Azure user agent (only used in gateway)
+	BifrostContextKeyIsAzureUserAgent                    BifrostContextKey = "bifrost-is-azure-user-agent" // bool (set by bifrost - DO NOT SET THIS MANUALLY)) - whether the request is an Azure user agent (only used in gateway)
 	BifrostContextKeyVideoOutputRequested                BifrostContextKey = "bifrost-video-output-requested"
-	BifrostContextKeyValidateKeys                        BifrostContextKey = "bifrost-validate-keys"           // bool (triggers additional key validation during provider add/update)
+	BifrostContextKeyValidateKeys                        BifrostContextKey = "bifrost-validate-keys"             // bool (triggers additional key validation during provider add/update)
 	BifrostContextKeyProviderResponseHeaders             BifrostContextKey = "bifrost-provider-response-headers" // map[string]string (set by provider handlers for response header forwarding)
 )
 
@@ -903,4 +906,3 @@ type BifrostErrorExtraFields struct {
 	LiteLLMCompat  bool          `json:"litellm_compat,omitempty"`
 	KeyStatuses    []KeyStatus   `json:"key_statuses,omitempty"`
 }
-
