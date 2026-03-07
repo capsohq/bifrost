@@ -329,6 +329,65 @@ func TestMultiModalEmbedding_FallsBackToTextEmbedding(t *testing.T) {
 	}
 }
 
+func TestMultiModalEmbedding_ModelArkTextOnlyVisionUsesMultimodalEndpoint(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/embeddings/multimodal" {
+			t.Errorf("expected path /embeddings/multimodal for skylark vision text input, got %s", r.URL.Path)
+		}
+
+		var requestBody struct {
+			Model string `json:"model"`
+			Input []struct {
+				Type string  `json:"type"`
+				Text *string `json:"text,omitempty"`
+			} `json:"input"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		if requestBody.Model != "skylark-embedding-vision-251215" {
+			t.Fatalf("expected model skylark-embedding-vision-251215, got %s", requestBody.Model)
+		}
+		if len(requestBody.Input) != 1 || requestBody.Input[0].Type != string(schemas.MultiModalEmbeddingText) {
+			t.Fatalf("expected one typed text multimodal input, got %+v", requestBody.Input)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{
+			"data": {"embedding": [0.1, 0.2], "object": "embedding"},
+			"model": "skylark-embedding-vision-251215",
+			"object": "list",
+			"usage": {"prompt_tokens": 2, "total_tokens": 2}
+		}`)
+	}))
+	defer server.Close()
+
+	provider := newTestVolcengineCompatibleProvider(server.URL, schemas.ModelArk)
+	text := "hello world"
+	instructions := "Target_modality: text.\nInstruction:Retrieve semantically similar text\nQuery:"
+	request := &schemas.BifrostEmbeddingRequest{
+		Provider: schemas.ModelArk,
+		Model:    "skylark-embedding-vision-251215",
+		Input: &schemas.EmbeddingInput{
+			Text: &text,
+		},
+		Params: &schemas.EmbeddingParameters{
+			Instructions: &instructions,
+		},
+	}
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "test-key"}}, request)
+	if bifrostErr != nil {
+		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
+	}
+	if resp.ExtraFields.Provider != schemas.ModelArk {
+		t.Fatalf("expected provider %s, got %s", schemas.ModelArk, resp.ExtraFields.Provider)
+	}
+}
+
 func TestMultiModalEmbedding_ServerError(t *testing.T) {
 	t.Parallel()
 

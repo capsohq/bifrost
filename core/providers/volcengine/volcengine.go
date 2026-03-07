@@ -87,8 +87,19 @@ func (provider *VolcengineProvider) GetProviderKey() schemas.ModelProvider {
 	return provider.providerKey
 }
 
+var volcengineVisionEmbeddingModelPrefixes = []string{
+	"doubao-embedding-vision-",
+	"skylark-embedding-vision-",
+}
+
 func isVolcengineVisionEmbeddingModel(model string) bool {
-	return strings.Contains(strings.ToLower(strings.TrimSpace(model)), "doubao-embedding-vision-")
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	for _, prefix := range volcengineVisionEmbeddingModelPrefixes {
+		if strings.Contains(normalized, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // ListModels performs a list models request to Volcengine's API.
@@ -310,26 +321,29 @@ type volcengineInstructionsConfig struct {
 }
 
 func parseVolcengineVisionModelDate(model string) (int, bool) {
-	const prefix = "doubao-embedding-vision-"
-	idx := strings.Index(model, prefix)
-	if idx < 0 {
-		return 0, false
-	}
-	verPart := model[idx+len(prefix):]
-	if len(verPart) < 6 {
-		return 0, false
-	}
-	verPart = verPart[:6]
-	for _, r := range verPart {
-		if r < '0' || r > '9' {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	for _, prefix := range volcengineVisionEmbeddingModelPrefixes {
+		idx := strings.Index(normalized, prefix)
+		if idx < 0 {
+			continue
+		}
+		verPart := normalized[idx+len(prefix):]
+		if len(verPart) < 6 {
 			return 0, false
 		}
+		verPart = verPart[:6]
+		for _, r := range verPart {
+			if r < '0' || r > '9' {
+				return 0, false
+			}
+		}
+		version, err := strconv.Atoi(verPart)
+		if err != nil {
+			return 0, false
+		}
+		return version, true
 	}
-	version, err := strconv.Atoi(verPart)
-	if err != nil {
-		return 0, false
-	}
-	return version, true
+	return 0, false
 }
 
 func parseVolcengineInstructionsConfig(params *schemas.EmbeddingParameters) (*volcengineInstructionsConfig, error) {
@@ -544,13 +558,13 @@ func resolveAndValidateVolcengineInstructions(providerKey schemas.ModelProvider,
 
 	if hasModelVersion && hasInstructions && modelVersion < volcengineVisionVersionInstructionsSupported {
 		return nil, false, providerUtils.NewBifrostOperationError(
-			fmt.Sprintf("instructions are supported only for doubao-embedding-vision-%d and later models", volcengineVisionVersionInstructionsSupported),
+			fmt.Sprintf("instructions are supported only for doubao/skylark-embedding-vision-%d and later models", volcengineVisionVersionInstructionsSupported),
 			nil,
 			providerKey,
 		)
 	}
 	if hasModelVersion && modelVersion >= volcengineVisionVersionInstructionsSupported && !hasInstructions {
-		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao-embedding-vision-251215 and later models", nil, providerKey)
+		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao/skylark-embedding-vision-251215 and later models", nil, providerKey)
 	}
 	if hasInstructions && isDisallowedDefaultInstruction(*instructions) {
 		return nil, false, providerUtils.NewBifrostOperationError("instructions must be customized for your business scenario; default instruction is not allowed", nil, providerKey)
@@ -572,7 +586,7 @@ func validateVolcengineSparseEmbeddingConstraints(providerKey schemas.ModelProvi
 	modelVersion, hasModelVersion := parseVolcengineVisionModelDate(request.Model)
 	if hasModelVersion && modelVersion < volcengineVisionVersionSparseSupported {
 		return providerUtils.NewBifrostOperationError(
-			fmt.Sprintf("sparse_embedding is supported only for doubao-embedding-vision-%d and later models", volcengineVisionVersionSparseSupported),
+			fmt.Sprintf("sparse_embedding is supported only for doubao/skylark-embedding-vision-%d and later models", volcengineVisionVersionSparseSupported),
 			nil,
 			providerKey,
 		)
