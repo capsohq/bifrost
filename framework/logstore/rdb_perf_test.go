@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 type testLogger struct{}

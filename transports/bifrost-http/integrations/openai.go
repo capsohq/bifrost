@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bytedance/sonic"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/providers/openai"
 	"github.com/capsohq/bifrost/core/schemas"
@@ -147,7 +148,6 @@ func openAILargePayloadPreHook(_ *fasthttp.RequestCtx, bifrostCtx *schemas.Bifro
 func AzureEndpointPreHook(handlerStore lib.HandlerStore) func(ctx *fasthttp.RequestCtx, bifrostCtx *schemas.BifrostContext, req interface{}) error {
 	return func(ctx *fasthttp.RequestCtx, bifrostCtx *schemas.BifrostContext, req interface{}) error {
 		hydrateOpenAIRequestFromLargePayloadMetadata(bifrostCtx, req)
-
 
 		azureKey := ctx.Request.Header.Peek("authorization")
 		deploymentEndpoint := ctx.Request.Header.Peek("x-bf-azure-endpoint")
@@ -538,7 +538,7 @@ func CreateOpenAIRouteConfigs(pathPrefix string, handlerStore lib.HandlerStore) 
 			GetHTTPRequestType: func(ctx *fasthttp.RequestCtx) schemas.RequestType {
 				return schemas.ChatCompletionRequest
 			},
-			GetRequestTypeInstance: func(ctx context.Context) interface{} {				
+			GetRequestTypeInstance: func(ctx context.Context) interface{} {
 				return &openai.OpenAIChatRequest{}
 			},
 			RequestConverter: func(ctx *schemas.BifrostContext, req interface{}) (*schemas.BifrostRequest, error) {
@@ -3293,4 +3293,3 @@ func parseContainerFileCreateMultipartRequest(ctx *fasthttp.RequestCtx, req inte
 
 	return nil
 }
-

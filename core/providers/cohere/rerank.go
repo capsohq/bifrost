@@ -3,6 +3,7 @@ package cohere
 import (
 	"sort"
 
+	"github.com/bytedance/sonic"
 	"github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 	"gopkg.in/yaml.v3"

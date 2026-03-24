@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/capsohq/bifrost/cli/internal/ui/logo"
 	textInput "github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/maximhq/bifrost/cli/internal/ui/logo"
 )
 
-const issuesURL = "https://github.com/maximhq/bifrost/issues/new"
-const repoURL = "https://github.com/maximhq/bifrost"
+const issuesURL = "https://github.com/capsohq/bifrost/issues/new"
+const repoURL = "https://github.com/capsohq/bifrost"
 const docsURL = "https://docs.getbifrost.ai/quickstart/cli/getting-started"
 
 // HarnessOption represents a selectable coding harness (e.g. Claude Code, Codex)
@@ -44,9 +44,9 @@ type ChooserConfig struct {
 	Model         string
 	Worktree      string
 	Harnesses     []HarnessOption
-	AfterSession  bool // true when returning from a harness session; blocks input until ready
-	ReservedRows  int              // rows reserved by the tab bar; subtracted from the available height
-	TabBarLine    func() string    // returns the current tab bar content; rendered as the last line
+	AfterSession  bool          // true when returning from a harness session; blocks input until ready
+	ReservedRows  int           // rows reserved by the tab bar; subtracted from the available height
+	TabBarLine    func() string // returns the current tab bar content; rendered as the last line
 	FetchModels   func(ctx context.Context, baseURL, virtualKey string) ([]string, error)
 	Notify        func(message string, isError bool)
 	Input         io.Reader // optional stdin override; when nil, os.Stdin is used

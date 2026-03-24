@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/anthropic"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -211,8 +211,8 @@ func TestProviderToolValidation(t *testing.T) {
 			name:     "Vertex/mixed_supported_and_unsupported",
 			provider: schemas.Vertex,
 			tools: []schemas.ResponsesTool{
-				{Type: schemas.ResponsesToolTypeWebSearch},   // allowed
-				{Type: schemas.ResponsesToolTypeFunction},    // allowed
+				{Type: schemas.ResponsesToolTypeWebSearch},       // allowed
+				{Type: schemas.ResponsesToolTypeFunction},        // allowed
 				{Type: schemas.ResponsesToolTypeCodeInterpreter}, // rejected
 			},
 			expectErr: true,
@@ -698,15 +698,15 @@ func TestProviderAnthropicRequestPipeline(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                    string
-		provider                schemas.ModelProvider
-		model                   string
-		tools                   []schemas.ResponsesTool
-		expectConversionErr     bool
-		errSubstr               string
-		expectedWebSearchType   string // expected web_search tool type after conversion
-		expectedBetaHeaders     []string
-		unexpectedBetaHeaders   []string
+		name                  string
+		provider              schemas.ModelProvider
+		model                 string
+		tools                 []schemas.ResponsesTool
+		expectConversionErr   bool
+		errSubstr             string
+		expectedWebSearchType string // expected web_search tool type after conversion
+		expectedBetaHeaders   []string
+		unexpectedBetaHeaders []string
 	}{
 		// ── Vertex: web_search with filters → basic version, no dynamic headers ──
 		{

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	ws "github.com/fasthttp/websocket"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // UpstreamConn wraps a WebSocket connection to an upstream provider.

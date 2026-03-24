@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"gorm.io/gorm"
 )
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore"
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"

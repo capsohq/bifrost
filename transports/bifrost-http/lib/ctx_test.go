@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/valyala/fasthttp"
 )
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // PoolKey uniquely identifies a group of upstream connections.

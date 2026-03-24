@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	ws "github.com/fasthttp/websocket"
-	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

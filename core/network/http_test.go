@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/valyala/fasthttp"
 )
 
@@ -404,7 +404,7 @@ func TestMaxConnWaitTimeoutAlignedWithReadTimeout(t *testing.T) {
 	defer server.Close()
 
 	client := &fasthttp.Client{
-		MaxConnsPerHost:    1,              // Only 1 connection allowed — second request must wait
+		MaxConnsPerHost:    1,               // Only 1 connection allowed — second request must wait
 		MaxConnWaitTimeout: 2 * time.Second, // Wait up to 2s for a free connection slot
 		ReadTimeout:        5 * time.Second,
 		WriteTimeout:       5 * time.Second,

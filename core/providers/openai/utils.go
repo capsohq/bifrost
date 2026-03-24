@@ -1,6 +1,10 @@
 package openai
 
-import "github.com/capsohq/bifrost/core/schemas"
+import (
+	"strings"
+
+	"github.com/capsohq/bifrost/core/schemas"
+)
 
 // CustomResponseHandler is a function that produces a Bifrost response from a Bifrost request.
 // T is the concrete Bifrost response type (e.g. BifrostEmbeddingResponse, BifrostTextCompletionResponse, BifrostChatResponse, BifrostResponsesResponse, BifrostImageGenerationResponse, BifrostTranscriptionResponse).

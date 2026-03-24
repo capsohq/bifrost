@@ -12,7 +12,6 @@ import (
 
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/schemas"
-	"github.com/stretchr/testify/require"
 )
 
 // StreamingToolCallAccumulator accumulates tool call fragments from streaming responses

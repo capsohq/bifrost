@@ -1,6 +1,11 @@
 package cohere
 
-import "github.com/capsohq/bifrost/core/schemas"
+import (
+	"encoding/json"
+
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/tidwall/sjson"
+)
 
 var (
 	// Maps provider-specific finish reasons to Bifrost format

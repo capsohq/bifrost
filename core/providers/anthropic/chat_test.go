@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 func TestToAnthropicChatRequest_PreservesPropertyOrder(t *testing.T) {

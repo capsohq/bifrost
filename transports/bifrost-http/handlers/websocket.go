@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/logstore"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"

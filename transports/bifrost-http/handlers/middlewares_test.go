@@ -2,17 +2,19 @@ package handlers
 
 import (
 	"bytes"
-	"compress/zlib"
 	"compress/gzip"
+	"compress/zlib"
 	cryptoRand "crypto/rand"
 	"encoding/json"
 	"io"
 	"strings"
 	"testing"
 
+	"github.com/andybalholm/brotli"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/klauspost/compress/zstd"
 	"github.com/valyala/fasthttp"
 )
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )
 
@@ -78,7 +79,7 @@ var ProviderFeatures = map[schemas.ModelProvider]ProviderFeatureSupport{
 		Compaction: true, ContextEditing: true, FilesAPI: true,
 	},
 	schemas.Vertex: {
-		WebSearch: true, // only web_search_20250305 (basic), NOT dynamic filtering
+		WebSearch:   true, // only web_search_20250305 (basic), NOT dynamic filtering
 		ComputerUse: true, Bash: true, Memory: true, TextEditor: true, ToolSearch: true,
 		Compaction: true, ContextEditing: true,
 	},
@@ -126,7 +127,7 @@ func (req *AnthropicTextRequest) IsStreamingRequested() bool {
 // and the effort parameter (output_config.effort) for controlling token spending.
 type AnthropicOutputConfig struct {
 	Format json.RawMessage `json:"format,omitempty"`
-	Effort *string     `json:"effort,omitempty"` // "low", "medium", "high", "max" (Opus 4.5+)
+	Effort *string         `json:"effort,omitempty"` // "low", "medium", "high", "max" (Opus 4.5+)
 }
 
 // AnthropicMessageRequest represents an Anthropic messages API request
@@ -829,24 +830,24 @@ const (
 	AnthropicToolTypeMemory20250818 AnthropicToolType = "memory_20250818"
 
 	// Tool search (client-side, for defer_loading)
-	AnthropicToolTypeToolSearchBM25            AnthropicToolType = "tool_search_tool_bm25"
-	AnthropicToolTypeToolSearchBM2520251119    AnthropicToolType = "tool_search_tool_bm25_20251119"
-	AnthropicToolTypeToolSearchRegex           AnthropicToolType = "tool_search_tool_regex"
-	AnthropicToolTypeToolSearchRegex20251119   AnthropicToolType = "tool_search_tool_regex_20251119"
+	AnthropicToolTypeToolSearchBM25          AnthropicToolType = "tool_search_tool_bm25"
+	AnthropicToolTypeToolSearchBM2520251119  AnthropicToolType = "tool_search_tool_bm25_20251119"
+	AnthropicToolTypeToolSearchRegex         AnthropicToolType = "tool_search_tool_regex"
+	AnthropicToolTypeToolSearchRegex20251119 AnthropicToolType = "tool_search_tool_regex_20251119"
 )
 
 type AnthropicToolName string
 
 const (
-	AnthropicToolNameComputer            AnthropicToolName = "computer"
-	AnthropicToolNameWebSearch           AnthropicToolName = "web_search"
-	AnthropicToolNameWebFetch            AnthropicToolName = "web_fetch"
-	AnthropicToolNameBash                AnthropicToolName = "bash"
-	AnthropicToolNameTextEditor          AnthropicToolName = "str_replace_based_edit_tool"
-	AnthropicToolNameCodeExecution       AnthropicToolName = "code_execution"
-	AnthropicToolNameMemory              AnthropicToolName = "memory"
-	AnthropicToolNameToolSearchBM25      AnthropicToolName = "tool_search_tool_bm25"
-	AnthropicToolNameToolSearchRegex     AnthropicToolName = "tool_search_tool_regex"
+	AnthropicToolNameComputer        AnthropicToolName = "computer"
+	AnthropicToolNameWebSearch       AnthropicToolName = "web_search"
+	AnthropicToolNameWebFetch        AnthropicToolName = "web_fetch"
+	AnthropicToolNameBash            AnthropicToolName = "bash"
+	AnthropicToolNameTextEditor      AnthropicToolName = "str_replace_based_edit_tool"
+	AnthropicToolNameCodeExecution   AnthropicToolName = "code_execution"
+	AnthropicToolNameMemory          AnthropicToolName = "memory"
+	AnthropicToolNameToolSearchBM25  AnthropicToolName = "tool_search_tool_bm25"
+	AnthropicToolNameToolSearchRegex AnthropicToolName = "tool_search_tool_regex"
 )
 
 type AnthropicToolComputerUse struct {
@@ -881,7 +882,7 @@ type AnthropicToolWebFetch struct {
 // AnthropicToolInputExample represents an input example for a tool (beta feature)
 type AnthropicToolInputExample struct {
 	Input       json.RawMessage `json:"input"`
-	Description *string `json:"description,omitempty"`
+	Description *string         `json:"description,omitempty"`
 }
 
 // AnthropicTool represents a tool in Anthropic format

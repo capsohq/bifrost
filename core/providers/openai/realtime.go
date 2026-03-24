@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // SupportsRealtimeAPI returns true since OpenAI natively supports the Realtime API.

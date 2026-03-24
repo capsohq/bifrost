@@ -20,12 +20,14 @@ import (
 
 	"github.com/bytedance/sonic"
 	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/mcp"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework"
 	"github.com/capsohq/bifrost/framework/configstore"
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/framework/encrypt"
 	"github.com/capsohq/bifrost/framework/envutils"
+	"github.com/capsohq/bifrost/framework/kvstore"
 	"github.com/capsohq/bifrost/framework/logstore"
 	"github.com/capsohq/bifrost/framework/mcpcatalog"
 	"github.com/capsohq/bifrost/framework/modelcatalog"
@@ -1924,7 +1926,7 @@ func buildMCPPricingDataFromConfig(ctx context.Context, configData *ConfigData) 
 }
 
 // initFrameworkConfigFromFile initializes framework config and pricing manager from file
-func initFrameworkConfigFromFile(ctx context.Context, config *Config, configData *ConfigData) {
+func initFrameworkConfig(ctx context.Context, config *Config, configData *ConfigData) {
 	pricingConfig := &modelcatalog.Config{}
 	mcpPricingConfig := &mcpcatalog.Config{}
 	if config.ConfigStore != nil {

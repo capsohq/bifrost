@@ -3,8 +3,8 @@ package modelcatalog
 import (
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

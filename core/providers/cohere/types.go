@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bytedance/sonic"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )
 
@@ -420,8 +421,8 @@ type CohereCitation struct {
 type CohereSource struct {
 	Type       CohereSourceType `json:"type"`                  // Source type ("tool" or "document")
 	ID         *string          `json:"id,omitempty"`          // Source ID (nullable)
-	ToolOutput *json.RawMessage  `json:"tool_output,omitempty"` // Tool output (for tool sources, json.RawMessage preserves key ordering)
-	Document   *json.RawMessage  `json:"document,omitempty"`    // Document data (for document sources, json.RawMessage preserves key ordering)
+	ToolOutput *json.RawMessage `json:"tool_output,omitempty"` // Tool output (for tool sources, json.RawMessage preserves key ordering)
+	Document   *json.RawMessage `json:"document,omitempty"`    // Document data (for document sources, json.RawMessage preserves key ordering)
 }
 
 // ==================== STREAMING TYPES ====================

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
 	ws "github.com/fasthttp/websocket"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
 // RunWebSocketResponsesTest dials the provider's native WebSocket Responses endpoint,

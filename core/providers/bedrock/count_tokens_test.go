@@ -3,7 +3,7 @@ package bedrock
 import (
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 )
 

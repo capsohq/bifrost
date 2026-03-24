@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bytedance/sonic"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )

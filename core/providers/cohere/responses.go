@@ -9,6 +9,7 @@ import (
 	"github.com/capsohq/bifrost/core/providers/anthropic"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/tidwall/gjson"
 )
 
 // CohereResponsesStreamState tracks state during streaming conversion for responses API

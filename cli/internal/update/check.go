@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maximhq/bifrost/cli/internal/config"
+	"github.com/capsohq/bifrost/cli/internal/config"
 )
 
 const (

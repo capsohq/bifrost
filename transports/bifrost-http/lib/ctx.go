@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/capsohq/bifrost/core/schemas"
-	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/plugins/governance"
 	"github.com/capsohq/bifrost/plugins/maxim"
 	"github.com/capsohq/bifrost/plugins/semanticcache"
@@ -153,8 +152,8 @@ func ConvertToBifrostContext(ctx *fasthttp.RequestCtx, allowDirectKeys bool, mat
 		"transfer-encoding":   true,
 
 		// prevent auth/key overrides via x-bf-eh-*
-		"x-api-key":      true,
-		"x-goog-api-key": true,
+		"x-api-key":       true,
+		"x-goog-api-key":  true,
 		"x-bf-api-key":    true,
 		"x-bf-api-key-id": true,
 		"x-bf-vk":         true,

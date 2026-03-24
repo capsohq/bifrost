@@ -17,7 +17,7 @@ entries:
       name: Bifrost Team
     name: bifrost
     sources:
-    - https://github.com/maximhq/bifrost
+    - https://github.com/capsohq/bifrost
     type: application
     urls:
     - https://maximhq.github.io/bifrost/helm-charts/bifrost-2.0.14.tgz
@@ -38,7 +38,7 @@ entries:
       name: Bifrost Team
     name: bifrost
     sources:
-    - https://github.com/maximhq/bifrost
+    - https://github.com/capsohq/bifrost
     type: application
     urls:
     - https://maximhq.github.io/bifrost/helm-charts/bifrost-2.0.13.tgz
@@ -59,7 +59,7 @@ entries:
       name: Bifrost Team
     name: bifrost
     sources:
-    - https://github.com/maximhq/bifrost
+    - https://github.com/capsohq/bifrost
     type: application
     urls:
     - https://maximhq.github.io/bifrost/helm-charts/bifrost-2.0.12.tgz
@@ -80,7 +80,7 @@ entries:
       name: Bifrost Team
     name: bifrost
     sources:
-    - https://github.com/maximhq/bifrost
+    - https://github.com/capsohq/bifrost
     type: application
     urls:
     - https://maximhq.github.io/bifrost/helm-charts/bifrost-2.0.11.tgz
@@ -101,7 +101,7 @@ entries:
       name: Bifrost Team
     name: bifrost
     sources:
-    - https://github.com/maximhq/bifrost
+    - https://github.com/capsohq/bifrost
     type: application
     urls:
     - https://maximhq.github.io/bifrost/helm-charts/bifrost-2.0.10.tgz

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // --- isCompactionItem tests ---
@@ -526,8 +526,8 @@ func TestToAnthropicResponsesResponse_StopReasonFromBifrost(t *testing.T) {
 			expectedReason: AnthropicStopReasonToolUse,
 		},
 		{
-			name:       "nil stop_reason defaults to end_turn",
-			stopReason: nil,
+			name:           "nil stop_reason defaults to end_turn",
+			stopReason:     nil,
 			expectedReason: AnthropicStopReasonEndTurn,
 		},
 		{

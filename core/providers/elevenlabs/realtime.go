@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/schemas"
 
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 )
 
 // SupportsRealtimeAPI returns true since ElevenLabs supports Conversational AI via WebSocket.
@@ -50,8 +50,8 @@ const (
 	elInterruption             = "interruption"
 	elClientToolCall           = "client_tool_call"
 
-	elUserAudioChunk  = "user_audio_chunk"
-	elPong            = "pong"
+	elUserAudioChunk   = "user_audio_chunk"
+	elPong             = "pong"
 	elClientToolResult = "client_tool_result"
 	elContextualUpdate = "contextual_update"
 )

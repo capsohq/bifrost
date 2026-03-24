@@ -1,6 +1,8 @@
 package bedrock
 
 import (
+	"strings"
+
 	"github.com/capsohq/bifrost/core/schemas"
 )
 

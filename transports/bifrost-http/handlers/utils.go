@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
 
@@ -114,7 +115,7 @@ func IsOriginAllowed(origin string, allowedOrigins []string) bool {
 			return true
 		}
 
-		if allowedOrigin == "*" {			
+		if allowedOrigin == "*" {
 			return true
 		}
 

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/core/providers/anthropic"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // TestVertex_AnthropicModel_CachingDeterminism verifies that Vertex's delegation

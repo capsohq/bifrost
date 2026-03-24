@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/capsohq/bifrost/core/schemas"
-
+	"github.com/bytedance/sonic"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/tidwall/gjson"
 )
 
 // AnthropicResponsesStreamState tracks state during streaming conversion for responses API
@@ -4048,7 +4049,6 @@ func convertBifrostMessageToAnthropicMessage(msg *schemas.ResponsesMessage, pend
 			}
 		}
 	}
-
 
 	return &anthropicMsg
 }

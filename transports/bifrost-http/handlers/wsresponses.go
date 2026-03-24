@@ -6,13 +6,13 @@ import (
 	"sync"
 
 	"github.com/bytedance/sonic"
+	bifrost "github.com/capsohq/bifrost/core"
+	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
+	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	bfws "github.com/capsohq/bifrost/transports/bifrost-http/websocket"
 	"github.com/fasthttp/router"
 	ws "github.com/fasthttp/websocket"
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/maximhq/bifrost/transports/bifrost-http/integrations"
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
-	bfws "github.com/maximhq/bifrost/transports/bifrost-http/websocket"
 	"github.com/valyala/fasthttp"
 )
 
@@ -653,7 +653,7 @@ var wsResponsesKnownFields = map[string]bool{
 }
 
 var (
-	errModelFormat  = errorf("model should be in provider/model format")
+	errModelFormat   = errorf("model should be in provider/model format")
 	errInputRequired = errorf("input is required for responses")
 )
 

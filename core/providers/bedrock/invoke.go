@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/google/uuid"
 )
 
 // GetExtraParams implements the RequestBodyWithExtraParams interface
@@ -776,7 +777,7 @@ func toAnthropicInvokeStreamBytes(resp *schemas.BifrostResponsesStreamResponse) 
 				"type":  "content_block_delta",
 				"index": idx,
 				"delta": map[string]interface{}{
-					"type":          "input_json_delta",
+					"type":         "input_json_delta",
 					"partial_json": *resp.Delta,
 				},
 			}

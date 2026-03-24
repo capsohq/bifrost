@@ -654,7 +654,8 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 	}
 	req.SetBody(jsonData)
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -829,7 +830,8 @@ func (provider *VolcengineProvider) VideoDownload(ctx *schemas.BifrostContext, k
 		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 	}
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -947,7 +949,8 @@ func (provider *VolcengineProvider) FileUpload(ctx *schemas.BifrostContext, key 
 	}
 	req.SetBody(body.Bytes())
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -1036,7 +1039,8 @@ func (provider *VolcengineProvider) FileList(ctx *schemas.BifrostContext, keys [
 		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 	}
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -1119,7 +1123,8 @@ func (provider *VolcengineProvider) FileRetrieve(ctx *schemas.BifrostContext, ke
 			req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 		}
 
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		wait()
 		if bifrostErr != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
@@ -1183,7 +1188,8 @@ func (provider *VolcengineProvider) FileDelete(ctx *schemas.BifrostContext, keys
 			req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 		}
 
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		wait()
 		if bifrostErr != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
@@ -1259,7 +1265,8 @@ func (provider *VolcengineProvider) FileContent(ctx *schemas.BifrostContext, key
 			req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 		}
 
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		wait()
 		if bifrostErr != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
@@ -1329,6 +1336,11 @@ func (provider *VolcengineProvider) BatchResults(_ *schemas.BifrostContext, _ []
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchResultsRequest, provider.GetProviderKey())
 }
 
+// BatchDelete is not supported by Volcengine provider.
+func (provider *VolcengineProvider) BatchDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchDeleteRequest) (*schemas.BifrostBatchDeleteResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchDeleteRequest, provider.GetProviderKey())
+}
+
 // CountTokens is not supported by the Volcengine provider.
 func (provider *VolcengineProvider) CountTokens(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostResponsesRequest) (*schemas.BifrostCountTokensResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.CountTokensRequest, provider.GetProviderKey())
@@ -1377,4 +1389,14 @@ func (provider *VolcengineProvider) ContainerFileContent(_ *schemas.BifrostConte
 // ContainerFileDelete is not supported by the Volcengine provider.
 func (provider *VolcengineProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostContainerFileDeleteRequest) (*schemas.BifrostContainerFileDeleteResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
+}
+
+// Passthrough is not supported by the Volcengine provider.
+func (provider *VolcengineProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+}
+
+// PassthroughStream is not supported by the Volcengine provider.
+func (provider *VolcengineProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

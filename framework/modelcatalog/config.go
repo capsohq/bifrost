@@ -5,9 +5,12 @@ import "time"
 const (
 	DefaultPricingSyncInterval        = 24 * time.Hour
 	ConfigLastPricingSyncKey          = "LastModelPricingSync"
+	ConfigLastParamsSyncKey           = "LastModelParametersSync"
 	ConfigProviderModelHealthStateKey = "ProviderModelHealthStateV1"
 	DefaultPricingURL                 = "https://getbifrost.ai/datasheet"
+	DefaultModelParametersURL         = "https://getbifrost.ai/datasheet/model-parameters"
 	DefaultPricingTimeout             = 45 * time.Second
+	DefaultModelParametersTimeout     = 45 * time.Second
 )
 
 // Config is the model pricing configuration.
