@@ -28,16 +28,21 @@ type RunwayProvider struct {
 func NewRunwayProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*RunwayProvider, error) {
 	config.CheckAndSetDefaults()
 
+	requestTimeout := time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 	client := &fasthttp.Client{
-		ReadTimeout:         time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		WriteTimeout:        time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		MaxConnsPerHost:     5000,
-		MaxIdleConnDuration: 60 * time.Second,
-		MaxConnWaitTimeout:  10 * time.Second,
+		ReadTimeout:         requestTimeout,
+		WriteTimeout:        requestTimeout,
+		MaxConnsPerHost:     config.NetworkConfig.MaxConnsPerHost,
+		MaxIdleConnDuration: 60 * time.Second, // Video provider — longer idle duration to accommodate slower video generation responses
+		MaxConnWaitTimeout:  requestTimeout,
+		MaxConnDuration:     time.Second * time.Duration(schemas.DefaultMaxConnDurationInSeconds),
+		ConnPoolStrategy:    fasthttp.FIFO,
 	}
 
 	// Configure proxy if provided
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
+	client = providerUtils.ConfigureDialer(client)
+	client = providerUtils.ConfigureTLS(client, config.NetworkConfig, logger)
 
 	// Set default BaseURL if not provided
 	if config.NetworkConfig.BaseURL == "" {
@@ -192,7 +197,8 @@ func (provider *RunwayProvider) VideoGeneration(ctx *schemas.BifrostContext, key
 
 	req.SetBody(jsonData)
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -268,7 +274,8 @@ func (provider *RunwayProvider) VideoRetrieve(ctx *schemas.BifrostContext, key s
 		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 	}
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -352,7 +359,8 @@ func (provider *RunwayProvider) VideoDownload(ctx *schemas.BifrostContext, key s
 	defer fasthttp.ReleaseResponse(resp)
 	req.SetRequestURI(videoUrl)
 	req.Header.SetMethod("GET")
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -418,7 +426,8 @@ func (provider *RunwayProvider) VideoDelete(ctx *schemas.BifrostContext, key sch
 	}
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -500,6 +509,11 @@ func (provider *RunwayProvider) BatchCancel(_ *schemas.BifrostContext, _ []schem
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchCancelRequest, provider.GetProviderKey())
 }
 
+// BatchDelete is not supported by Runway provider.
+func (provider *RunwayProvider) BatchDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchDeleteRequest) (*schemas.BifrostBatchDeleteResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchDeleteRequest, provider.GetProviderKey())
+}
+
 // BatchResults is not supported by Runway provider.
 func (provider *RunwayProvider) BatchResults(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchResultsRequest) (*schemas.BifrostBatchResultsResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchResultsRequest, provider.GetProviderKey())
@@ -553,4 +567,13 @@ func (provider *RunwayProvider) ContainerFileContent(_ *schemas.BifrostContext, 
 // ContainerFileDelete is not supported by the Runway provider.
 func (provider *RunwayProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostContainerFileDeleteRequest) (*schemas.BifrostContainerFileDeleteResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
+}
+
+// Passthrough is not supported by the Runway provider.
+func (provider *RunwayProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+}
+
+func (provider *RunwayProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

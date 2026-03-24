@@ -29,17 +29,21 @@ type NebiusProvider struct {
 func NewNebiusProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*NebiusProvider, error) {
 	config.CheckAndSetDefaults()
 
+	requestTimeout := time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 	client := &fasthttp.Client{
-		ReadTimeout:         time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		WriteTimeout:        time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		MaxConnsPerHost:     5000,
+		ReadTimeout:         requestTimeout,
+		WriteTimeout:        requestTimeout,
+		MaxConnsPerHost:     config.NetworkConfig.MaxConnsPerHost,
 		MaxIdleConnDuration: 30 * time.Second,
-		MaxConnWaitTimeout:  10 * time.Second,
+		MaxConnWaitTimeout:  requestTimeout,
+		MaxConnDuration:     time.Second * time.Duration(schemas.DefaultMaxConnDurationInSeconds),
+		ConnPoolStrategy:    fasthttp.FIFO,
 	}
 
 	// Configure proxy and retry policy
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
 	client = providerUtils.ConfigureDialer(client)
+	client = providerUtils.ConfigureTLS(client, config.NetworkConfig, logger)
 	// Set default BaseURL if not provided
 	if config.NetworkConfig.BaseURL == "" {
 		config.NetworkConfig.BaseURL = "https://api.tokenfactory.nebius.com"
@@ -306,10 +310,13 @@ func (provider *NebiusProvider) ImageGeneration(ctx *schemas.BifrostContext, key
 		return nil, bifrostErr
 	}
 
-	req.SetBody(jsonData)
+	if !providerUtils.ApplyLargePayloadRequestBodyWithModelNormalization(ctx, req, schemas.Nebius) {
+		req.SetBody(jsonData)
+	}
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -433,6 +440,11 @@ func (provider *NebiusProvider) BatchCancel(_ *schemas.BifrostContext, _ []schem
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchCancelRequest, provider.GetProviderKey())
 }
 
+// BatchDelete is not supported by Nebius provider.
+func (provider *NebiusProvider) BatchDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchDeleteRequest) (*schemas.BifrostBatchDeleteResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchDeleteRequest, provider.GetProviderKey())
+}
+
 // BatchResults is not supported by Nebius provider.
 func (provider *NebiusProvider) BatchResults(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchResultsRequest) (*schemas.BifrostBatchResultsResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchResultsRequest, provider.GetProviderKey())
@@ -511,4 +523,13 @@ func (provider *NebiusProvider) ContainerFileContent(_ *schemas.BifrostContext, 
 // ContainerFileDelete is not supported by the Nebius provider.
 func (provider *NebiusProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostContainerFileDeleteRequest) (*schemas.BifrostContainerFileDeleteResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
+}
+
+// Passthrough is not supported by the Nebius provider.
+func (provider *NebiusProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+}
+
+func (provider *NebiusProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

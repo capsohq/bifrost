@@ -273,15 +273,16 @@ func convertCohereResponseFormatToBifrost(cohereFormat *CohereResponseFormat) *i
 		return nil
 	}
 
-	result := make(map[string]interface{})
-
+	// Build JSON bytes with deterministic key order using sjson
+	data := []byte(`{}`)
 	if cohereFormat.JSONSchema != nil {
-		result["type"] = "json_schema"
-		result["json_schema"] = *cohereFormat.JSONSchema
+		data, _ = sjson.SetBytes(data, "type", "json_schema")
+		schemaBytes, _ := schemas.Marshal(cohereFormat.JSONSchema)
+		data, _ = sjson.SetRawBytes(data, "json_schema", schemaBytes)
 	} else {
-		result["type"] = string(cohereFormat.Type)
+		data, _ = sjson.SetBytes(data, "type", string(cohereFormat.Type))
 	}
 
-	var resultInterface interface{} = result
+	var resultInterface interface{} = json.RawMessage(data)
 	return &resultInterface
 }

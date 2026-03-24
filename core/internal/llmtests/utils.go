@@ -28,7 +28,7 @@ const (
 
 func GetProviderDefaultFormat(provider schemas.ModelProvider) string {
 	switch provider {
-	case schemas.Gemini:
+	case schemas.Gemini, schemas.Groq:
 		return "wav"
 	default:
 		return "mp3"
@@ -60,6 +60,17 @@ func GetProviderVoice(provider schemas.ModelProvider, voiceType string) string {
 		default:
 			return "achernar"
 		}
+	case schemas.Groq:
+		switch voiceType {
+		case "primary":
+			return "troy"
+		case "secondary":
+			return "autumn"
+		case "tertiary":
+			return "diana"
+		default:
+			return "troy"
+		}
 	case schemas.Elevenlabs:
 		switch voiceType {
 		case "primary":
@@ -89,11 +100,11 @@ func GetProviderVoice(provider schemas.ModelProvider, voiceType string) string {
 type SampleToolType string
 
 const (
-	SampleToolTypeWeather              SampleToolType = "weather"
-	SampleToolTypeCalculate            SampleToolType = "calculate"
-	SampleToolTypeTime                 SampleToolType = "time"
-	SampleToolTypePingWithEmpty        SampleToolType = "ping_empty"
-	SampleToolTypePingWithNil          SampleToolType = "ping_nil"
+	SampleToolTypeWeather       SampleToolType = "weather"
+	SampleToolTypeCalculate     SampleToolType = "calculate"
+	SampleToolTypeTime          SampleToolType = "time"
+	SampleToolTypePingWithEmpty SampleToolType = "ping_empty"
+	SampleToolTypePingWithNil   SampleToolType = "ping_nil"
 )
 
 var SampleToolFunctions = map[SampleToolType]*schemas.ChatToolFunction{
@@ -336,7 +347,8 @@ func CreateImageResponsesMessage(text, imageURL string) schemas.ResponsesMessage
 		Content: &schemas.ResponsesMessageContent{
 			ContentBlocks: []schemas.ResponsesMessageContentBlock{
 				{Type: schemas.ResponsesInputMessageContentBlockTypeText, Text: bifrost.Ptr(text)},
-				{Type: schemas.ResponsesInputMessageContentBlockTypeImage,
+				{
+					Type: schemas.ResponsesInputMessageContentBlockTypeImage,
 					ResponsesInputMessageContentBlockImage: &schemas.ResponsesInputMessageContentBlockImage{
 						ImageURL: bifrost.Ptr(imageURL),
 					},
@@ -396,6 +408,7 @@ type ToolCallInfo struct {
 	Name      string
 	Arguments string
 	ID        string
+	Index     int // OpenAI tool_calls index (0, 1, 2, ...); -1 when not available
 }
 
 // GetChatContent returns the string content from a BifrostChatResponse
@@ -503,8 +516,9 @@ func ExtractChatToolCalls(response *schemas.BifrostChatResponse) []ToolCallInfo 
 	for _, choice := range response.Choices {
 		if choice.Message.ChatAssistantMessage != nil && choice.Message.ChatAssistantMessage.ToolCalls != nil {
 			for _, toolCall := range choice.Message.ChatAssistantMessage.ToolCalls {
-				info := ToolCallInfo{
-					ID: *toolCall.ID,
+				info := ToolCallInfo{}
+				if toolCall.ID != nil {
+					info.ID = *toolCall.ID
 				}
 				if toolCall.Function.Name != nil {
 					info.Name = *toolCall.Function.Name
@@ -575,7 +589,6 @@ func ExtractToolCalls(response *schemas.BifrostResponse) []ToolCallInfo {
 
 // getEmbeddingVector extracts the float32 vector from a BifrostEmbeddingResponse
 func getEmbeddingVector(embedding schemas.EmbeddingData) ([]float32, error) {
-
 	if embedding.Embedding.EmbeddingArray != nil {
 		return embedding.Embedding.EmbeddingArray, nil
 	}

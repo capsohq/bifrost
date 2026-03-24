@@ -100,7 +100,7 @@ func (plugin *Plugin) generateRequestHash(req *schemas.BifrostRequest) (string, 
 		hashInput.Params = req.TextCompletionRequest.Params
 	case schemas.ChatCompletionRequest, schemas.ChatCompletionStreamRequest:
 		hashInput.Params = req.ChatRequest.Params
-	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest:
+	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest, schemas.WebSocketResponsesRequest:
 		hashInput.Params = req.ResponsesRequest.Params
 	case schemas.SpeechRequest, schemas.SpeechStreamRequest:
 		if req.SpeechRequest != nil {
@@ -152,7 +152,7 @@ func (plugin *Plugin) extractTextForEmbedding(req *schemas.BifrostRequest) (stri
 		if req.ChatRequest != nil && req.ChatRequest.Params != nil {
 			plugin.extractChatParametersToMetadata(req.ChatRequest.Params, metadata)
 		}
-	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest:
+	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest, schemas.WebSocketResponsesRequest:
 		if req.ResponsesRequest != nil && req.ResponsesRequest.Params != nil {
 			plugin.extractResponsesParametersToMetadata(req.ResponsesRequest.Params, metadata)
 		}
@@ -282,7 +282,11 @@ func (plugin *Plugin) extractTextForEmbedding(req *schemas.BifrostRequest) (stri
 			}
 
 			if content != "" {
-				textParts = append(textParts, fmt.Sprintf("%s: %s: %s", role, msgType, content))
+				if msgType != "" {
+					textParts = append(textParts, fmt.Sprintf("%s: %s: %s", role, msgType, content))
+				} else {
+					textParts = append(textParts, fmt.Sprintf("%s: %s", role, content))
+				}
 			}
 		}
 
@@ -351,7 +355,9 @@ func (plugin *Plugin) extractTextForEmbedding(req *schemas.BifrostRequest) (stri
 }
 
 func getMetadataHash(metadata map[string]interface{}) (string, error) {
-	metadataJSON, err := json.Marshal(metadata)
+	// Use MarshalDeeplySorted for deterministic hashing - plain json.Marshal
+	// doesn't guarantee key ordering since Go maps have random iteration order
+	metadataJSON, err := schemas.MarshalDeeplySorted(metadata)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal metadata for metadata hash: %w", err)
 	}
@@ -475,7 +481,7 @@ func (plugin *Plugin) getInputForCaching(req *schemas.BifrostRequest) interface{
 			filteredMessages = append(filteredMessages, msg)
 		}
 		return filteredMessages
-	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest:
+	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest, schemas.WebSocketResponsesRequest:
 		originalMessages := req.ResponsesRequest.Input
 		filteredMessages := make([]schemas.ResponsesMessage, 0, len(originalMessages))
 		for _, msg := range originalMessages {
@@ -564,7 +570,7 @@ func (plugin *Plugin) getNormalizedInputForCaching(req *schemas.BifrostRequest) 
 			normalizedMessages = append(normalizedMessages, normalizedMsg)
 		}
 		return normalizedMessages
-	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest:
+	case schemas.ResponsesRequest, schemas.ResponsesStreamRequest, schemas.WebSocketResponsesRequest:
 		originalMessages := req.ResponsesRequest.Input
 		normalizedMessages := make([]schemas.ResponsesMessage, 0, len(originalMessages))
 
@@ -701,6 +707,9 @@ func (plugin *Plugin) extractChatParametersToMetadata(params *schemas.ChatParame
 	if params.PromptCacheKey != nil {
 		metadata["prompt_cache_key"] = *params.PromptCacheKey
 	}
+	if params.Reasoning != nil && params.Reasoning.Enabled != nil {
+		metadata["reasoning_enabled"] = *params.Reasoning.Enabled
+	}
 	if params.Reasoning != nil && params.Reasoning.Effort != nil {
 		metadata["reasoning_effort"] = *params.Reasoning.Effort
 	}
@@ -729,7 +738,11 @@ func (plugin *Plugin) extractChatParametersToMetadata(params *schemas.ChatParame
 		maps.Copy(metadata, params.ExtraParams)
 	}
 	if len(params.Tools) > 0 {
-		if toolsJSON, err := json.Marshal(params.Tools); err != nil {
+		tools := make([]interface{}, len(params.Tools))
+		for i, t := range params.Tools {
+			tools[i] = t
+		}
+		if toolsJSON, err := schemas.MarshalDeeplySorted(tools); err != nil {
 			plugin.logger.Warn("%s Failed to marshal tools for metadata: %v", PluginLoggerPrefix, err)
 		} else {
 			toolHash := xxhash.Sum64(toolsJSON)
@@ -818,7 +831,11 @@ func (plugin *Plugin) extractResponsesParametersToMetadata(params *schemas.Respo
 		maps.Copy(metadata, params.ExtraParams)
 	}
 	if len(params.Tools) > 0 {
-		if toolsJSON, err := json.Marshal(params.Tools); err != nil {
+		tools := make([]interface{}, len(params.Tools))
+		for i, t := range params.Tools {
+			tools[i] = t
+		}
+		if toolsJSON, err := schemas.MarshalDeeplySorted(tools); err != nil {
 			plugin.logger.Warn("%s Failed to marshal tools for metadata: %v", PluginLoggerPrefix, err)
 		} else {
 			toolHash := xxhash.Sum64(toolsJSON)

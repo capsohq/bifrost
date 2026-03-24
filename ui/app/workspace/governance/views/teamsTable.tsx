@@ -22,7 +22,8 @@ import { Customer, Team, VirtualKey } from "@/lib/types/governance";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/governance";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ChevronLeft, ChevronRight, Edit, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import TeamDialog from "./teamDialog";
@@ -35,11 +36,18 @@ const formatResetDuration = (duration: string) => {
 
 interface TeamsTableProps {
 	teams: Team[];
+	totalCount: number;
 	customers: Customer[];
 	virtualKeys: VirtualKey[];
+	search: string;
+	debouncedSearch: string;
+	onSearchChange: (value: string) => void;
+	offset: number;
+	limit: number;
+	onOffsetChange: (offset: number) => void;
 }
 
-export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTableProps) {
+export default function TeamsTable({ teams, totalCount, customers, virtualKeys, search, debouncedSearch, onSearchChange, offset, limit, onOffsetChange }: TeamsTableProps) {
 	const [showTeamDialog, setShowTeamDialog] = useState(false);
 	const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
@@ -83,8 +91,10 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 		return customer ? customer.name : "Unknown Customer";
 	};
 
-	// Empty state when user has no teams (same pattern as Virtual Keys)
-	if (teams?.length === 0) {
+	const hasActiveFilters = debouncedSearch;
+
+	// True empty state: no teams at all (not just filtered to zero)
+	if (totalCount === 0 && !hasActiveFilters) {
 		return (
 			<>
 				<TooltipProvider>
@@ -116,7 +126,21 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 						</Button>
 					</div>
 
-					<div className="rounded-sm border" data-testid="teams-table">
+					<div className="flex items-center gap-3">
+						<div className="relative max-w-sm flex-1">
+							<Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+							<Input
+								aria-label="Search teams by name"
+								placeholder="Search by name..."
+								value={search}
+								onChange={(e) => onSearchChange(e.target.value)}
+								className="pl-9"
+								data-testid="teams-search-input"
+							/>
+						</div>
+					</div>
+
+					<div className="rounded-sm border overflow-hidden" data-testid="teams-table">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -129,7 +153,14 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{teams?.map((team) => {
+								{teams.length === 0 ? (
+									<TableRow>
+										<TableCell colSpan={6} className="h-24 text-center">
+											<span className="text-muted-foreground text-sm">No matching teams found.</span>
+										</TableCell>
+									</TableRow>
+								) : (
+								teams.map((team) => {
 									const vks = getVirtualKeysForTeam(team.id);
 									const customerName = getCustomerName(team.customer_id);
 
@@ -163,7 +194,7 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 									const isExhausted = isBudgetExhausted || isRateLimitExhausted;
 
 									return (
-										<TableRow key={team.id} className={cn("group transition-colors", isExhausted && "bg-red-500/5 hover:bg-red-500/10")}>
+										<TableRow key={team.id} data-testid={`team-row-${team.name}`} className={cn("group transition-colors", isExhausted && "bg-red-500/5 hover:bg-red-500/10")}>
 											<TableCell className="max-w-[200px] py-4">
 												<div className="flex flex-col gap-2">
 													<span className="truncate font-medium">{team.name}</span>
@@ -174,7 +205,7 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 													)}
 												</div>
 											</TableCell>
-											<TableCell>
+											<TableCell data-testid={`team-row-${team.name}-customer`}>
 												<div className="flex items-center gap-2">
 													<Badge variant={team.customer_id ? "secondary" : "outline"}>{customerName}</Badge>
 												</div>
@@ -313,6 +344,7 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 														onClick={() => handleEditTeam(team)}
 														disabled={!hasUpdateAccess}
 														aria-label={`Edit team ${team.name}`}
+														data-testid={`team-edit-btn-${team.name}`}
 													>
 														<Edit className="h-4 w-4" />
 													</Button>
@@ -324,6 +356,7 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 																className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-500"
 																disabled={!hasDeleteAccess}
 																aria-label={`Delete team ${team.name}`}
+																data-testid={`team-delete-btn-${team.name}`}
 															>
 																<Trash2 className="h-4 w-4" />
 															</Button>
@@ -352,10 +385,40 @@ export default function TeamsTable({ teams, customers, virtualKeys }: TeamsTable
 											</TableCell>
 										</TableRow>
 									);
-								})}
+								})
+								)}
 							</TableBody>
 						</Table>
 					</div>
+
+					{/* Pagination */}
+					{totalCount > 0 && (
+						<div className="flex items-center justify-between px-2">
+							<p className="text-muted-foreground text-sm">
+								Showing {offset + 1}-{Math.min(offset + limit, totalCount)} of {totalCount}
+							</p>
+							<div className="flex gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={offset === 0}
+									onClick={() => onOffsetChange(Math.max(0, offset - limit))}
+									data-testid="teams-pagination-prev-btn"
+								>
+									<ChevronLeft className="mr-1 h-4 w-4" /> Previous
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={offset + limit >= totalCount}
+									onClick={() => onOffsetChange(offset + limit)}
+									data-testid="teams-pagination-next-btn"
+								>
+									Next <ChevronRight className="ml-1 h-4 w-4" />
+								</Button>
+							</div>
+						</div>
+					)}
 				</div>
 			</TooltipProvider>
 		</>

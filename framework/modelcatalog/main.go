@@ -16,8 +16,8 @@ import (
 
 // Default sync interval and config key
 const (
-	TokenTierAbove128K = 128000
 	TokenTierAbove200K = 200000
+	TokenTierAbove128K = 128000
 )
 
 type ModelCatalog struct {
@@ -68,48 +68,119 @@ type ModelCatalog struct {
 	syncCancel context.CancelFunc
 }
 
-// PricingEntry represents a single model's pricing information
+// PricingEntry represents a single model's pricing information.
+// Field names and JSON tags match the datasheet schema exactly.
 type PricingEntry struct {
-	// Base model name (pre-computed canonical name, e.g., "gpt-4o" for "gpt-4o-2024-08-06")
 	BaseModel string `json:"base_model,omitempty"`
-	// Basic pricing
-	InputCostPerToken  float64 `json:"input_cost_per_token"`
-	OutputCostPerToken float64 `json:"output_cost_per_token"`
-	Provider           string  `json:"provider"`
-	Mode               string  `json:"mode"`
-	// Additional pricing for media
-	InputCostPerVideoPerSecond *float64 `json:"input_cost_per_video_per_second,omitempty"`
-	InputCostPerAudioPerSecond *float64 `json:"input_cost_per_audio_per_second,omitempty"`
-	// Character-based pricing
-	InputCostPerCharacter  *float64 `json:"input_cost_per_character,omitempty"`
-	OutputCostPerCharacter *float64 `json:"output_cost_per_character,omitempty"`
-	// Pricing above 128k tokens
+	Provider  string `json:"provider"`
+	Mode      string `json:"mode"`
+
+	// Costs - Text
+	InputCostPerToken          float64  `json:"input_cost_per_token"`
+	OutputCostPerToken         float64  `json:"output_cost_per_token"`
+	InputCostPerTokenBatches   *float64 `json:"input_cost_per_token_batches,omitempty"`
+	OutputCostPerTokenBatches  *float64 `json:"output_cost_per_token_batches,omitempty"`
+	InputCostPerTokenPriority  *float64 `json:"input_cost_per_token_priority,omitempty"`
+	OutputCostPerTokenPriority *float64 `json:"output_cost_per_token_priority,omitempty"`
+	InputCostPerCharacter      *float64 `json:"input_cost_per_character,omitempty"`
+	// Costs - 128k Tier
 	InputCostPerTokenAbove128kTokens          *float64 `json:"input_cost_per_token_above_128k_tokens,omitempty"`
-	InputCostPerCharacterAbove128kTokens      *float64 `json:"input_cost_per_character_above_128k_tokens,omitempty"`
 	InputCostPerImageAbove128kTokens          *float64 `json:"input_cost_per_image_above_128k_tokens,omitempty"`
 	InputCostPerVideoPerSecondAbove128kTokens *float64 `json:"input_cost_per_video_per_second_above_128k_tokens,omitempty"`
 	InputCostPerAudioPerSecondAbove128kTokens *float64 `json:"input_cost_per_audio_per_second_above_128k_tokens,omitempty"`
 	OutputCostPerTokenAbove128kTokens         *float64 `json:"output_cost_per_token_above_128k_tokens,omitempty"`
-	OutputCostPerCharacterAbove128kTokens     *float64 `json:"output_cost_per_character_above_128k_tokens,omitempty"`
-	//Pricing above 200k tokens
-	InputCostPerTokenAbove200kTokens           *float64 `json:"input_cost_per_token_above_200k_tokens,omitempty"`
-	OutputCostPerTokenAbove200kTokens          *float64 `json:"output_cost_per_token_above_200k_tokens,omitempty"`
-	CacheCreationInputTokenCostAbove200kTokens *float64 `json:"cache_creation_input_token_cost_above_200k_tokens,omitempty"`
-	CacheReadInputTokenCostAbove200kTokens     *float64 `json:"cache_read_input_token_cost_above_200k_tokens,omitempty"`
-	// Cache and batch pricing
-	CacheReadInputTokenCost     *float64 `json:"cache_read_input_token_cost,omitempty"`
-	CacheCreationInputTokenCost *float64 `json:"cache_creation_input_token_cost,omitempty"`
-	InputCostPerTokenBatches    *float64 `json:"input_cost_per_token_batches,omitempty"`
-	OutputCostPerTokenBatches   *float64 `json:"output_cost_per_token_batches,omitempty"`
-	// Image generation pricing
-	InputCostPerImageToken       *float64 `json:"input_cost_per_image_token,omitempty"`
-	OutputCostPerImageToken      *float64 `json:"output_cost_per_image_token,omitempty"`
-	InputCostPerImage            *float64 `json:"input_cost_per_image,omitempty"`
-	OutputCostPerImage           *float64 `json:"output_cost_per_image,omitempty"`
-	CacheReadInputImageTokenCost *float64 `json:"cache_read_input_image_token_cost,omitempty"`
-	// Video generation pricing
+	// Costs - 200k Tier
+	InputCostPerTokenAbove200kTokens  *float64 `json:"input_cost_per_token_above_200k_tokens,omitempty"`
+	OutputCostPerTokenAbove200kTokens *float64 `json:"output_cost_per_token_above_200k_tokens,omitempty"`
+
+	// Costs - Cache
+	CacheCreationInputTokenCost                        *float64 `json:"cache_creation_input_token_cost,omitempty"`
+	CacheReadInputTokenCost                            *float64 `json:"cache_read_input_token_cost,omitempty"`
+	CacheCreationInputTokenCostAbove200kTokens         *float64 `json:"cache_creation_input_token_cost_above_200k_tokens,omitempty"`
+	CacheReadInputTokenCostAbove200kTokens             *float64 `json:"cache_read_input_token_cost_above_200k_tokens,omitempty"`
+	CacheCreationInputTokenCostAbove1hr                *float64 `json:"cache_creation_input_token_cost_above_1hr,omitempty"`
+	CacheCreationInputTokenCostAbove1hrAbove200kTokens *float64 `json:"cache_creation_input_token_cost_above_1hr_above_200k_tokens,omitempty"`
+	CacheCreationInputAudioTokenCost                   *float64 `json:"cache_creation_input_audio_token_cost,omitempty"`
+	CacheReadInputTokenCostPriority                    *float64 `json:"cache_read_input_token_cost_priority,omitempty"`
+	CacheReadInputImageTokenCost                       *float64 `json:"cache_read_input_image_token_cost,omitempty"`
+
+	// Costs - Image
+	InputCostPerImage                             *float64 `json:"input_cost_per_image,omitempty"`
+	InputCostPerPixel                             *float64 `json:"input_cost_per_pixel,omitempty"`
+	OutputCostPerImage                            *float64 `json:"output_cost_per_image,omitempty"`
+	OutputCostPerPixel                            *float64 `json:"output_cost_per_pixel,omitempty"`
+	OutputCostPerImagePremiumImage                *float64 `json:"output_cost_per_image_premium_image,omitempty"`
+	OutputCostPerImageAbove512x512Pixels          *float64 `json:"output_cost_per_image_above_512_and_512_pixels,omitempty"`
+	OutputCostPerImageAbove512x512PixelsPremium   *float64 `json:"output_cost_per_image_above_512_and_512_pixels_and_premium_image,omitempty"`
+	OutputCostPerImageAbove1024x1024Pixels        *float64 `json:"output_cost_per_image_above_1024_and_1024_pixels,omitempty"`
+	OutputCostPerImageAbove1024x1024PixelsPremium *float64 `json:"output_cost_per_image_above_1024_and_1024_pixels_and_premium_image,omitempty"`
+	OutputCostPerImageAbove2048x2048Pixels        *float64 `json:"output_cost_per_image_above_2048_and_2048_pixels,omitempty"`
+	OutputCostPerImageAbove4096x4096Pixels        *float64 `json:"output_cost_per_image_above_4096_and_4096_pixels,omitempty"`
+	OutputCostPerImageLowQuality                  *float64 `json:"output_cost_per_image_low_quality,omitempty"`
+	OutputCostPerImageMediumQuality               *float64 `json:"output_cost_per_image_medium_quality,omitempty"`
+	OutputCostPerImageHighQuality                 *float64 `json:"output_cost_per_image_high_quality,omitempty"`
+	OutputCostPerImageAutoQuality                 *float64 `json:"output_cost_per_image_auto_quality,omitempty"`
+	InputCostPerImageToken                        *float64 `json:"input_cost_per_image_token,omitempty"`
+	OutputCostPerImageToken                       *float64 `json:"output_cost_per_image_token,omitempty"`
+
+	// Costs - Audio/Video
+	InputCostPerAudioToken      *float64 `json:"input_cost_per_audio_token,omitempty"`
+	InputCostPerAudioPerSecond  *float64 `json:"input_cost_per_audio_per_second,omitempty"`
+	InputCostPerSecond          *float64 `json:"input_cost_per_second,omitempty"`
+	InputCostPerVideoPerSecond  *float64 `json:"input_cost_per_video_per_second,omitempty"`
+	OutputCostPerAudioToken     *float64 `json:"output_cost_per_audio_token,omitempty"`
 	OutputCostPerVideoPerSecond *float64 `json:"output_cost_per_video_per_second,omitempty"`
 	OutputCostPerSecond         *float64 `json:"output_cost_per_second,omitempty"`
+
+	// Costs - Other
+	//
+	// SearchContextCostPerQuery is stored as a single float64, but the pricing datasheet
+	// represents it as a tiered object with three keys: search_context_size_low,
+	// search_context_size_medium, and search_context_size_high.  For every provider except
+	// Perplexity the three tier values are identical, so we collapse the object to its
+	// medium tier value (falling back to low then high).  Perplexity always returns a
+	// pre-computed total_cost in its usage response, so the per-query rate is never
+	// consumed for that provider; the collapsed value is therefore correct in all cases.
+	// See UnmarshalJSON below for the custom decoding logic.
+	SearchContextCostPerQuery     *float64 `json:"search_context_cost_per_query,omitempty"`
+	CodeInterpreterCostPerSession *float64 `json:"code_interpreter_cost_per_session,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler for PricingEntry.
+// It handles the special case where search_context_cost_per_query may arrive as either
+// a plain float64 or a tiered object {"search_context_size_low":…,
+// "search_context_size_medium":…, "search_context_size_high":…}.
+func (p *PricingEntry) UnmarshalJSON(data []byte) error {
+	// Type alias breaks the UnmarshalJSON recursion while keeping all other fields.
+	type PricingEntryAlias PricingEntry
+	var raw struct {
+		PricingEntryAlias
+		SearchContextCostPerQuery *struct {
+			Low    *float64 `json:"search_context_size_low"`
+			Medium *float64 `json:"search_context_size_medium"`
+			High   *float64 `json:"search_context_size_high"`
+		} `json:"search_context_cost_per_query,omitempty"`
+	}
+	if err := sonic.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*p = PricingEntry(raw.PricingEntryAlias)
+
+	// search_context_cost_per_query arrives as a tiered object – all three values are
+	// equal for non-Perplexity providers; we prefer medium, then low, then high.
+	// Perplexity always returns a pre-computed total_cost so the per-query rate is
+	// never consumed for that provider.
+	if q := raw.SearchContextCostPerQuery; q != nil {
+		switch {
+		case q.Medium != nil:
+			p.SearchContextCostPerQuery = q.Medium
+		case q.Low != nil:
+			p.SearchContextCostPerQuery = q.Low
+		case q.High != nil:
+			p.SearchContextCostPerQuery = q.High
+		}
+	}
+	return nil
 }
 
 // ShouldSyncPricingFunc is a function that determines if pricing data should be synced
@@ -163,6 +234,12 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 			if err := mc.syncPricing(ctx); err != nil {
 				return nil, fmt.Errorf("failed to sync pricing data: %w", err)
 			}
+			// Sync model parameters asynchronously - not needed for startup
+			go func() {
+				if err := mc.syncModelParameters(ctx); err != nil {
+					mc.logger.Warn("failed to sync model parameters data: %v", err)
+				}
+			}()
 		} else {
 			lock, err := mc.distributedLockManager.NewLock("model_catalog_pricing_sync")
 			if err != nil {
@@ -179,6 +256,12 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 			if err := mc.syncPricing(ctx); err != nil {
 				return nil, fmt.Errorf("failed to sync pricing data: %w", err)
 			}
+			// Sync model parameters asynchronously - not needed for startup
+			go func() {
+				if err := mc.syncModelParameters(ctx); err != nil {
+					mc.logger.Warn("failed to sync model parameters data: %v", err)
+				}
+			}()
 		}
 	} else {
 		// Load pricing data from config memory
@@ -198,9 +281,6 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 		mc.startProviderModelHealthPersistWorker(mc.syncCtx)
 	}
 	mc.startSyncWorker(mc.syncCtx)
-	mc.configStore = configStore
-	mc.logger = logger
-
 	return mc, nil
 }
 
@@ -242,6 +322,11 @@ func (mc *ModelCatalog) ReloadPricing(ctx context.Context, config *Config) error
 		return fmt.Errorf("failed to sync pricing data: %w", err)
 	}
 
+	// Also sync model parameters
+	if err := mc.syncModelParameters(ctx); err != nil {
+		mc.logger.Warn("failed to sync model parameters during reload: %v", err)
+	}
+
 	return nil
 }
 
@@ -266,6 +351,12 @@ func (mc *ModelCatalog) ForceReloadPricing(ctx context.Context) error {
 
 	// Rebuild model pool from updated pricing data
 	mc.populateModelPoolFromPricingData()
+
+	// Also sync model parameters
+	if err := mc.syncModelParameters(ctx); err != nil {
+		mc.logger.Warn("failed to sync model parameters during force reload: %v", err)
+	}
+
 	return nil
 }
 
@@ -306,6 +397,10 @@ func (mc *ModelCatalog) GetPricingEntryForModel(model string, provider schemas.M
 		schemas.RerankRequest,
 		schemas.SpeechRequest,
 		schemas.TranscriptionRequest,
+		schemas.ImageGenerationRequest,
+		schemas.ImageEditRequest,
+		schemas.ImageVariationRequest,
+		schemas.VideoGenerationRequest,
 	} {
 		key := makeKey(model, string(provider), normalizeRequestType(mode))
 		pricing, ok := mc.pricingData[key]
@@ -740,38 +835,53 @@ func (mc *ModelCatalog) UpsertUnfilteredModelDataForProvider(provider schemas.Mo
 // - When the provider is not handled or no refinement is needed, returns the original model unchanged
 func (mc *ModelCatalog) RefineModelForProvider(provider schemas.ModelProvider, model string) (string, error) {
 	switch provider {
-	// These providers have {provider}/{model} format for models
 	case schemas.Groq:
 		if strings.Contains(model, "gpt-") {
 			return "openai/" + model, nil
 		}
-		// Check if the model without provider prefix is present in the provider's catalog
-		// Guard concurrent access to mc.modelPool with read lock
-		mc.mu.RLock()
-		models, ok := mc.modelPool[provider]
-		mc.mu.RUnlock()
-
-		if ok {
-			var candidateModels []string
-			for _, poolModel := range models {
-				providerPart, modelPart := schemas.ParseModelString(poolModel, "")
-				if model == modelPart {
-					candidateModels = append(candidateModels, string(providerPart)+"/"+modelPart)
-				}
-			}
-			// Handle candidateModels based on count
-			if len(candidateModels) == 1 {
-				return candidateModels[0], nil
-			} else if len(candidateModels) == 0 {
-				// No matches found, return original model to allow fallback
-				return model, nil
-			} else {
-				// Multiple matches found, return error
-				return "", fmt.Errorf("multiple compatible models found for model %s: %v", model, candidateModels)
-			}
-		}
+		return mc.refineNestedProviderModel(provider, model)
+	case schemas.Replicate:
+		return mc.refineNestedProviderModel(provider, model)
 	}
 	return model, nil
+}
+
+// refineNestedProviderModel resolves provider-native model slugs such as
+// "openai/gpt-5-nano" from a base model request like "gpt-5-nano".
+// It only considers catalog entries whose leading segment is a known Bifrost provider,
+// so Replicate owner/model identifiers like "meta/llama-3-8b" are left untouched.
+func (mc *ModelCatalog) refineNestedProviderModel(provider schemas.ModelProvider, model string) (string, error) {
+	mc.mu.RLock()
+	models, ok := mc.modelPool[provider]
+	mc.mu.RUnlock()
+	if !ok {
+		return model, nil
+	}
+
+	candidateModels := make([]string, 0)
+	seenCandidates := make(map[string]struct{})
+	for _, poolModel := range models {
+		providerPart, modelPart := schemas.ParseModelString(poolModel, "")
+		if providerPart == "" || model != modelPart {
+			continue
+		}
+
+		candidate := string(providerPart) + "/" + modelPart
+		if _, seen := seenCandidates[candidate]; seen {
+			continue
+		}
+		seenCandidates[candidate] = struct{}{}
+		candidateModels = append(candidateModels, candidate)
+	}
+
+	switch len(candidateModels) {
+	case 0:
+		return model, nil
+	case 1:
+		return candidateModels[0], nil
+	default:
+		return "", fmt.Errorf("multiple compatible models found for model %s: %v", model, candidateModels)
+	}
 }
 
 // IsTextCompletionSupported checks if a model supports text completion for the given provider.

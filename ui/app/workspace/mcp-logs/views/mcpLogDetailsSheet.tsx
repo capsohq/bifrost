@@ -1,6 +1,5 @@
 "use client";
 
-import { CodeEditor } from "@/app/workspace/logs/views/codeEditor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/alertDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CodeEditor } from "@/components/ui/codeEditor";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdownMenu";
 import { DottedSeparator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -64,7 +64,7 @@ export function MCPLogDetailSheet({ log, open, onOpenChange, handleDelete }: MCP
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent className="dark:bg-card flex w-full flex-col gap-4 overflow-x-hidden bg-white p-8 sm:max-w-[60%]">
+			<SheetContent className="flex w-full flex-col gap-4 overflow-x-hidden p-8 sm:max-w-[60%]">
 				<SheetHeader className="flex flex-row items-center px-0">
 					<div className="flex w-full items-center justify-between">
 						<SheetTitle className="flex w-fit items-center gap-2 font-medium">

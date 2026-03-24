@@ -1,6 +1,6 @@
 module github.com/capsohq/bifrost/examples/plugins/http-transport-only
 
-go 1.26
+go 1.26.1
 
 replace github.com/capsohq/bifrost/core => ../../../core
 

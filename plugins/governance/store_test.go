@@ -353,13 +353,14 @@ func TestGovernanceStore_RoutingRules_CreateAndRetrieve(t *testing.T) {
 
 	// Create a global routing rule
 	rule1 := &configstoreTables.TableRoutingRule{
-		ID:              "1",
-		Name:            "Global Rule",
-		Description:     "Test global routing rule",
-		Enabled:         true,
-		CelExpression:   "model == 'gpt-4o'",
-		Provider:        "openai",
-		Model:           "gpt-4",
+		ID:            "1",
+		Name:          "Global Rule",
+		Description:   "Test global routing rule",
+		Enabled:       true,
+		CelExpression: "model == 'gpt-4o'",
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai"), Model: bifrost.Ptr("gpt-4"), Weight: 1.0},
+		},
 		Fallbacks:       nil,
 		ParsedFallbacks: []string{"azure/gpt-4-turbo"},
 		Scope:           "global",
@@ -372,13 +373,14 @@ func TestGovernanceStore_RoutingRules_CreateAndRetrieve(t *testing.T) {
 	// Create a team-scoped routing rule
 	teamID := "team-123"
 	rule2 := &configstoreTables.TableRoutingRule{
-		ID:              "2",
-		Name:            "Team Rule",
-		Description:     "Test team routing rule",
-		Enabled:         true,
-		CelExpression:   "model in ['gpt-4o', 'gpt-4-turbo']",
-		Provider:        "azure",
-		Model:           "",
+		ID:            "2",
+		Name:          "Team Rule",
+		Description:   "Test team routing rule",
+		Enabled:       true,
+		CelExpression: "model in ['gpt-4o', 'gpt-4-turbo']",
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("azure"), Weight: 1.0},
+		},
 		Fallbacks:       nil,
 		ParsedFallbacks: []string{"groq/mixtral-8x7b"},
 		Scope:           "team",
@@ -647,8 +649,10 @@ func TestCompileAndCacheProgram(t *testing.T) {
 		ID:            "rule-1",
 		Name:          "Test Rule",
 		CelExpression: "model == 'gpt-4o' && tokens_used < 80.0",
-		Provider:      "openai",
-		Enabled:       true,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai")},
+		},
+		Enabled: true,
 	}
 
 	// First compilation
@@ -675,8 +679,10 @@ func TestCompileAndCacheProgram_InvalidExpression(t *testing.T) {
 		ID:            "rule-invalid",
 		Name:          "Invalid Rule",
 		CelExpression: "model == gpt-4o'", // Syntax error
-		Provider:      "openai",
-		Enabled:       true,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai")},
+		},
+		Enabled: true,
 	}
 
 	_, err = store.GetRoutingProgram(rule)
@@ -697,9 +703,11 @@ func TestCompileAndCacheProgram_CacheInvalidation(t *testing.T) {
 		ID:            "rule-update",
 		Name:          "Update Rule",
 		CelExpression: "model == 'gpt-4o'",
-		Provider:      "openai",
-		Enabled:       true,
-		Scope:         "global",
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai")},
+		},
+		Enabled: true,
+		Scope:   "global",
 	}
 
 	// Compile and cache
@@ -728,9 +736,11 @@ func TestCompileAndCacheProgram_CacheInvalidationOnDelete(t *testing.T) {
 		ID:            "rule-delete",
 		Name:          "Delete Rule",
 		CelExpression: "provider == 'openai'",
-		Provider:      "openai",
-		Enabled:       true,
-		Scope:         "global",
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai")},
+		},
+		Enabled: true,
+		Scope:   "global",
 	}
 
 	// Compile and cache
@@ -754,8 +764,10 @@ func TestCompileAndCacheProgram_EmptyExpression(t *testing.T) {
 		ID:            "rule-empty",
 		Name:          "Empty Rule",
 		CelExpression: "",
-		Provider:      "openai",
-		Enabled:       true,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai")},
+		},
+		Enabled: true,
 	}
 
 	program, err := store.GetRoutingProgram(rule)

@@ -173,6 +173,18 @@ bifrost:
         - "x-custom-header"
       denylist:
         - "x-blocked"
+    asyncJobResultTTL: 300
+    requiredHeaders:
+      - "X-Request-ID"
+    loggingHeaders:
+      - "X-Trace-ID"
+    allowedHeaders:
+      - "Authorization"
+    mcpAgentDepth: 5
+    mcpToolExecutionTimeout: 30
+    mcpCodeModeBindingLevel: "server"
+    mcpToolSyncInterval: 60
+    hideDeletedVirtualKeysInFilters: true
 VALS
 
 render_config "$TMPDIR/values-client.yaml"
@@ -192,6 +204,17 @@ assert_field_value 'client.enable_litellm_fallbacks' '.client.enable_litellm_fal
 assert_field 'client.prometheus_labels' '.client.prometheus_labels'
 assert_field 'client.header_filter_config.allowlist' '.client.header_filter_config.allowlist'
 assert_field 'client.header_filter_config.denylist' '.client.header_filter_config.denylist'
+
+# Gap 1+2: New client properties
+assert_field_value 'client.async_job_result_ttl' '.client.async_job_result_ttl' '300'
+assert_field 'client.required_headers' '.client.required_headers'
+assert_field 'client.logging_headers' '.client.logging_headers'
+assert_field 'client.allowed_headers' '.client.allowed_headers'
+assert_field_value 'client.mcp_agent_depth' '.client.mcp_agent_depth' '5'
+assert_field_value 'client.mcp_tool_execution_timeout' '.client.mcp_tool_execution_timeout' '30'
+assert_field_value 'client.mcp_code_mode_binding_level' '.client.mcp_code_mode_binding_level' '"server"'
+assert_field_value 'client.mcp_tool_sync_interval' '.client.mcp_tool_sync_interval' '60'
+assert_field_value 'client.hide_deleted_virtual_keys_in_filters' '.client.hide_deleted_virtual_keys_in_filters' 'true'
 
 ###############################################################################
 # 2. Framework (Pricing)
@@ -398,22 +421,40 @@ bifrost:
             tools_to_execute:
               - "search"
               - "compute"
+    modelConfigs:
+      - id: "mc-1"
+        model_name: "gpt-4o"
+        provider: "openai"
+        budget_id: "budget-1"
+        rate_limit_id: "rl-1"
+    providers:
+      - name: "openai"
+        budget_id: "budget-1"
+        rate_limit_id: "rl-1"
+        send_back_raw_request: false
+        send_back_raw_response: false
     routingRules:
       - id: "route-1"
         name: "Route GPT to Azure"
         description: "Redirect GPT models to Azure"
         enabled: true
         cel_expression: "request.model.startsWith('gpt-')"
-        provider: "azure"
-        model: "gpt-4o"
-        fallbacks:
-          - "openai"
+        targets:
+          - provider: "azure"
+            model: "gpt-4o"
+            weight: 0.8
+          - provider: "openai"
+            model: "gpt-4o"
+            weight: 0.2
         scope: "global"
         priority: 10
       - id: "route-2"
         name: "Team-scoped route"
         enabled: true
         cel_expression: "true"
+        targets:
+          - provider: "openai"
+            weight: 1
         scope: "team"
         scope_id: "team-1"
         priority: 0
@@ -478,13 +519,31 @@ assert_field_value 'governance.routing_rules[0].name' '.governance.routing_rules
 assert_field_value 'governance.routing_rules[0].description' '.governance.routing_rules.[0].description' '"Redirect GPT models to Azure"'
 assert_field_value 'governance.routing_rules[0].enabled' '.governance.routing_rules.[0].enabled' 'true'
 assert_field_value 'governance.routing_rules[0].cel_expression' '.governance.routing_rules.[0].cel_expression' '"request.model.startsWith('\''gpt-'\'')"'
-assert_field_value 'governance.routing_rules[0].provider' '.governance.routing_rules.[0].provider' '"azure"'
-assert_field_value 'governance.routing_rules[0].model' '.governance.routing_rules.[0].model' '"gpt-4o"'
-assert_field 'governance.routing_rules[0].fallbacks' '.governance.routing_rules.[0].fallbacks'
+assert_field 'governance.routing_rules[0].targets' '.governance.routing_rules.[0].targets'
+assert_field_value 'governance.routing_rules[0].targets[0].provider' '.governance.routing_rules.[0].targets.[0].provider' '"azure"'
+assert_field_value 'governance.routing_rules[0].targets[0].model' '.governance.routing_rules.[0].targets.[0].model' '"gpt-4o"'
+assert_field_value 'governance.routing_rules[0].targets[0].weight' '.governance.routing_rules.[0].targets.[0].weight' '0.8'
+assert_field_value 'governance.routing_rules[0].targets[1].provider' '.governance.routing_rules.[0].targets.[1].provider' '"openai"'
+assert_field_value 'governance.routing_rules[0].targets[1].weight' '.governance.routing_rules.[0].targets.[1].weight' '0.2'
 assert_field_value 'governance.routing_rules[0].scope' '.governance.routing_rules.[0].scope' '"global"'
 assert_field_value 'governance.routing_rules[0].priority' '.governance.routing_rules.[0].priority' '10'
 assert_field_value 'governance.routing_rules[1].scope' '.governance.routing_rules.[1].scope' '"team"'
 assert_field_value 'governance.routing_rules[1].scope_id' '.governance.routing_rules.[1].scope_id' '"team-1"'
+assert_field 'governance.routing_rules[1].targets' '.governance.routing_rules.[1].targets'
+
+# Model configs (Gap 5a)
+assert_field 'governance.model_configs' '.governance.model_configs'
+assert_field_value 'governance.model_configs[0].id' '.governance.model_configs.[0].id' '"mc-1"'
+assert_field_value 'governance.model_configs[0].model_name' '.governance.model_configs.[0].model_name' '"gpt-4o"'
+assert_field_value 'governance.model_configs[0].provider' '.governance.model_configs.[0].provider' '"openai"'
+assert_field_value 'governance.model_configs[0].budget_id' '.governance.model_configs.[0].budget_id' '"budget-1"'
+assert_field_value 'governance.model_configs[0].rate_limit_id' '.governance.model_configs.[0].rate_limit_id' '"rl-1"'
+
+# Providers (Gap 5b)
+assert_field 'governance.providers' '.governance.providers'
+assert_field_value 'governance.providers[0].name' '.governance.providers.[0].name' '"openai"'
+assert_field_value 'governance.providers[0].budget_id' '.governance.providers.[0].budget_id' '"budget-1"'
+assert_field_value 'governance.providers[0].rate_limit_id' '.governance.providers.[0].rate_limit_id' '"rl-1"'
 
 # Auth config
 assert_field_value 'governance.auth_config.admin_username' '.governance.auth_config.admin_username' '"admin"'
@@ -547,6 +606,9 @@ bifrost:
       enabled: true
       config:
         is_vk_mandatory: true
+        required_headers:
+          - "X-Team-ID"
+        is_enterprise: true
     maxim:
       enabled: true
       config:
@@ -581,6 +643,10 @@ bifrost:
         metrics_enabled: true
         metrics_endpoint: "otel-collector:4317"
         metrics_push_interval: 30
+        headers:
+          Authorization: "Bearer token"
+        tls_ca_cert: "/certs/ca.pem"
+        insecure: true
     datadog:
       enabled: true
       config:
@@ -618,6 +684,8 @@ assert_field_value 'plugins: logging name' '.plugins.[1].name' '"logging"'
 # Governance plugin
 assert_field_value 'plugins: governance name' '.plugins.[2].name' '"governance"'
 assert_field_value 'plugins: governance is_vk_mandatory' '.plugins.[2].config.is_vk_mandatory' 'true'
+assert_field 'plugins: governance required_headers' '.plugins.[2].config.required_headers'
+assert_field_value 'plugins: governance is_enterprise' '.plugins.[2].config.is_enterprise' 'true'
 
 # Maxim plugin
 assert_field_value 'plugins: maxim name' '.plugins.[3].name' '"maxim"'
@@ -648,6 +716,9 @@ assert_field_value 'plugins: otel protocol' '.plugins.[5].config.protocol' '"grp
 assert_field_value 'plugins: otel metrics_enabled' '.plugins.[5].config.metrics_enabled' 'true'
 assert_field_value 'plugins: otel metrics_endpoint' '.plugins.[5].config.metrics_endpoint' '"otel-collector:4317"'
 assert_field_value 'plugins: otel metrics_push_interval' '.plugins.[5].config.metrics_push_interval' '30'
+assert_field 'plugins: otel headers' '.plugins.[5].config.headers'
+assert_field_value 'plugins: otel tls_ca_cert' '.plugins.[5].config.tls_ca_cert' '"/certs/ca.pem"'
+assert_field_value 'plugins: otel insecure' '.plugins.[5].config.insecure' 'true'
 
 # Datadog plugin
 assert_field_value 'plugins: datadog name' '.plugins.[6].name' '"datadog"'
@@ -677,9 +748,16 @@ image:
 bifrost:
   mcp:
     enabled: true
+    toolSyncInterval: "10m"
     clientConfigs:
       - name: "stdio-server"
         connectionType: "stdio"
+        clientId: "client-1"
+        isCodeModeClient: true
+        toolSyncInterval: "5m"
+        isPingAvailable: false
+        toolPricing:
+          search: 0.05
         stdioConfig:
           command: "/usr/bin/mcp-server"
           args:
@@ -698,6 +776,7 @@ bifrost:
     toolManagerConfig:
       toolExecutionTimeout: 60
       maxAgentDepth: 5
+      codeModeBindingLevel: "server"
 VALS
 
 render_config "$TMPDIR/values-mcp.yaml"
@@ -724,6 +803,20 @@ assert_field_value 'mcp client[2] connection_string' '.mcp.client_configs.[2].co
 assert_field_value 'mcp tool_manager_config.tool_execution_timeout' '.mcp.tool_manager_config.tool_execution_timeout' '60'
 assert_field_value 'mcp tool_manager_config.max_agent_depth' '.mcp.tool_manager_config.max_agent_depth' '5'
 
+# Gap 6a: Global tool sync interval
+assert_field_value 'mcp tool_sync_interval' '.mcp.tool_sync_interval' '"10m"'
+
+# Gap 6b: Per-client new fields
+assert_field_value 'mcp client[0] client_id' '.mcp.client_configs.[0].client_id' '"client-1"'
+assert_field_value 'mcp client[0] is_code_mode_client' '.mcp.client_configs.[0].is_code_mode_client' 'true'
+assert_field_value 'mcp client[0] tool_sync_interval' '.mcp.client_configs.[0].tool_sync_interval' '"5m"'
+assert_field_value 'mcp client[0] is_ping_available' '.mcp.client_configs.[0].is_ping_available' 'false'
+assert_field 'mcp client[0] tool_pricing' '.mcp.client_configs.[0].tool_pricing'
+assert_field_value 'mcp client[0] tool_pricing.search' '.mcp.client_configs.[0].tool_pricing.search' '0.05'
+
+# Gap 6c: Tool manager codeModeBindingLevel
+assert_field_value 'mcp tool_manager_config.code_mode_binding_level' '.mcp.tool_manager_config.code_mode_binding_level' '"server"'
+
 ###############################################################################
 # 8. Cluster, SAML, Load Balancer, Guardrails, Audit Logs
 ###############################################################################
@@ -737,6 +830,7 @@ image:
 bifrost:
   cluster:
     enabled: true
+    region: "us-east-1"
     peers:
       - "bifrost-0.bifrost-headless:7946"
       - "bifrost-1.bifrost-headless:7946"
@@ -767,6 +861,9 @@ assert_field_value 'cluster_config.discovery.type' '.cluster_config.discovery.ty
 assert_field 'cluster_config.discovery.allowed_address_space' '.cluster_config.discovery.allowed_address_space'
 assert_field_value 'cluster_config.discovery.k8s_namespace' '.cluster_config.discovery.k8s_namespace' '"bifrost"'
 assert_field_value 'cluster_config.discovery.k8s_label_selector' '.cluster_config.discovery.k8s_label_selector' '"app=bifrost"'
+
+# Gap 7: Cluster region
+assert_field_value 'cluster_config.region' '.cluster_config.region' '"us-east-1"'
 
 # SAML - Okta
 cat > "$TMPDIR/values-saml-okta.yaml" << 'VALS'
@@ -856,6 +953,7 @@ bifrost:
         provider_name: "bedrock"
         policy_name: "content-filter"
         enabled: true
+        timeout: 5000
         config:
           guardrailId: "abc"
 VALS
@@ -876,6 +974,7 @@ assert_field_value 'guardrails provider[0].id' '.guardrails_config.guardrail_pro
 assert_field_value 'guardrails provider[0].provider_name' '.guardrails_config.guardrail_providers.[0].provider_name' '"bedrock"'
 assert_field_value 'guardrails provider[0].policy_name' '.guardrails_config.guardrail_providers.[0].policy_name' '"content-filter"'
 assert_field_value 'guardrails provider[0].enabled' '.guardrails_config.guardrail_providers.[0].enabled' 'true'
+assert_field_value 'guardrails provider[0].timeout' '.guardrails_config.guardrail_providers.[0].timeout' '5000'
 assert_field 'guardrails provider[0].config' '.guardrails_config.guardrail_providers.[0].config'
 
 # Audit Logs

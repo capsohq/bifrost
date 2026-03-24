@@ -22,7 +22,7 @@
     "links": [
       {
         "label": "Discord",
-        "href": "https://getmax.im/bifrost-discord",
+        "href": "https://discord.gg/exN5KAydbU",
         "icon": "discord"
       },
       {
@@ -43,7 +43,7 @@
         {
           "anchor": "Discord",
           "icon": "discord",
-          "href": "https://getmax.im/bifrost-discord"
+          "href": "https://discord.gg/exN5KAydbU"
         },
         {
           "anchor": "Try Enterprise",
@@ -79,10 +79,10 @@
                   "quickstart/gateway/tool-calling",
                   "quickstart/gateway/multimodal",
                   "quickstart/gateway/reranking",
-                  "quickstart/gateway/integrations",
-                  "quickstart/gateway/cli-agents"
+                  "quickstart/gateway/integrations"
                 ]
               },
+              "quickstart/cli/getting-started",
               {
                 "group": "Use as Go SDK",
                 "icon": "code",
@@ -97,6 +97,23 @@
                   "quickstart/go-sdk/logger"
                 ]
               }
+            ]
+          },
+          {
+            "group": "CLI Agents & Editors",
+            "icon": "command",
+            "pages": [
+              "cli-agents/overview",
+              "cli-agents/cursor",
+              "cli-agents/librechat",
+              "cli-agents/claude-code",
+              "cli-agents/codex-cli",
+              "cli-agents/gemini-cli",
+              "cli-agents/qwen-code",
+              "cli-agents/opencode",
+              "cli-agents/zed-editor",
+              "cli-agents/roo-code",
+              "cli-agents/open-webui"
             ]
           },
           {
@@ -185,7 +202,8 @@
               },
               "integrations/litellm-sdk",
               "integrations/langchain-sdk",
-              "integrations/pydanticai-sdk"
+              "integrations/pydanticai-sdk",
+              "integrations/passthrough"
             ]
           },
           {
@@ -209,6 +227,7 @@
             "pages": [
               "plugins/getting-started",
               "plugins/building-dynamic-binary",
+              "plugins/sequencing",
               {
                 "group": "Writing Plugins",
                 "icon": "code",
@@ -257,6 +276,13 @@
               },
               "features/telemetry",
               "features/semantic-caching",
+              {
+                "group": "Prompt Repository",
+                "icon": "folder",
+                "pages": [
+                  "features/prompt-repository/playground"
+                ]
+              },
               {
                 "group": "Plugins",
                 "icon": "puzzle-piece",
@@ -413,131 +439,160 @@
       {
         "tab": "Changelogs",
         "icon": "bolt",
-        "pages": [
-          "changelogs/v1.4.11",
-          "changelogs/v1.4.10",
+        "menu": [
           {
-            "group": "February 2026",
+            "item": "Open Source",
+            "icon": "rocket",
             "pages": [
-              "changelogs/v1.4.9",
-              "changelogs/v1.4.8",
-              "changelogs/v1.4.7",
-              "changelogs/v1.4.6",
-              "changelogs/v1.4.5",
-              "changelogs/v1.4.4"
+              "changelogs/v1.4.16",
+              "changelogs/v1.4.15",
+              "changelogs/v1.4.14",
+              "changelogs/v1.4.13",
+              "changelogs/v1.4.12",
+              "changelogs/v1.4.11",
+              "changelogs/v1.4.10",
+              {
+                "group": "February 2026",
+                "pages": [
+                  "changelogs/v1.4.9",
+                  "changelogs/v1.4.8",
+                  "changelogs/v1.4.7",
+                  "changelogs/v1.4.6",
+                  "changelogs/v1.4.5",
+                  "changelogs/v1.4.4"
+                ]
+              },
+              {
+                "group": "January 2026",
+                "pages": [
+                  "changelogs/v1.4.3",
+                  "changelogs/v1.4.2",
+                  "changelogs/v1.4.1",
+                  "changelogs/v1.4.0",
+                  "changelogs/v1.4.0-prerelease10",
+                  "changelogs/v1.4.0-prerelease9",
+                  "changelogs/v1.4.0-prerelease8",
+                  "changelogs/v1.4.0-prerelease7",
+                  "changelogs/v1.4.0-prerelease6",
+                  "changelogs/v1.4.0-prerelease5",
+                  "changelogs/v1.4.0-prerelease4",
+                  "changelogs/v1.4.0-prerelease3",
+                  "changelogs/v1.3.63",
+                  "changelogs/v1.3.62",
+                  "changelogs/v1.3.61",
+                  "changelogs/v1.3.60",
+                  "changelogs/v1.3.59",
+                  "changelogs/v1.3.58",
+                  "changelogs/v1.3.57",
+                  "changelogs/v1.3.56"
+                ]
+              },
+              {
+                "group": "December 2025",
+                "pages": [
+                  "changelogs/v1.4.0-prerelease2",
+                  "changelogs/v1.4.0-prerelease1",
+                  "changelogs/v1.3.54",
+                  "changelogs/v1.3.53",
+                  "changelogs/v1.3.52",
+                  "changelogs/v1.3.51",
+                  "changelogs/v1.3.50",
+                  "changelogs/v1.3.49",
+                  "changelogs/v1.3.48",
+                  "changelogs/v1.3.47",
+                  "changelogs/v1.3.46",
+                  "changelogs/v1.3.45",
+                  "changelogs/v1.3.44",
+                  "changelogs/v1.3.43",
+                  "changelogs/v1.3.42",
+                  "changelogs/v1.3.41",
+                  "changelogs/v1.3.40",
+                  "changelogs/v1.3.39",
+                  "changelogs/v1.3.38"
+                ]
+              },
+              {
+                "group": "November 2025",
+                "pages": [
+                  "changelogs/v1.3.37",
+                  "changelogs/v1.3.36",
+                  "changelogs/v1.3.35",
+                  "changelogs/v1.3.34",
+                  "changelogs/v1.3.33",
+                  "changelogs/v1.3.32",
+                  "changelogs/v1.3.31",
+                  "changelogs/v1.3.30",
+                  "changelogs/v1.3.29",
+                  "changelogs/v1.3.28",
+                  "changelogs/v1.3.27",
+                  "changelogs/v1.3.26",
+                  "changelogs/v1.3.25",
+                  "changelogs/v1.3.24",
+                  "changelogs/v1.3.23",
+                  "changelogs/v1.3.22",
+                  "changelogs/v1.3.21",
+                  "changelogs/v1.3.20",
+                  "changelogs/v1.3.19",
+                  "changelogs/v1.3.18"
+                ]
+              },
+              {
+                "group": "October 2025",
+                "pages": [
+                  "changelogs/v1.3.17",
+                  "changelogs/v1.3.16",
+                  "changelogs/v1.3.15",
+                  "changelogs/v1.3.14",
+                  "changelogs/v1.3.13",
+                  "changelogs/v1.3.12",
+                  "changelogs/v1.3.11",
+                  "changelogs/v1.3.10",
+                  "changelogs/v1.3.9",
+                  "changelogs/v1.3.8",
+                  "changelogs/v1.3.7",
+                  "changelogs/v1.3.6",
+                  "changelogs/v1.3.5",
+                  "changelogs/v1.3.4",
+                  "changelogs/v1.3.3",
+                  "changelogs/v1.3.2",
+                  "changelogs/v1.3.1",
+                  "changelogs/v1.3.0",
+                  "changelogs/v1.3.0-prerelease7",
+                  "changelogs/v1.3.0-prerelease6",
+                  "changelogs/v1.3.0-prerelease5",
+                  "changelogs/v1.3.0-prerelease4",
+                  "changelogs/v1.3.0-prerelease3",
+                  "changelogs/v1.3.0-prerelease2",
+                  "changelogs/v1.3.0-prerelease1",
+                  "changelogs/v1.2.24",
+                  "changelogs/v1.2.23"
+                ]
+              },
+              {
+                "group": "September 2025",
+                "pages": [
+                  "changelogs/v1.2.22",
+                  "changelogs/v1.2.21"
+                ]
+              }
             ]
           },
           {
-            "group": "January 2026",
+            "item": "Enterprise",
+            "icon": "building",
             "pages": [
-              "changelogs/v1.4.3",
-              "changelogs/v1.4.2",
-              "changelogs/v1.4.1",
-              "changelogs/v1.4.0",
-              "changelogs/v1.4.0-prerelease10",
-              "changelogs/v1.4.0-prerelease9",
-              "changelogs/v1.4.0-prerelease8",
-              "changelogs/v1.4.0-prerelease7",
-              "changelogs/v1.4.0-prerelease6",
-              "changelogs/v1.4.0-prerelease5",
-              "changelogs/v1.4.0-prerelease4",
-              "changelogs/v1.4.0-prerelease3",
-              "changelogs/v1.3.63",
-              "changelogs/v1.3.62",
-              "changelogs/v1.3.61",
-              "changelogs/v1.3.60",
-              "changelogs/v1.3.59",
-              "changelogs/v1.3.58",
-              "changelogs/v1.3.57",
-              "changelogs/v1.3.56"
+              "changelogs/ent-v1.3.10",
+              "changelogs/ent-v1.3.9",
+              "changelogs/ent-v1.3.8"
             ]
           },
           {
-            "group": "December 2025",
+            "item": "Bifrost CLI",
+            "icon": "laptop-code",
             "pages": [
-              "changelogs/v1.4.0-prerelease2",
-              "changelogs/v1.4.0-prerelease1",
-              "changelogs/v1.3.54",
-              "changelogs/v1.3.53",
-              "changelogs/v1.3.52",
-              "changelogs/v1.3.51",
-              "changelogs/v1.3.50",
-              "changelogs/v1.3.49",
-              "changelogs/v1.3.48",
-              "changelogs/v1.3.47",
-              "changelogs/v1.3.46",
-              "changelogs/v1.3.45",
-              "changelogs/v1.3.44",
-              "changelogs/v1.3.43",
-              "changelogs/v1.3.42",
-              "changelogs/v1.3.41",
-              "changelogs/v1.3.40",
-              "changelogs/v1.3.39",
-              "changelogs/v1.3.38"
-            ]
-          },
-          {
-            "group": "November 2025",
-            "pages": [
-              "changelogs/v1.3.37",
-              "changelogs/v1.3.36",
-              "changelogs/v1.3.35",
-              "changelogs/v1.3.34",
-              "changelogs/v1.3.33",
-              "changelogs/v1.3.32",
-              "changelogs/v1.3.31",
-              "changelogs/v1.3.30",
-              "changelogs/v1.3.29",
-              "changelogs/v1.3.28",
-              "changelogs/v1.3.27",
-              "changelogs/v1.3.26",
-              "changelogs/v1.3.25",
-              "changelogs/v1.3.24",
-              "changelogs/v1.3.23",
-              "changelogs/v1.3.22",
-              "changelogs/v1.3.21",
-              "changelogs/v1.3.20",
-              "changelogs/v1.3.19",
-              "changelogs/v1.3.18"
-            ]
-          },
-          {
-            "group": "October 2025",
-            "pages": [
-              "changelogs/v1.3.17",
-              "changelogs/v1.3.16",
-              "changelogs/v1.3.15",
-              "changelogs/v1.3.14",
-              "changelogs/v1.3.13",
-              "changelogs/v1.3.12",
-              "changelogs/v1.3.11",
-              "changelogs/v1.3.10",
-              "changelogs/v1.3.9",
-              "changelogs/v1.3.8",
-              "changelogs/v1.3.7",
-              "changelogs/v1.3.6",
-              "changelogs/v1.3.5",
-              "changelogs/v1.3.4",
-              "changelogs/v1.3.3",
-              "changelogs/v1.3.2",
-              "changelogs/v1.3.1",
-              "changelogs/v1.3.0",
-              "changelogs/v1.3.0-prerelease7",
-              "changelogs/v1.3.0-prerelease6",
-              "changelogs/v1.3.0-prerelease5",
-              "changelogs/v1.3.0-prerelease4",
-              "changelogs/v1.3.0-prerelease3",
-              "changelogs/v1.3.0-prerelease2",
-              "changelogs/v1.3.0-prerelease1",
-              "changelogs/v1.2.24",
-              "changelogs/v1.2.23"
-            ]
-          },
-          {
-            "group": "September 2025",
-            "pages": [
-              "changelogs/v1.2.22",
-              "changelogs/v1.2.21"
+              "changelogs/cli-v0.10.2",
+              "changelogs/cli-v0.10.1",
+              "changelogs/cli-v0.10.0"
             ]
           }
         ]
@@ -545,6 +600,30 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/quickstart/gateway/cli-agents",
+      "destination": "/cli-agents/overview"
+    },
+    {
+      "source": "/quickstart/gateway/cli-agents/overview",
+      "destination": "/cli-agents/overview"
+    },
+    {
+      "source": "/quickstart/gateway/cli-agents/cursor",
+      "destination": "/cli-agents/cursor"
+    },
+    {
+      "source": "/quickstart/gateway/cli-agents/opencode",
+      "destination": "/cli-agents/opencode"
+    },
+    {
+      "source": "/quickstart/gateway/cli-agents/zed",
+      "destination": "/cli-agents/zed-editor"
+    },
+    {
+      "source": "/quickstart/gateway/cli-agents/librechat",
+      "destination": "/cli-agents/librechat"
+    },
     {
       "source": "/providers/supported-headers",
       "destination": "/providers/request-options"

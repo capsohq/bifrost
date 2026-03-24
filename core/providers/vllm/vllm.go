@@ -2,10 +2,10 @@
 package vllm
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -30,16 +30,20 @@ type VLLMProvider struct {
 func NewVLLMProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*VLLMProvider, error) {
 	config.CheckAndSetDefaults()
 
+	requestTimeout := time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 	client := &fasthttp.Client{
-		ReadTimeout:         time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		WriteTimeout:        time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		MaxConnsPerHost:     5000,
+		ReadTimeout:         requestTimeout,
+		WriteTimeout:        requestTimeout,
+		MaxConnsPerHost:     config.NetworkConfig.MaxConnsPerHost,
 		MaxIdleConnDuration: 60 * time.Second,
-		MaxConnWaitTimeout:  10 * time.Second,
+		MaxConnWaitTimeout:  requestTimeout,
+		MaxConnDuration:     time.Second * time.Duration(schemas.DefaultMaxConnDurationInSeconds),
+		ConnPoolStrategy:    fasthttp.FIFO,
 	}
 
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
 	client = providerUtils.ConfigureDialer(client)
+	client = providerUtils.ConfigureTLS(client, config.NetworkConfig, logger)
 	config.NetworkConfig.BaseURL = strings.TrimRight(config.NetworkConfig.BaseURL, "/")
 
 	// BaseURL is optional when keys have vllm_key_config with per-key URLs
@@ -298,9 +302,12 @@ func (provider *VLLMProvider) callVLLMRerankEndpoint(
 	if key.Value.GetValue() != "" {
 		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
 	}
-	req.SetBody(jsonData)
+	if !providerUtils.ApplyLargePayloadRequestBodyWithModelNormalization(ctx, req, schemas.VLLM) {
+		req.SetBody(jsonData)
+	}
 
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, nil, nil, nil, 0, latency, bifrostErr
 	}
@@ -489,14 +496,26 @@ func (provider *VLLMProvider) TranscriptionStream(ctx *schemas.BifrostContext, p
 			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName)
 		}
 
+		// Store provider response headers in context before status check so error responses also forward them
+		ctx.SetValue(schemas.BifrostContextKeyProviderResponseHeaders, providerUtils.ExtractProviderResponseHeaders(resp))
+
 		// Check for HTTP errors
 		if resp.StatusCode() != fasthttp.StatusOK {
 			defer providerUtils.ReleaseStreamingResponse(resp)
 			return nil, openai.ParseOpenAIError(resp, schemas.TranscriptionStreamRequest, providerName, request.Model)
 		}
 
+		// Large payload streaming passthrough — pipe raw upstream SSE to client
+		if providerUtils.SetupStreamingPassthrough(ctx, resp) {
+			responseChan := make(chan *schemas.BifrostStreamChunk)
+			close(responseChan)
+			return responseChan, nil
+		}
+
 		// Create response channel
 		responseChan := make(chan *schemas.BifrostStreamChunk, schemas.DefaultStreamBufferSize)
+
+		providerUtils.SetStreamIdleTimeoutIfEmpty(ctx, provider.networkConfig.StreamIdleTimeoutInSeconds)
 
 		// Start streaming in a goroutine
 		go func() {
@@ -513,44 +532,43 @@ func (provider *VLLMProvider) TranscriptionStream(ctx *schemas.BifrostContext, p
 			reader, releaseGzip := providerUtils.DecompressStreamBody(resp)
 			defer releaseGzip()
 
+			// Wrap reader with idle timeout to detect stalled streams.
+			reader, stopIdleTimeout := providerUtils.NewIdleTimeoutReader(reader, resp.BodyStream(), providerUtils.GetStreamIdleTimeout(ctx))
+			defer stopIdleTimeout()
+
 			// Setup cancellation handler to close the raw network stream on ctx cancellation,
 			// which immediately unblocks any in-progress read (including reads blocked inside a gzip decompression layer).
 			stopCancellation := providerUtils.SetupStreamCancellation(ctx, resp.BodyStream(), logger)
 			defer stopCancellation()
 
-			scanner := bufio.NewScanner(reader)
+			sseReader := providerUtils.GetSSEDataReader(ctx, reader)
 			chunkIndex := -1
 
 			startTime := time.Now()
 			lastChunkTime := startTime
 			var fullTranscriptionText strings.Builder
 
-			for scanner.Scan() {
+			for {
 				// If context was cancelled/timed out, let defer handle it
 				if ctx.Err() != nil {
 					return
 				}
 
-				line := scanner.Text()
-
-				// Skip empty lines and comments
-				if line == "" {
-					continue
-				}
-
-				// Check for end of stream
-				if line == "data: [DONE]" {
+				dataBytes, readErr := sseReader.ReadDataLine()
+				if readErr != nil {
+					if readErr != io.EOF {
+						// If context was cancelled/timed out, let defer handle it
+						if ctx.Err() != nil {
+							return
+						}
+						ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
+						logger.Warn("Error reading stream: %v", readErr)
+						providerUtils.ProcessAndSendError(ctx, postHookRunner, readErr, responseChan, schemas.TranscriptionStreamRequest, providerName, request.Model, logger)
+					}
 					break
 				}
 
-				var jsonData string
-				// Parse SSE data
-				if strings.HasPrefix(line, "data: ") {
-					jsonData = strings.TrimPrefix(line, "data: ")
-				} else {
-					// Handle raw JSON errors (without "data: " prefix)
-					jsonData = line
-				}
+				jsonData := string(dataBytes)
 
 				// Skip empty data
 				if strings.TrimSpace(jsonData) == "" {
@@ -560,7 +578,7 @@ func (provider *VLLMProvider) TranscriptionStream(ctx *schemas.BifrostContext, p
 				var response schemas.BifrostTranscriptionStreamResponse
 				var bifrostErr *schemas.BifrostError
 
-				_, _, bifrostErr = HandleVLLMResponse([]byte(jsonData), &response, nil, false, false)
+				_, _, bifrostErr = HandleVLLMResponse(dataBytes, &response, nil, false, false)
 				if bifrostErr != nil {
 					bifrostErr.ExtraFields = schemas.BifrostErrorExtraFields{
 						Provider:       providerName,
@@ -568,11 +586,11 @@ func (provider *VLLMProvider) TranscriptionStream(ctx *schemas.BifrostContext, p
 						RequestType:    schemas.TranscriptionStreamRequest,
 					}
 					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, providerUtils.EnrichError(ctx, bifrostErr, body.Bytes(), []byte(jsonData), false, providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse)), responseChan, logger)
+					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, providerUtils.EnrichError(ctx, bifrostErr, body.Bytes(), dataBytes, false, providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse)), responseChan, logger)
 					return
 				}
 
-				customChunk, ok := parseVLLMTranscriptionStreamChunk([]byte(jsonData))
+				customChunk, ok := parseVLLMTranscriptionStreamChunk(dataBytes)
 				if !ok || customChunk == nil {
 					logger.Warn("customChunkParser returned no chunk")
 					continue
@@ -605,17 +623,6 @@ func (provider *VLLMProvider) TranscriptionStream(ctx *schemas.BifrostContext, p
 				}
 
 				providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, nil, nil, &response, nil), responseChan)
-			}
-
-			// Handle scanner errors
-			if err := scanner.Err(); err != nil {
-				// If context was cancelled/timed out, let defer handle it
-				if ctx.Err() != nil {
-					return
-				}
-				ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-				logger.Warn("Error reading stream: %v", err)
-				providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, schemas.TranscriptionStreamRequest, providerName, request.Model, logger)
 			}
 		}()
 
@@ -723,6 +730,11 @@ func (provider *VLLMProvider) BatchCancel(_ *schemas.BifrostContext, _ []schemas
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchCancelRequest, provider.GetProviderKey())
 }
 
+// BatchDelete is not supported by the vLLM provider.
+func (provider *VLLMProvider) BatchDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchDeleteRequest) (*schemas.BifrostBatchDeleteResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchDeleteRequest, provider.GetProviderKey())
+}
+
 // BatchResults is not supported by the vLLM provider.
 func (provider *VLLMProvider) BatchResults(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchResultsRequest) (*schemas.BifrostBatchResultsResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchResultsRequest, provider.GetProviderKey())
@@ -776,4 +788,13 @@ func (provider *VLLMProvider) ContainerFileContent(_ *schemas.BifrostContext, _ 
 // ContainerFileDelete is not supported by the vLLM provider.
 func (provider *VLLMProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostContainerFileDeleteRequest) (*schemas.BifrostContainerFileDeleteResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
+}
+
+// Passthrough is not supported by the vLLM provider.
+func (provider *VLLMProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+}
+
+func (provider *VLLMProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

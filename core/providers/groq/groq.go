@@ -26,12 +26,15 @@ type GroqProvider struct {
 func NewGroqProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*GroqProvider, error) {
 	config.CheckAndSetDefaults()
 
+	requestTimeout := time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 	client := &fasthttp.Client{
-		ReadTimeout:         time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		WriteTimeout:        time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		MaxConnsPerHost:     5000,
+		ReadTimeout:         requestTimeout,
+		WriteTimeout:        requestTimeout,
+		MaxConnsPerHost:     config.NetworkConfig.MaxConnsPerHost,
 		MaxIdleConnDuration: 30 * time.Second,
-		MaxConnWaitTimeout:  10 * time.Second,
+		MaxConnWaitTimeout:  requestTimeout,
+		MaxConnDuration:     time.Second * time.Duration(schemas.DefaultMaxConnDurationInSeconds),
+		ConnPoolStrategy:    fasthttp.FIFO,
 	}
 
 	// // Pre-warm response pools
@@ -42,6 +45,7 @@ func NewGroqProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*Gr
 	// Configure proxy and retry policy
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
 	client = providerUtils.ConfigureDialer(client)
+	client = providerUtils.ConfigureTLS(client, config.NetworkConfig, logger)
 	// Set default BaseURL if not provided
 	if config.NetworkConfig.BaseURL == "" {
 		config.NetworkConfig.BaseURL = "https://api.groq.com/openai"
@@ -168,9 +172,23 @@ func (provider *GroqProvider) Embedding(ctx *schemas.BifrostContext, key schemas
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.EmbeddingRequest, provider.GetProviderKey())
 }
 
-// Speech is not supported by the Groq provider.
+// Speech handles non-streaming speech synthesis requests.
+// It formats the request body, makes the API call, and returns the response.
+// Returns the response and any error that occurred.
 func (provider *GroqProvider) Speech(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostSpeechRequest) (*schemas.BifrostSpeechResponse, *schemas.BifrostError) {
-	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechRequest, provider.GetProviderKey())
+	return openai.HandleOpenAISpeechRequest(
+		ctx,
+		provider.client,
+		provider.networkConfig.BaseURL+providerUtils.GetPathFromContext(ctx, "/v1/audio/speech"),
+		request,
+		key,
+		provider.networkConfig.ExtraHeaders,
+		schemas.Groq,
+		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
+		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
+		nil,
+		provider.logger,
+	)
 }
 
 // Rerank is not supported by the Groq provider.
@@ -183,9 +201,22 @@ func (provider *GroqProvider) SpeechStream(ctx *schemas.BifrostContext, postHook
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
 }
 
-// Transcription is not supported by the Groq provider.
+// Transcription handles non-streaming transcription requests.
+// It creates a multipart form, adds fields, makes the API call, and returns the response.
+// Returns the response and any error that occurred.
 func (provider *GroqProvider) Transcription(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (*schemas.BifrostTranscriptionResponse, *schemas.BifrostError) {
-	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionRequest, provider.GetProviderKey())
+	return openai.HandleOpenAITranscriptionRequest(
+		ctx,
+		provider.client,
+		provider.networkConfig.BaseURL+providerUtils.GetPathFromContext(ctx, "/v1/audio/transcriptions"),
+		request,
+		key,
+		provider.networkConfig.ExtraHeaders,
+		schemas.Groq,
+		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
+		nil,
+		provider.logger,
+	)
 }
 
 // TranscriptionStream is not supported by the Groq provider.
@@ -268,6 +299,11 @@ func (provider *GroqProvider) BatchCancel(_ *schemas.BifrostContext, _ []schemas
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchCancelRequest, provider.GetProviderKey())
 }
 
+// BatchDelete is not supported by Groq provider.
+func (provider *GroqProvider) BatchDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchDeleteRequest) (*schemas.BifrostBatchDeleteResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchDeleteRequest, provider.GetProviderKey())
+}
+
 // BatchResults is not supported by Groq provider.
 func (provider *GroqProvider) BatchResults(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostBatchResultsRequest) (*schemas.BifrostBatchResultsResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchResultsRequest, provider.GetProviderKey())
@@ -346,4 +382,13 @@ func (provider *GroqProvider) ContainerFileContent(_ *schemas.BifrostContext, _ 
 // ContainerFileDelete is not supported by the Groq provider.
 func (provider *GroqProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostContainerFileDeleteRequest) (*schemas.BifrostContainerFileDeleteResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
+}
+
+// Passthrough is not supported by the Groq provider.
+func (provider *GroqProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+}
+
+func (provider *GroqProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

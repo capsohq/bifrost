@@ -21,6 +21,7 @@ func TestOpenAI(t *testing.T) {
 		t.Fatalf("Error initializing test setup: %v", err)
 	}
 	defer cancel()
+	defer client.Shutdown()
 
 	testConfig := llmtests.ComprehensiveTestConfig{
 		Provider:           schemas.OpenAI,
@@ -43,6 +44,7 @@ func TestOpenAI(t *testing.T) {
 		ImageVariationModel:  "", // dall-e-2 is deprecated and no other OpenAI model supports image variations
 		VideoGenerationModel: "sora-2",
 		ChatAudioModel:       "gpt-4o-mini-audio-preview",
+		PassthroughModel:     "gpt-4o",
 		Scenarios: llmtests.TestScenarios{
 			TextCompletion:        true,
 			TextCompletionStream:  true,
@@ -102,11 +104,15 @@ func TestOpenAI(t *testing.T) {
 			ContainerFileRetrieve: true,
 			ContainerFileContent:  true,
 			ContainerFileDelete:   true,
+			PromptCaching:         true,
+			PassthroughAPI:        true,
+			WebSocketResponses:    true,
+			Realtime:              false,
 		},
+		RealtimeModel: "gpt-4o-realtime-preview",
 	}
 
 	t.Run("OpenAITests", func(t *testing.T) {
 		llmtests.RunAllComprehensiveTests(t, client, ctx, testConfig)
 	})
-	client.Shutdown()
 }

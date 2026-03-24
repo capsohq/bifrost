@@ -154,6 +154,11 @@ export interface NetworkConfig {
 	max_retries: number;
 	retry_backoff_initial: number; // Duration in milliseconds
 	retry_backoff_max: number; // Duration in milliseconds
+	insecure_skip_verify?: boolean;
+	ca_cert_pem?: string;
+	stream_idle_timeout_in_seconds?: number;
+	max_conns_per_host?: number;
+	enforce_http2?: boolean;
 }
 
 // ConcurrencyAndBufferSize matching Go's schemas.ConcurrencyAndBufferSize
@@ -220,7 +225,9 @@ export type RequestType =
 	| "container_file_list"
 	| "container_file_retrieve"
 	| "container_file_content"
-	| "container_file_delete";
+	| "container_file_delete"
+	| "websocket_responses"
+	| "realtime";
 
 // AllowedRequests matching Go's schemas.AllowedRequests
 export interface AllowedRequests {
@@ -249,6 +256,8 @@ export interface AllowedRequests {
 	video_delete: boolean;
 	video_list: boolean;
 	video_remix: boolean;
+	websocket_responses: boolean;
+	realtime: boolean;
 }
 
 // CustomProviderConfig matching Go's schemas.CustomProviderConfig
@@ -301,6 +310,7 @@ export interface ModelProviderConfig {
 	proxy_config?: ProxyConfig;
 	send_back_raw_request?: boolean;
 	send_back_raw_response?: boolean;
+	store_raw_request_response?: boolean;
 	custom_provider_config?: CustomProviderConfig;
 	pricing_overrides?: ProviderPricingOverride[];
 	status?: "unknown" | "success" | "list_models_failed";
@@ -329,6 +339,7 @@ export interface AddProviderRequest {
 	proxy_config?: ProxyConfig;
 	send_back_raw_request?: boolean;
 	send_back_raw_response?: boolean;
+	store_raw_request_response?: boolean;
 	custom_provider_config?: CustomProviderConfig;
 	pricing_overrides?: ProviderPricingOverride[];
 }
@@ -341,6 +352,7 @@ export interface UpdateProviderRequest {
 	proxy_config: ProxyConfig;
 	send_back_raw_request?: boolean;
 	send_back_raw_response?: boolean;
+	store_raw_request_response?: boolean;
 	custom_provider_config?: CustomProviderConfig;
 	pricing_overrides?: ProviderPricingOverride[];
 }

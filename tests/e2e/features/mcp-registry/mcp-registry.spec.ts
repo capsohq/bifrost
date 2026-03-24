@@ -6,6 +6,8 @@ import {
     createSTDIOClientData
 } from './mcp-registry.data'
 
+const hasSSEHeaders = Boolean(process.env.MCP_SSE_HEADERS)
+
 // Track created clients for cleanup
 const createdClients: string[] = []
 const hasSSEHeaders = Boolean(process.env.MCP_SSE_HEADERS?.trim())
@@ -40,10 +42,10 @@ test.describe('MCP Registry', () => {
       const isEmptyStateVisible = await mcpRegistryPage.isEmptyStateVisible()
 
       if (count === 0) {
-        // Empty state or empty table
-        expect(isEmptyStateVisible || count === 0).toBe(true)
+        expect(isEmptyStateVisible).toBe(true)
       } else {
         expect(count).toBeGreaterThan(0)
+        expect(isEmptyStateVisible).toBe(false)
       }
     })
   })
@@ -67,6 +69,10 @@ test.describe('MCP Registry', () => {
       createdClients.push(clientData.name)
       const exists = await mcpRegistryPage.clientExists(clientData.name)
       expect(exists).toBe(true)
+
+      // Verify connection type displayed correctly
+      const connectionType = await mcpRegistryPage.getClientConnectionType(clientData.name)
+      expect(connectionType).toBe('HTTP')
     })
 
     test('should create SSE client', async ({ mcpRegistryPage }) => {
@@ -81,6 +87,10 @@ test.describe('MCP Registry', () => {
       createdClients.push(clientData.name)
       const exists = await mcpRegistryPage.clientExists(clientData.name)
       expect(exists).toBe(true)
+
+      // Verify connection type displayed correctly
+      const connectionType = await mcpRegistryPage.getClientConnectionType(clientData.name)
+      expect(connectionType).toBe('SSE')
     })
 
     test('should create STDIO client with command', async ({ mcpRegistryPage }) => {
@@ -267,13 +277,15 @@ test.describe('MCP Registry', () => {
       expect(created).toBe(true) // Client creation must succeed for this test
       createdClients.push(clientData.name)
 
-      // Reconnect - this should succeed even if connection fails
-      // The button click and toast are the main verification
+      // Reconnect - method waits for success toast
       await mcpRegistryPage.reconnectClient(clientData.name)
 
-      // Client should still exist
+      // Verify client still exists and has a status (reconnect completed)
       const exists = await mcpRegistryPage.clientExists(clientData.name)
       expect(exists).toBe(true)
+      const status = await mcpRegistryPage.getClientStatus(clientData.name)
+      expect(status).toBeTruthy()
+      expect(['connected', 'disconnected', 'connecting']).toContain(status.toLowerCase())
     })
   })
 

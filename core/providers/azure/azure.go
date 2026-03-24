@@ -168,17 +168,21 @@ func (provider *AzureProvider) getAzureAuthHeaders(ctx *schemas.BifrostContext, 
 func NewAzureProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*AzureProvider, error) {
 	config.CheckAndSetDefaults()
 
+	requestTimeout := time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 	client := &fasthttp.Client{
-		ReadTimeout:         time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		WriteTimeout:        time.Second * time.Duration(config.NetworkConfig.DefaultRequestTimeoutInSeconds),
-		MaxConnsPerHost:     5000,
+		ReadTimeout:         requestTimeout,
+		WriteTimeout:        requestTimeout,
+		MaxConnsPerHost:     config.NetworkConfig.MaxConnsPerHost,
 		MaxIdleConnDuration: 30 * time.Second,
-		MaxConnWaitTimeout:  10 * time.Second,
+		MaxConnWaitTimeout:  requestTimeout,
+		MaxConnDuration:     time.Second * time.Duration(schemas.DefaultMaxConnDurationInSeconds),
+		ConnPoolStrategy:    fasthttp.FIFO,
 	}
 
 	// Configure proxy and retry policy
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
 	client = providerUtils.ConfigureDialer(client)
+	client = providerUtils.ConfigureTLS(client, config.NetworkConfig, logger)
 	return &AzureProvider{
 		logger:              logger,
 		client:              client,
@@ -209,7 +213,12 @@ func (provider *AzureProvider) completeRequest(
 	req := fasthttp.AcquireRequest()
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseRequest(req)
-	defer fasthttp.ReleaseResponse(resp)
+	respOwned := true
+	defer func() {
+		if respOwned {
+			fasthttp.ReleaseResponse(resp)
+		}
+	}()
 
 	// Set any extra headers from network config
 	providerUtils.SetExtraHeaders(ctx, req, provider.networkConfig.ExtraHeaders, nil)
@@ -251,10 +260,14 @@ func (provider *AzureProvider) completeRequest(
 	}
 
 	req.SetRequestURI(url)
-	req.SetBody(jsonData)
+	if !providerUtils.ApplyLargePayloadRequestBodyWithModelNormalization(ctx, req, schemas.OpenAI) {
+		req.SetBody(jsonData)
+	}
 
-	// Send the request and measure latency
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	// Send the request with optional large response streaming
+	activeClient := providerUtils.PrepareResponseStreaming(ctx, provider.client, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, activeClient, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, deployment, latency, nil, bifrostErr
 	}
@@ -265,19 +278,20 @@ func (provider *AzureProvider) completeRequest(
 
 	// Handle error response
 	if resp.StatusCode() != fasthttp.StatusOK {
+		providerUtils.MaterializeStreamErrorBody(ctx, resp)
 		return nil, deployment, latency, providerResponseHeaders, openai.ParseOpenAIError(resp, requestType, provider.GetProviderKey(), model)
 	}
 
-	body, err := providerUtils.CheckAndDecodeBody(resp)
-	if err != nil {
-		return nil, deployment, latency, providerResponseHeaders, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+	body, isLargeResp, decodeErr := providerUtils.FinalizeResponseWithLargeDetection(ctx, resp, provider.GetProviderKey(), provider.logger)
+	if decodeErr != nil {
+		return nil, deployment, latency, providerResponseHeaders, decodeErr
+	}
+	if isLargeResp {
+		respOwned = false
+		return nil, deployment, latency, providerResponseHeaders, nil
 	}
 
-	// Read the response body and copy it before releasing the response
-	// to avoid use-after-free since body references fasthttp's internal buffer
-	bodyCopy := append([]byte(nil), body...)
-
-	return bodyCopy, deployment, latency, providerResponseHeaders, nil
+	return body, deployment, latency, providerResponseHeaders, nil
 }
 
 // listModelsByKey performs a list models request for a single key.
@@ -321,7 +335,8 @@ func (provider *AzureProvider) listModelsByKey(ctx *schemas.BifrostContext, key 
 	}
 
 	// Send the request and measure latency
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -424,6 +439,21 @@ func (provider *AzureProvider) TextCompletion(ctx *schemas.BifrostContext, key s
 		return nil, providerUtils.EnrichError(ctx, err, jsonData, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 	}
 
+	// Large response mode: return lightweight response with metadata only
+	if isLargeResp, _ := ctx.Value(schemas.BifrostContextKeyLargeResponseMode).(bool); isLargeResp {
+		return &schemas.BifrostTextCompletionResponse{
+			Model: request.Model,
+			ExtraFields: schemas.BifrostResponseExtraFields{
+				Provider:                provider.GetProviderKey(),
+				ModelRequested:          request.Model,
+				ModelDeployment:         deployment,
+				RequestType:             schemas.TextCompletionRequest,
+				Latency:                 latency.Milliseconds(),
+				ProviderResponseHeaders: providerResponseHeaders,
+			},
+		}, nil
+	}
+
 	response := &schemas.BifrostTextCompletionResponse{}
 
 	rawRequest, rawResponse, bifrostErr := providerUtils.HandleProviderResponse(responseBody, response, jsonData, providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest), providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse))
@@ -524,6 +554,8 @@ func (provider *AzureProvider) ChatCompletion(ctx *schemas.BifrostContext, key s
 				}
 				if reqBody != nil {
 					reqBody.Model = deployment
+					// Add provider-aware beta headers for Azure
+					anthropic.AddMissingBetaHeadersToContext(ctx, reqBody, schemas.Azure)
 				}
 				return reqBody, nil
 			} else {
@@ -556,6 +588,21 @@ func (provider *AzureProvider) ChatCompletion(ctx *schemas.BifrostContext, key s
 	}
 	if err != nil {
 		return nil, providerUtils.EnrichError(ctx, err, jsonData, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
+	}
+
+	// Large response mode: return lightweight response with metadata only
+	if isLargeResp, _ := ctx.Value(schemas.BifrostContextKeyLargeResponseMode).(bool); isLargeResp {
+		return &schemas.BifrostChatResponse{
+			Model: request.Model,
+			ExtraFields: schemas.BifrostResponseExtraFields{
+				Provider:                provider.GetProviderKey(),
+				ModelRequested:          request.Model,
+				ModelDeployment:         deployment,
+				RequestType:             schemas.ChatCompletionRequest,
+				Latency:                 latency.Milliseconds(),
+				ProviderResponseHeaders: providerResponseHeaders,
+			},
+		}, nil
 	}
 
 	response := &schemas.BifrostChatResponse{}
@@ -636,6 +683,8 @@ func (provider *AzureProvider) ChatCompletionStream(ctx *schemas.BifrostContext,
 				if reqBody != nil {
 					reqBody.Model = deployment
 					reqBody.Stream = schemas.Ptr(true)
+					// Add provider-aware beta headers for Azure
+					anthropic.AddMissingBetaHeadersToContext(ctx, reqBody, schemas.Azure)
 				}
 				return reqBody, nil
 			},
@@ -752,6 +801,21 @@ func (provider *AzureProvider) Responses(ctx *schemas.BifrostContext, key schema
 	}
 	if err != nil {
 		return nil, providerUtils.EnrichError(ctx, err, jsonData, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
+	}
+
+	// Large response mode: return lightweight response with metadata only
+	if isLargeResp, _ := ctx.Value(schemas.BifrostContextKeyLargeResponseMode).(bool); isLargeResp {
+		return &schemas.BifrostResponsesResponse{
+			Model: request.Model,
+			ExtraFields: schemas.BifrostResponseExtraFields{
+				Provider:                provider.GetProviderKey(),
+				ModelRequested:          request.Model,
+				ModelDeployment:         deployment,
+				RequestType:             schemas.ResponsesRequest,
+				Latency:                 latency.Milliseconds(),
+				ProviderResponseHeaders: providerResponseHeaders,
+			},
+		}, nil
 	}
 
 	response := &schemas.BifrostResponsesResponse{}
@@ -917,6 +981,21 @@ func (provider *AzureProvider) Embedding(ctx *schemas.BifrostContext, key schema
 		return nil, providerUtils.EnrichError(ctx, err, jsonData, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 	}
 
+	// Large response mode: return lightweight response with metadata only
+	if isLargeResp, _ := ctx.Value(schemas.BifrostContextKeyLargeResponseMode).(bool); isLargeResp {
+		return &schemas.BifrostEmbeddingResponse{
+			Model: request.Model,
+			ExtraFields: schemas.BifrostResponseExtraFields{
+				Provider:                provider.GetProviderKey(),
+				ModelRequested:          request.Model,
+				ModelDeployment:         deployment,
+				RequestType:             schemas.EmbeddingRequest,
+				Latency:                 latency.Milliseconds(),
+				ProviderResponseHeaders: providerResponseHeaders,
+			},
+		}, nil
+	}
+
 	response := &schemas.BifrostEmbeddingResponse{}
 
 	// Use enhanced response handler with pre-allocated response
@@ -1068,7 +1147,9 @@ func (provider *AzureProvider) SpeechStream(ctx *schemas.BifrostContext, postHoo
 		return nil, bifrostErr
 	}
 
-	req.SetBody(jsonBody)
+	if !providerUtils.ApplyLargePayloadRequestBodyWithModelNormalization(ctx, req, schemas.OpenAI) {
+		req.SetBody(jsonBody)
+	}
 
 	// Make the request
 	requestErr := provider.client.Do(req, resp)
@@ -1102,6 +1183,8 @@ func (provider *AzureProvider) SpeechStream(ctx *schemas.BifrostContext, postHoo
 	// Create response channel
 	responseChan := make(chan *schemas.BifrostStreamChunk, schemas.DefaultStreamBufferSize)
 
+	providerUtils.SetStreamIdleTimeoutIfEmpty(ctx, provider.networkConfig.StreamIdleTimeoutInSeconds)
+
 	// Start streaming in a goroutine
 	go func() {
 		defer func() {
@@ -1114,15 +1197,20 @@ func (provider *AzureProvider) SpeechStream(ctx *schemas.BifrostContext, postHoo
 		}()
 		// Always release response on exit; bodyStream close should prevent indefinite blocking.
 		defer providerUtils.ReleaseStreamingResponse(resp)
-		// Decompress gzip-encoded streams transparently (no-op for non-gzip)
+
 		reader, releaseGzip := providerUtils.DecompressStreamBody(resp)
 		defer releaseGzip()
-		// Setup cancellation handler to close body stream on ctx cancellation
+
+		// Wrap reader with idle timeout to detect stalled streams (e.g., Azure TPM throttling
+		// that stops sending data but keeps the TCP connection open).
+		reader, stopIdleTimeout := providerUtils.NewIdleTimeoutReader(reader, resp.BodyStream(), providerUtils.GetStreamIdleTimeout(ctx))
+		defer stopIdleTimeout()
+
+		// Setup cancellation handler to close the raw network stream on ctx cancellation,
+		// which immediately unblocks any in-progress read (including reads blocked inside a gzip decompression layer).
 		stopCancellation := providerUtils.SetupStreamCancellation(ctx, resp.BodyStream(), provider.logger)
 		defer stopCancellation()
 
-		// Check if response is compressed
-		
 		chunkIndex := -1
 		startTime := time.Now()
 		lastChunkTime := startTime
@@ -1259,14 +1347,21 @@ func (provider *AzureProvider) SpeechStream(ctx *schemas.BifrostContext, postHoo
 					return
 				}
 				if readErr != io.EOF {
+					// Non-EOF errors (e.g., connection reset by peer due to TPM throttling)
+					// must be reported to the client instead of falling through to send
+					// a fake "done" response with truncated audio.
+					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
 					provider.logger.Warn("Error reading stream: %v", readErr)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, readErr, responseChan, schemas.SpeechStreamRequest, provider.GetProviderKey(), request.Model, provider.logger)
+					return
 				}
 				break
 			}
 		}
 
-		// Send final "done" response if we received audio chunks
-		if chunkIndex >= 0 {
+		// Send final "done" response only if we received the [DONE] marker from the provider.
+		// Without [DONE], the stream ended abnormally (e.g., clean EOF without proper SSE termination).
+		if chunkIndex >= 0 && doneReceived {
 			finalResponse := schemas.BifrostSpeechStreamResponse{
 				Type: schemas.SpeechStreamResponseTypeDone,
 				ExtraFields: schemas.BifrostResponseExtraFields{
@@ -1283,13 +1378,14 @@ func (provider *AzureProvider) SpeechStream(ctx *schemas.BifrostContext, postHoo
 				providerUtils.ParseAndSetRawRequest(&finalResponse.ExtraFields, jsonBody)
 			}
 
+			finalResponse.BackfillParams(request)
 			ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
 			providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, nil, &finalResponse, nil, nil), responseChan)
+		} else if chunkIndex >= 0 && !doneReceived {
+			provider.logger.Warn("Stream ended without receiving [DONE] marker after %d chunks", chunkIndex+1)
 		}
 
-		// Note: We don't call ReleaseStreamingResponse here because the scanner has already
-		// consumed the body stream. Calling it would block indefinitely waiting for more data.
-		// The response will be released when the request context is cleaned up.
+		// Response is released via deferred ReleaseStreamingResponse(resp) above.
 	}()
 
 	return responseChan, nil
@@ -1684,7 +1780,8 @@ func (provider *AzureProvider) VideoDownload(ctx *schemas.BifrostContext, key sc
 	}
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -1918,7 +2015,8 @@ func (provider *AzureProvider) FileUpload(ctx *schemas.BifrostContext, key schem
 	req.SetBody(buf.Bytes())
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -2023,7 +2121,8 @@ func (provider *AzureProvider) FileList(ctx *schemas.BifrostContext, keys []sche
 	}
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -2132,8 +2231,9 @@ func (provider *AzureProvider) FileRetrieve(ctx *schemas.BifrostContext, keys []
 		}
 
 		// Make request
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
@@ -2144,6 +2244,7 @@ func (provider *AzureProvider) FileRetrieve(ctx *schemas.BifrostContext, keys []
 		if resp.StatusCode() != fasthttp.StatusOK {
 			provider.logger.Debug("error from %s provider: %s", providerName, string(resp.Body()))
 			lastErr = openai.ParseOpenAIError(resp, schemas.FileRetrieveRequest, providerName, "")
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -2151,6 +2252,7 @@ func (provider *AzureProvider) FileRetrieve(ctx *schemas.BifrostContext, keys []
 
 		body, err := providerUtils.CheckAndDecodeBody(resp)
 		if err != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, providerName)
@@ -2160,12 +2262,14 @@ func (provider *AzureProvider) FileRetrieve(ctx *schemas.BifrostContext, keys []
 		var openAIResp openai.OpenAIFileResponse
 		rawRequest, rawResponse, bifrostErr := providerUtils.HandleProviderResponse(body, &openAIResp, nil, sendBackRawRequest, sendBackRawResponse)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
 			continue
 		}
 
+		wait()
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
@@ -2228,8 +2332,9 @@ func (provider *AzureProvider) FileDelete(ctx *schemas.BifrostContext, keys []sc
 		}
 
 		// Make request
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
@@ -2240,12 +2345,14 @@ func (provider *AzureProvider) FileDelete(ctx *schemas.BifrostContext, keys []sc
 		if resp.StatusCode() != fasthttp.StatusOK && resp.StatusCode() != fasthttp.StatusNoContent {
 			provider.logger.Debug("error from %s provider: %s", providerName, string(resp.Body()))
 			lastErr = openai.ParseOpenAIError(resp, schemas.FileDeleteRequest, providerName, "")
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
 		}
 
 		if resp.StatusCode() == fasthttp.StatusNoContent {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			return &schemas.BifrostFileDeleteResponse{
@@ -2262,6 +2369,7 @@ func (provider *AzureProvider) FileDelete(ctx *schemas.BifrostContext, keys []sc
 
 		body, err := providerUtils.CheckAndDecodeBody(resp)
 		if err != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, providerName)
@@ -2271,12 +2379,14 @@ func (provider *AzureProvider) FileDelete(ctx *schemas.BifrostContext, keys []sc
 		var openAIResp openai.OpenAIFileDeleteResponse
 		rawRequest, rawResponse, bifrostErr := providerUtils.HandleProviderResponse(body, &openAIResp, nil, sendBackRawRequest, sendBackRawResponse)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
 			continue
 		}
 
+		wait()
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
@@ -2355,8 +2465,9 @@ func (provider *AzureProvider) FileContent(ctx *schemas.BifrostContext, keys []s
 		}
 
 		// Make request
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
@@ -2367,6 +2478,7 @@ func (provider *AzureProvider) FileContent(ctx *schemas.BifrostContext, keys []s
 		if resp.StatusCode() != fasthttp.StatusOK {
 			provider.logger.Debug("error from %s provider: %s", providerName, string(resp.Body()))
 			lastErr = openai.ParseOpenAIError(resp, schemas.FileContentRequest, providerName, "")
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -2374,6 +2486,7 @@ func (provider *AzureProvider) FileContent(ctx *schemas.BifrostContext, keys []s
 
 		body, err := providerUtils.CheckAndDecodeBody(resp)
 		if err != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, providerName)
@@ -2387,6 +2500,7 @@ func (provider *AzureProvider) FileContent(ctx *schemas.BifrostContext, keys []s
 		}
 		content := append([]byte(nil), body...)
 
+		wait()
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
@@ -2492,7 +2606,8 @@ func (provider *AzureProvider) BatchCreate(ctx *schemas.BifrostContext, key sche
 	req.SetBody(jsonData)
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, providerUtils.EnrichError(ctx, bifrostErr, jsonData, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 	}
@@ -2594,7 +2709,8 @@ func (provider *AzureProvider) BatchList(ctx *schemas.BifrostContext, keys []sch
 	}
 
 	// Make request
-	latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -2698,8 +2814,9 @@ func (provider *AzureProvider) BatchRetrieve(ctx *schemas.BifrostContext, keys [
 		}
 
 		// Make request
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
@@ -2710,6 +2827,7 @@ func (provider *AzureProvider) BatchRetrieve(ctx *schemas.BifrostContext, keys [
 		if resp.StatusCode() != fasthttp.StatusOK {
 			provider.logger.Debug("error from %s provider: %s", providerName, string(resp.Body()))
 			lastErr = openai.ParseOpenAIError(resp, schemas.BatchRetrieveRequest, providerName, "")
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -2717,6 +2835,7 @@ func (provider *AzureProvider) BatchRetrieve(ctx *schemas.BifrostContext, keys [
 
 		body, err := providerUtils.CheckAndDecodeBody(resp)
 		if err != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, providerName)
@@ -2726,12 +2845,14 @@ func (provider *AzureProvider) BatchRetrieve(ctx *schemas.BifrostContext, keys [
 		var openAIResp openai.OpenAIBatchResponse
 		rawRequest, rawResponse, bifrostErr := providerUtils.HandleProviderResponse(body, &openAIResp, nil, sendBackRawRequest, sendBackRawResponse)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
 			continue
 		}
 
+		wait()
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
@@ -2796,8 +2917,9 @@ func (provider *AzureProvider) BatchCancel(ctx *schemas.BifrostContext, keys []s
 		}
 
 		// Make request
-		latency, bifrostErr := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+		latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
@@ -2808,6 +2930,7 @@ func (provider *AzureProvider) BatchCancel(ctx *schemas.BifrostContext, keys []s
 		if resp.StatusCode() != fasthttp.StatusOK {
 			provider.logger.Debug("error from %s provider: %s", providerName, string(resp.Body()))
 			lastErr = openai.ParseOpenAIError(resp, schemas.BatchCancelRequest, providerName, "")
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -2815,6 +2938,7 @@ func (provider *AzureProvider) BatchCancel(ctx *schemas.BifrostContext, keys []s
 
 		body, err := providerUtils.CheckAndDecodeBody(resp)
 		if err != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, providerName)
@@ -2824,12 +2948,14 @@ func (provider *AzureProvider) BatchCancel(ctx *schemas.BifrostContext, keys []s
 		var openAIResp openai.OpenAIBatchResponse
 		rawRequest, rawResponse, bifrostErr := providerUtils.HandleProviderResponse(body, &openAIResp, nil, sendBackRawRequest, sendBackRawResponse)
 		if bifrostErr != nil {
+			wait()
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			lastErr = bifrostErr
 			continue
 		}
 
+		wait()
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
@@ -2866,6 +2992,11 @@ func (provider *AzureProvider) BatchCancel(ctx *schemas.BifrostContext, keys []s
 	}
 
 	return nil, lastErr
+}
+
+// BatchDelete is not supported by the Azure provider.
+func (provider *AzureProvider) BatchDelete(ctx *schemas.BifrostContext, keys []schemas.Key, request *schemas.BifrostBatchDeleteRequest) (*schemas.BifrostBatchDeleteResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.BatchDeleteRequest, schemas.Azure)
 }
 
 // BatchResults retrieves batch results from Azure OpenAI by trying each key until successful.
@@ -2973,4 +3104,13 @@ func (provider *AzureProvider) ContainerFileContent(_ *schemas.BifrostContext, _
 // ContainerFileDelete is not supported by the Azure provider.
 func (provider *AzureProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []schemas.Key, _ *schemas.BifrostContainerFileDeleteRequest) (*schemas.BifrostContainerFileDeleteResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
+}
+
+// Passthrough is not supported by the Azure provider.
+func (provider *AzureProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+}
+
+func (provider *AzureProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

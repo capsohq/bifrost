@@ -1,8 +1,10 @@
 package gemini
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -32,9 +34,34 @@ func isGemini3Plus(model string) bool {
 		return false
 	}
 
-	// Check first character - if it's '3' or higher, it's 3.0+
+	// Check first character - must be a digit, and '3' or higher for 3.0+
 	firstChar := afterPrefix[0]
+	if firstChar < '0' || firstChar > '9' {
+		return false
+	}
 	return firstChar >= '3'
+}
+
+// supportsThinkingConfig returns true if the model supports ThinkingConfig.
+// Only specific Gemini models support thinking:
+// - gemini-*-thinking models (e.g., gemini-2.0-flash-thinking)
+// - gemini-2.5-* models
+// - gemini-3.* and higher models
+func supportsThinkingConfig(model string) bool {
+	modelLower := strings.ToLower(model)
+
+	// Check for explicit "thinking" in model name
+	if strings.Contains(modelLower, "thinking") {
+		return true
+	}
+
+	// Check for gemini-2.5-* models
+	if strings.Contains(modelLower, "gemini-2.5") {
+		return true
+	}
+
+	// Check for Gemini 3.0+ models
+	return isGemini3Plus(model)
 }
 
 // effortToThinkingLevel converts reasoning effort to Gemini ThinkingLevel string
@@ -341,7 +368,7 @@ func convertSchemaToOrderedMap(schema *Schema) *schemas.OrderedMap {
 
 func convertSchemaToMap(schema *Schema) *schemas.OrderedMap {
 	// Convert map[string]*Schema to map[string]interface{} using JSON marshaling
-	data, err := sonic.Marshal(schema.Properties)
+	data, err := providerUtils.MarshalSorted(schema.Properties)
 	if err != nil {
 		return schemas.NewOrderedMap()
 	}
@@ -930,7 +957,8 @@ func convertParamsToGenerationConfig(params *schemas.ChatParameters, responseMod
 		penalty := float64(*params.FrequencyPenalty)
 		config.FrequencyPenalty = &penalty
 	}
-	if params.Reasoning != nil {
+	// Only set ThinkingConfig if the model actually supports thinking
+	if params.Reasoning != nil && supportsThinkingConfig(model) {
 		config.ThinkingConfig = &GenerationConfigThinkingConfig{
 			IncludeThoughts: true,
 		}
@@ -985,7 +1013,6 @@ func convertParamsToGenerationConfig(params *schemas.ChatParameters, responseMod
 			}
 		}
 	}
-
 	// Handle response_format to response_schema conversion
 	if params.ResponseFormat != nil {
 		formatMap, ok := (*params.ResponseFormat).(map[string]interface{})
@@ -1006,7 +1033,6 @@ func convertParamsToGenerationConfig(params *schemas.ChatParameters, responseMod
 			}
 		}
 	}
-
 	if params.ExtraParams != nil {
 		if topK, ok := params.ExtraParams["top_k"]; ok {
 			if val, success := schemas.SafeExtractInt(topK); success {
@@ -1021,7 +1047,21 @@ func convertParamsToGenerationConfig(params *schemas.ChatParameters, responseMod
 			config.ResponseJSONSchema = responseJsonSchema
 		}
 	}
-
+	// Mapping logprobs to generation config
+	if params.LogProbs != nil {
+		config.ResponseLogprobs = *params.LogProbs
+	}
+	// Mapping top_logprobs to generation config
+	if params.TopLogProbs != nil {
+		topLogProbs := *params.TopLogProbs
+		if topLogProbs > 20 {
+			topLogProbs = 20
+		}
+		if topLogProbs > 0 {
+			config.ResponseLogprobs = true
+			config.Logprobs = schemas.Ptr(int32(topLogProbs))
+		}
+	}
 	return config
 }
 
@@ -1073,6 +1113,7 @@ func convertFunctionParametersToSchema(params schemas.ToolFunctionParameters) *S
 
 	if params.Properties != nil && params.Properties.Len() > 0 {
 		schema.Properties = make(map[string]*Schema)
+		schema.PropertyOrdering = params.Properties.Keys()
 		params.Properties.Range(func(k string, v interface{}) bool {
 			schema.Properties[k] = convertPropertyToSchema(v)
 			return true
@@ -1196,12 +1237,14 @@ func convertPropertyToSchema(prop interface{}) *Schema {
 				}
 			case *schemas.OrderedMap:
 				schema.Properties = make(map[string]*Schema)
+				schema.PropertyOrdering = p.Keys()
 				p.Range(func(key string, nestedProp interface{}) bool {
 					schema.Properties[key] = convertPropertyToSchema(nestedProp)
 					return true
 				})
 			case schemas.OrderedMap:
 				schema.Properties = make(map[string]*Schema)
+				schema.PropertyOrdering = p.Keys()
 				p.Range(func(key string, nestedProp interface{}) bool {
 					schema.Properties[key] = convertPropertyToSchema(nestedProp)
 					return true
@@ -1354,8 +1397,11 @@ func toFloat64(v interface{}) (float64, bool) {
 }
 
 // convertToolChoiceToToolConfig converts Bifrost tool choice to Gemini tool config
-func convertToolChoiceToToolConfig(toolChoice *schemas.ChatToolChoice) ToolConfig {
-	config := ToolConfig{}
+func convertToolChoiceToToolConfig(toolChoice *schemas.ChatToolChoice) *ToolConfig {
+	if toolChoice == nil || (toolChoice.ChatToolChoiceStr == nil && toolChoice.ChatToolChoiceStruct == nil) {
+		return nil
+	}
+	config := &ToolConfig{}
 	functionCallingConfig := FunctionCallingConfig{}
 
 	if toolChoice.ChatToolChoiceStr != nil {
@@ -1482,7 +1528,7 @@ func convertBifrostMessagesToGemini(messages []schemas.ChatMessage) ([]Content, 
 		// must be sent in a single message with only functionResponse parts (no text parts)
 		if isToolResponse {
 			// Parse the response content
-			var responseData map[string]any
+			var responseData json.RawMessage
 			var contentStr string
 
 			if message.Content != nil {
@@ -1503,18 +1549,21 @@ func convertBifrostMessagesToGemini(messages []schemas.ChatMessage) ([]Content, 
 				}
 			}
 
-			// Try to unmarshal as JSON
+			// Try to use raw JSON if it's a valid JSON object (Gemini requires Struct/object)
 			if contentStr != "" {
-				err := sonic.Unmarshal([]byte(contentStr), &responseData)
-				if err != nil {
-					// If unmarshaling fails, wrap the original string to preserve it
-					responseData = map[string]any{
+				var buf bytes.Buffer
+				if err := json.Compact(&buf, []byte(contentStr)); err == nil && buf.Len() > 0 && buf.Bytes()[0] == '{' {
+					// Valid JSON object — use raw bytes directly
+					responseData = json.RawMessage(buf.Bytes())
+				} else {
+					// Not valid JSON or not an object — wrap to preserve content
+					responseData, _ = providerUtils.MarshalSorted(map[string]any{
 						"content": contentStr,
-					}
+					})
 				}
 			} else {
-				// If no content at all, use empty map to avoid nil
-				responseData = map[string]any{}
+				// If no content at all, use empty object to avoid nil
+				responseData = json.RawMessage(`{}`)
 			}
 
 			// Use ToolCallID if available, ensuring it's not nil
@@ -1679,10 +1728,17 @@ func convertBifrostMessagesToGemini(messages []schemas.ChatMessage) ([]Content, 
 			for _, toolCall := range message.ChatAssistantMessage.ToolCalls {
 				// Convert tool call to function call part
 				if toolCall.Function.Name != nil {
-					// Create function call part - simplified implementation
-					argsMap := make(map[string]any)
+					// Preserve original key ordering of tool arguments for prompt caching.
+					var argsRaw json.RawMessage
 					if toolCall.Function.Arguments != "" {
-						sonic.Unmarshal([]byte(toolCall.Function.Arguments), &argsMap)
+						var buf bytes.Buffer
+						if err := json.Compact(&buf, []byte(toolCall.Function.Arguments)); err == nil {
+							argsRaw = buf.Bytes()
+						} else {
+							argsRaw = json.RawMessage("{}")
+						}
+					} else {
+						argsRaw = json.RawMessage("{}")
 					}
 					// Handle ID: use it if available, otherwise fallback to function name
 					callID := *toolCall.Function.Name
@@ -1703,7 +1759,7 @@ func convertBifrostMessagesToGemini(messages []schemas.ChatMessage) ([]Content, 
 						FunctionCall: &FunctionCall{
 							ID:   callID,
 							Name: *toolCall.Function.Name,
-							Args: argsMap,
+							Args: argsRaw,
 						},
 					}
 					// Store the mapping for later use in FunctionResponse
@@ -1740,6 +1796,10 @@ func convertBifrostMessagesToGemini(messages []schemas.ChatMessage) ([]Content, 
 								break
 							}
 						}
+					}
+
+					if part.ThoughtSignature == nil {
+						part.ThoughtSignature = []byte(skipThoughtSignatureValidator)
 					}
 
 					parts = append(parts, part)
@@ -2038,7 +2098,7 @@ func buildOpenAIResponseFormat(responseJsonSchema interface{}, responseSchema *S
 		}
 	} else if responseSchema != nil {
 		// Convert responseSchema to map using JSON marshaling and type normalization
-		data, err := sonic.Marshal(responseSchema)
+		data, err := providerUtils.MarshalSorted(responseSchema)
 		if err != nil {
 			// If marshaling fails, fall back to json_object mode
 			return &schemas.ResponsesTextConfig{
@@ -2270,18 +2330,19 @@ func extractFunctionResponseOutput(funcResp *FunctionResponse) string {
 	}
 
 	// Try to extract "output" field first
-	if outputVal, ok := funcResp.Response["output"]; ok {
-		if outputStr, ok := outputVal.(string); ok {
-			return outputStr
+	var respMap map[string]json.RawMessage
+	if err := sonic.Unmarshal(funcResp.Response, &respMap); err == nil {
+		if outputVal, ok := respMap["output"]; ok {
+			var outputStr string
+			if err := sonic.Unmarshal(outputVal, &outputStr); err == nil {
+				return outputStr
+			}
+			return string(outputVal)
 		}
 	}
 
-	// If no "output" key, marshal the entire response
-	if jsonResponse, err := sonic.Marshal(funcResp.Response); err == nil {
-		return string(jsonResponse)
-	}
-
-	return ""
+	// If no "output" key or unmarshal failed, return raw JSON
+	return string(funcResp.Response)
 }
 
 // decodeBase64StringToBytes decodes a base64-encoded string into raw bytes.
@@ -2342,7 +2403,8 @@ func downloadImageFromURL(ctx context.Context, imageURL string) (string, error) 
 	req.SetRequestURI(imageURL)
 	req.Header.SetMethod(http.MethodGet)
 
-	_, bifrostErr := providerUtils.MakeRequestWithContext(ctx, &client, req, resp)
+	_, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, &client, req, resp)
+	defer wait()
 	if bifrostErr != nil {
 		return "", fmt.Errorf("failed to download image: %v", bifrostErr)
 	}
@@ -2360,4 +2422,40 @@ func downloadImageFromURL(ctx context.Context, imageURL string) (string, error) 
 	imageCopy := append([]byte(nil), body...)
 
 	return encodeBytesToBase64String(imageCopy), nil
+}
+
+// tokenToBytes converts a token string to its UTF-8 byte representation as []int
+func tokenToBytes(token string) []int {
+	bytes := []byte(token)
+	result := make([]int, len(bytes))
+	for i, b := range bytes {
+		result[i] = int(b)
+	}
+	return result
+}
+
+// ConvertGeminiLogprobsResultToBifrost converts a Gemini LogprobsResult to Bifrost BifrostLogProbs
+func ConvertGeminiLogprobsResultToBifrost(result *LogprobsResult) *schemas.BifrostLogProbs {
+	if result == nil || len(result.ChosenCandidates) == 0 {
+		return nil
+	}
+
+	content := make([]schemas.ContentLogProb, len(result.ChosenCandidates))
+	for i, chosen := range result.ChosenCandidates {
+		content[i] = schemas.ContentLogProb{
+			Token:   chosen.Token,
+			LogProb: float64(chosen.LogProbability),
+			Bytes:   tokenToBytes(chosen.Token),
+		}
+		if i < len(result.TopCandidates) && result.TopCandidates[i] != nil {
+			for _, tc := range result.TopCandidates[i].Candidates {
+				content[i].TopLogProbs = append(content[i].TopLogProbs, schemas.LogProb{
+					Token:   tc.Token,
+					LogProb: float64(tc.LogProbability),
+					Bytes:   tokenToBytes(tc.Token),
+				})
+			}
+		}
+	}
+	return &schemas.BifrostLogProbs{Content: content}
 }

@@ -225,6 +225,21 @@ export const networkConfigSchema = z
 		max_retries: z.number().min(0, "Max retries must be greater than 0").max(10, "Max retries must be less than 10"),
 		retry_backoff_initial: z.number().min(100),
 		retry_backoff_max: z.number().min(1000),
+		insecure_skip_verify: z.boolean().optional(),
+		ca_cert_pem: z.string().optional(),
+		stream_idle_timeout_in_seconds: z
+			.number()
+			.int("Stream idle timeout must be a whole number of seconds")
+			.min(5, "Stream idle timeout must be at least 5 seconds")
+			.max(3600, "Stream idle timeout must be at most 3600 seconds i.e. 60 minutes")
+			.optional(),
+		max_conns_per_host: z
+			.number()
+			.int("Max connections must be a whole number")
+			.min(1, "Max connections must be at least 1")
+			.max(10000, "Max connections must be at most 10000")
+			.optional(),
+		enforce_http2: z.boolean().optional(),
 	})
 	.refine((d) => d.retry_backoff_initial <= d.retry_backoff_max, {
 		message: "retry_backoff_initial must be <= retry_backoff_max",
@@ -262,6 +277,21 @@ export const networkFormConfigSchema = z
 			.number("Retry backoff max must be a number")
 			.min(100, "Retry backoff max must be at least 100ms")
 			.max(1000000, "Retry backoff max must be at most 1000000ms"),
+		insecure_skip_verify: z.boolean().optional(),
+		ca_cert_pem: z.string().optional(),
+		stream_idle_timeout_in_seconds: z.coerce
+			.number("Stream idle timeout must be a number")
+			.int("Stream idle timeout must be a whole number of seconds")
+			.min(5, "Stream idle timeout must be at least 5 seconds")
+			.max(3600, "Stream idle timeout must be at most 3600 seconds i.e. 60 minutes")
+			.optional(),
+		max_conns_per_host: z.coerce
+			.number("Max connections must be a number")
+			.int("Max connections must be a whole number")
+			.min(1, "Max connections must be at least 1")
+			.max(10000, "Max connections must be at most 10000")
+			.optional(),
+		enforce_http2: z.boolean().optional(),
 	})
 	.refine((d) => d.retry_backoff_initial <= d.retry_backoff_max, {
 		message: "Initial backoff must be less than or equal to max backoff",
@@ -377,6 +407,8 @@ export const allowedRequestsSchema = z.object({
 	video_remix: z.boolean(),
 	count_tokens: z.boolean(),
 	list_models: z.boolean(),
+	websocket_responses: z.boolean(),
+	realtime: z.boolean(),
 });
 
 // Custom provider config schema
@@ -508,6 +540,7 @@ export const modelProviderConfigSchema = z.object({
 	proxy_config: proxyConfigSchema.optional(),
 	send_back_raw_request: z.boolean().optional(),
 	send_back_raw_response: z.boolean().optional(),
+	store_raw_request_response: z.boolean().optional(),
 	custom_provider_config: customProviderConfigSchema.optional(),
 	pricing_overrides: z.array(providerPricingOverrideSchema).optional(),
 });
@@ -525,6 +558,7 @@ export const formModelProviderConfigSchema = z.object({
 	proxy_config: proxyConfigSchema.optional(),
 	send_back_raw_request: z.boolean().optional(),
 	send_back_raw_response: z.boolean().optional(),
+	store_raw_request_response: z.boolean().optional(),
 	custom_provider_config: formCustomProviderConfigSchema.optional(),
 	pricing_overrides: z.array(providerPricingOverrideSchema).optional(),
 });
@@ -543,6 +577,7 @@ export const addProviderRequestSchema = z.object({
 	proxy_config: proxyConfigSchema.optional(),
 	send_back_raw_request: z.boolean().optional(),
 	send_back_raw_response: z.boolean().optional(),
+	store_raw_request_response: z.boolean().optional(),
 	custom_provider_config: customProviderConfigSchema.optional(),
 	pricing_overrides: z.array(providerPricingOverrideSchema).optional(),
 });
@@ -555,6 +590,7 @@ export const updateProviderRequestSchema = z.object({
 	proxy_config: proxyConfigSchema,
 	send_back_raw_request: z.boolean().optional(),
 	send_back_raw_response: z.boolean().optional(),
+	store_raw_request_response: z.boolean().optional(),
 	custom_provider_config: customProviderConfigSchema.optional(),
 	pricing_overrides: z.array(providerPricingOverrideSchema).optional(),
 });
@@ -638,6 +674,7 @@ export const performanceFormSchema = z.object({
 export const debuggingFormSchema = z.object({
 	send_back_raw_request: z.boolean(),
 	send_back_raw_response: z.boolean(),
+	store_raw_request_response: z.boolean(),
 });
 
 export type DebuggingFormSchema = z.infer<typeof debuggingFormSchema>;

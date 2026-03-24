@@ -16,8 +16,8 @@ import (
 
 // mockHandlerStore implements lib.HandlerStore for testing
 type mockHandlerStore struct {
-	allowDirectKeys    bool
-	headerFilterConfig *configstoreTables.GlobalHeaderFilterConfig
+	allowDirectKeys bool
+	headerMatcher   *lib.HeaderMatcher
 	availableProviders []schemas.ModelProvider
 }
 
@@ -25,8 +25,8 @@ func (m *mockHandlerStore) ShouldAllowDirectKeys() bool {
 	return m.allowDirectKeys
 }
 
-func (m *mockHandlerStore) GetHeaderFilterConfig() *configstoreTables.GlobalHeaderFilterConfig {
-	return m.headerFilterConfig
+func (m *mockHandlerStore) GetHeaderMatcher() *lib.HeaderMatcher {
+	return m.headerMatcher
 }
 
 func (m *mockHandlerStore) GetAvailableProviders() []schemas.ModelProvider {
@@ -43,6 +43,10 @@ func (m *mockHandlerStore) GetAsyncJobExecutor() *logstore.AsyncJobExecutor {
 
 func (m *mockHandlerStore) GetAsyncJobResultTTL() int {
 	return 3600
+}
+
+func (m *mockHandlerStore) GetKVStore() *kvstore.Store {
+	return nil
 }
 
 // Ensure mockHandlerStore implements lib.HandlerStore

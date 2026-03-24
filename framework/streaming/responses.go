@@ -288,6 +288,11 @@ func deepCopyResponsesMessage(original schemas.ResponsesMessage) schemas.Respons
 				copy.ResponsesToolMessage.Action.ResponsesWebSearchToolCallAction = &copyAction
 			}
 
+			if original.ResponsesToolMessage.Action.ResponsesWebFetchToolCallAction != nil {
+				copyAction := *original.ResponsesToolMessage.Action.ResponsesWebFetchToolCallAction
+				copy.ResponsesToolMessage.Action.ResponsesWebFetchToolCallAction = &copyAction
+			}
+
 			if original.ResponsesToolMessage.Action.ResponsesLocalShellToolCallAction != nil {
 				copyAction := *original.ResponsesToolMessage.Action.ResponsesLocalShellToolCallAction
 				copy.ResponsesToolMessage.Action.ResponsesLocalShellToolCallAction = &copyAction
@@ -912,7 +917,7 @@ func (a *Accumulator) processResponsesStreamingResponse(ctx *schemas.BifrostCont
 		chunk.ChunkIndex = result.ResponsesStreamResponse.ExtraFields.ChunkIndex
 		if isFinalChunk {
 			if a.pricingManager != nil {
-				cost := a.pricingManager.CalculateCostWithCacheDebug(result)
+				cost := a.pricingManager.CalculateCost(result)
 				chunk.Cost = bifrost.Ptr(cost)
 			}
 			chunk.SemanticCacheDebug = result.GetExtraFields().CacheDebug

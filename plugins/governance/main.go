@@ -331,9 +331,13 @@ func (p *GovernancePlugin) HTTPTransportPreHook(ctx *schemas.BifrostContext, req
 		return nil, nil
 	}
 
-	// If no body, nothing to process
+	// If no body, check if large payload mode is active for read-only governance
 	if len(req.Body) == 0 {
-		return nil, nil
+		isLargePayload, _ := ctx.Value(schemas.BifrostContextKeyLargePayloadMode).(bool)
+		if !isLargePayload {
+			return nil, nil
+		}
+		return p.governLargePayload(ctx, req, virtualKeyValue, hasRoutingRules)
 	}
 
 	// Only unmarshal if we have VK or routing rules
@@ -409,6 +413,69 @@ func (p *GovernancePlugin) HTTPTransportPreHook(ctx *schemas.BifrostContext, req
 		}
 	}
 
+	return nil, nil
+}
+
+// governLargePayload handles read-only governance for large payload requests.
+// The request body is streaming and cannot be modified, so we build a synthetic payload
+// from pre-extracted metadata and run VK validation, routing rules, and load balancing.
+// Any model changes are propagated via the metadata in context (not body rewriting).
+func (p *GovernancePlugin) governLargePayload(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, virtualKeyValue *string, hasRoutingRules bool) (*schemas.HTTPResponse, error) {
+	metadata, _ := ctx.Value(schemas.BifrostContextKeyLargePayloadMetadata).(*schemas.LargePayloadMetadata)
+	if metadata == nil || metadata.Model == "" {
+		return nil, nil
+	}
+
+	// Build synthetic payload from metadata — only the model field is needed
+	payload := map[string]any{
+		"model": metadata.Model,
+	}
+	originalModel := metadata.Model
+
+	// Process virtual key if provided
+	var virtualKey *configstoreTables.TableVirtualKey
+	if virtualKeyValue != nil {
+		vk, ok := p.store.GetVirtualKey(*virtualKeyValue)
+		if !ok || vk == nil || !vk.IsActive {
+			return nil, nil
+		}
+		virtualKey = vk
+	}
+
+	// Apply routing rules (read-only: decisions still affect downstream evaluation)
+	if hasRoutingRules {
+		var err error
+		payload, _, err = p.applyRoutingRules(ctx, req, payload, virtualKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Process virtual key: load balance + MCP tool headers
+	if virtualKey != nil {
+		var err error
+		payload, err = p.loadBalanceProvider(ctx, req, payload, virtualKey)
+		if err != nil {
+			return nil, err
+		}
+		// MCP tool headers — header-only, no body needed
+		headers, err := p.addMCPIncludeTools(nil, virtualKey)
+		if err != nil {
+			p.logger.Error("failed to add MCP include tools: %v", err)
+			return nil, nil
+		}
+		for header, value := range headers {
+			req.Headers[header] = value
+		}
+	}
+
+	// Propagate model changes to metadata so downstream hydration picks up
+	// the load-balanced/routed model (e.g., provider prefix added by LB).
+	if newModel, ok := payload["model"].(string); ok && newModel != originalModel {
+		metadata.Model = newModel
+	}
+
+	// No body serialization — large payload body streams through unchanged
 	return nil, nil
 }
 
@@ -760,7 +827,12 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 			body["fallbacks"] = decision.Fallbacks
 		}
 
-		p.logger.Debug("[Governance] Applied routing decision: provider=%s, model=%s, fallbacks=%v", decision.Provider, decision.Model, decision.Fallbacks)
+		// Pin specific API key by ID if the routing rule specifies one
+		if decision.KeyID != "" {
+			ctx.SetValue(schemas.BifrostContextKeyAPIKeyID, decision.KeyID)
+		}
+
+		p.logger.Debug("[Governance] Applied routing decision: provider=%s, model=%s, keyID=%s, fallbacks=%v", decision.Provider, decision.Model, decision.KeyID, decision.Fallbacks)
 	}
 
 	return body, decision, nil
@@ -1207,7 +1279,7 @@ func (p *GovernancePlugin) postHookWorker(result *schemas.BifrostResponse, provi
 	if !isStreaming || (isStreaming && isFinalChunk) {
 		var cost float64
 		if p.modelCatalog != nil && result != nil {
-			cost = p.modelCatalog.CalculateCostWithCacheDebug(result)
+			cost = p.modelCatalog.CalculateCost(result)
 		}
 		tokensUsed := 0
 		if result != nil {

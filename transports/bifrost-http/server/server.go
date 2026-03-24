@@ -50,7 +50,7 @@ var enterprisePlugins = []string{
 // ServerCallbacks is a interface that defines the callbacks for the server.
 type ServerCallbacks interface {
 	// Plugins callbacks
-	ReloadPlugin(ctx context.Context, name string, path *string, pluginConfig any) error
+	ReloadPlugin(ctx context.Context, name string, path *string, pluginConfig any, placement *schemas.PluginPlacement, order *int) error
 	RemovePlugin(ctx context.Context, name string) error
 	GetPluginStatus(ctx context.Context) map[string]schemas.PluginStatus
 	// Auth related callbacks
@@ -115,13 +115,16 @@ type BifrostHTTPServer struct {
 	Server *fasthttp.Server
 	Router *router.Router
 
-	WebSocketHandler *handlers.WebSocketHandler
-	MCPServerHandler *handlers.MCPServerHandler
-	devPprofHandler  *handlers.DevPprofHandler
+	WebSocketHandler   *handlers.WebSocketHandler
+	MCPServerHandler   *handlers.MCPServerHandler
+	devPprofHandler    *handlers.DevPprofHandler
+	IntegrationHandler *handlers.IntegrationHandler
 
 	AuthMiddleware    *handlers.AuthMiddleware
 	TracingMiddleware *handlers.TracingMiddleware
 	WSTicketStore     *handlers.WSTicketStore
+
+	wsPool *bfws.Pool
 }
 
 var logger schemas.Logger
@@ -798,8 +801,10 @@ func (s *BifrostHTTPServer) ReloadHeaderFilterConfig(ctx context.Context, config
 	if s.Config == nil {
 		return fmt.Errorf("config not found")
 	}
-	// Store the header filter config in ClientConfig
+	// Store the raw header filter config in ClientConfig
 	s.Config.ClientConfig.HeaderFilterConfig = config
+	// Compile into optimized matcher for O(1) per-request lookups
+	s.Config.SetHeaderMatcher(lib.NewHeaderMatcher(config))
 	allowlistLen := 0
 	denylistLen := 0
 	if config != nil {
@@ -843,15 +848,20 @@ func (s *BifrostHTTPServer) updatePluginErrorStatus(name, step string, originalE
 }
 
 // SyncLoadedPlugin syncs a loaded plugin to the Bifrost client and updates the plugin status
-func (s *BifrostHTTPServer) SyncLoadedPlugin(ctx context.Context, name string, plugin schemas.BasePlugin) error {
+func (s *BifrostHTTPServer) SyncLoadedPlugin(ctx context.Context, name string, plugin schemas.BasePlugin, placement *schemas.PluginPlacement, order *int) error {
 	// 2. Register (replaces old version atomically)
 	if err := s.Config.ReloadPlugin(plugin); err != nil {
 		return s.updatePluginErrorStatus(plugin.GetName(), "registering", err)
 	}
+	// 2b. Set order info and re-sort
+	s.Config.SetPluginOrderInfo(plugin.GetName(), placement, order)
+	s.Config.SortAndRebuildPlugins()
 	// 3. Update Bifrost client
 	if err := s.Client.ReloadPlugin(plugin, InferPluginTypes(plugin)); err != nil {
 		return s.updatePluginErrorStatus(plugin.GetName(), "reloading bifrost config for", err)
 	}
+	// 3b. Sync plugin execution order from config to core
+	s.Client.ReorderPlugins(s.Config.GetPluginOrder())
 	// 4. Special handling for observability plugins
 	if _, ok := plugin.(schemas.ObservabilityPlugin); ok {
 		s.reloadObservabilityPlugins()
@@ -865,14 +875,14 @@ func (s *BifrostHTTPServer) SyncLoadedPlugin(ctx context.Context, name string, p
 // ReloadPlugin reloads a plugin with new instance and updates Bifrost core.
 // The plugin is checked for LLM and MCP interfaces independently and registered
 // to the appropriate arrays based on which interfaces it implements.
-func (s *BifrostHTTPServer) ReloadPlugin(ctx context.Context, name string, path *string, pluginConfig any) error {
+func (s *BifrostHTTPServer) ReloadPlugin(ctx context.Context, name string, path *string, pluginConfig any, placement *schemas.PluginPlacement, order *int) error {
 	logger.Debug("reloading plugin %s", name)
 	// 1. Instantiate new version
 	plugin, err := InstantiatePlugin(ctx, name, path, pluginConfig, s.Config)
 	if err != nil {
 		return s.updatePluginErrorStatus(name, "loading", err)
 	}
-	return s.SyncLoadedPlugin(ctx, name, plugin)
+	return s.SyncLoadedPlugin(ctx, name, plugin, placement, order)
 }
 
 // RemovePlugin removes a plugin from the server.
@@ -919,8 +929,12 @@ func (s *BifrostHTTPServer) RemovePlugin(ctx context.Context, displayName string
 
 // RegisterInferenceRoutes initializes the routes for the inference handler
 func (s *BifrostHTTPServer) RegisterInferenceRoutes(ctx context.Context, middlewares ...schemas.BifrostHTTPMiddleware) error {
+	// Initialize WebSocket pool and handler before integrations so it can be wired through
+	s.wsPool = bfws.NewPool(s.Config.WebSocketConfig.Pool)
+	wsResponsesHandler := handlers.NewWSResponsesHandler(s.Client, s.Config, s.wsPool)
+
 	inferenceHandler := handlers.NewInferenceHandler(s.Client, s.Config)
-	integrationHandler := handlers.NewIntegrationHandler(s.Client, s.Config)
+	s.IntegrationHandler = handlers.NewIntegrationHandler(s.Client, s.Config, wsResponsesHandler)
 	mcpInferenceHandler := handlers.NewMCPInferenceHandler(s.Client, s.Config)
 	mcpServerHandler, err := handlers.NewMCPServerHandler(ctx, s.Config, s)
 	if err != nil {
@@ -928,7 +942,7 @@ func (s *BifrostHTTPServer) RegisterInferenceRoutes(ctx context.Context, middlew
 	}
 	s.MCPServerHandler = mcpServerHandler
 	asyncHandler := handlers.NewAsyncHandler(s.Client, s.Config)
-	integrationHandler.RegisterRoutes(s.Router, middlewares...)
+	s.IntegrationHandler.RegisterRoutes(s.Router, middlewares...)
 	inferenceHandler.RegisterRoutes(s.Router, middlewares...)
 	asyncHandler.RegisterRoutes(s.Router, middlewares...)
 	mcpInferenceHandler.RegisterRoutes(s.Router, middlewares...)
@@ -988,6 +1002,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	configHandler := handlers.NewConfigHandler(callbacks, s.Config)
 	pluginsHandler := handlers.NewPluginsHandler(callbacks, s.Config.ConfigStore)
 	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore)
+	promptsHandler := handlers.NewPromptsHandler(s.Config.ConfigStore)
 	// Going ahead with API handlers
 	healthHandler.RegisterRoutes(s.Router, middlewares...)
 	providerHandler.RegisterRoutes(s.Router, middlewares...)
@@ -999,6 +1014,9 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	}
 	if sessionHandler != nil {
 		sessionHandler.RegisterRoutes(s.Router, middlewares...)
+	}
+	if promptsHandler != nil {
+		promptsHandler.RegisterRoutes(s.Router, middlewares...)
 	}
 	if cacheHandler != nil {
 		cacheHandler.RegisterRoutes(s.Router, middlewares...)
@@ -1119,6 +1137,9 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config %v", err)
 	}
+	if s.Config.KVStore != nil {
+		integrations.RegisterKVDecoders(s.Config.KVStore)
+	}
 	// Initialize WebSocket handler early so plugins can wire event broadcasters during Init.
 	// Log callbacks are registered later in RegisterAPIRoutes when logging plugin is available.
 	s.WebSocketHandler = handlers.NewWebSocketHandler(s.Ctx, s.Config.ClientConfig.AllowedOrigins)
@@ -1199,11 +1220,15 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 		MCPConfig:          mcpConfig,
 		OAuth2Provider:     s.Config.OAuthProvider,
 		Logger:             logger,
+		KVStore:            s.Config.KVStore,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize bifrost: %v", err)
 	}
 	logger.Info("bifrost client initialized")
+	// Sync plugin execution order from config to core (defensive — Init receives sorted list,
+	// but this ensures order consistency if the loading path changes in the future)
+	s.Client.ReorderPlugins(s.Config.GetPluginOrder())
 	// List all models and add to model catalog with per-provider status tracking
 	logger.Info("listing all models and adding to model catalog")
 	if s.Config.ModelCatalog != nil {
@@ -1364,13 +1389,7 @@ func (s *BifrostHTTPServer) Start() error {
 			s.Client.Shutdown()
 			logger.Info("bifrost client shutdown completed")
 			logger.Info("cleaning up storage engines...")
-			// Cleaning up storage engines
-			if s.Config != nil && s.Config.ModelCatalog != nil {
-				s.Config.ModelCatalog.Cleanup()
-			}
-			if s.Config != nil && s.Config.ConfigStore != nil {
-				s.Config.ConfigStore.Close(shutdownCtx)
-			}
+			// Cleanup server-specific components
 			if s.LogsCleaner != nil {
 				logger.Info("stopping log retention cleaner...")
 				s.LogsCleaner.StopCleanupRoutine()
@@ -1378,10 +1397,6 @@ func (s *BifrostHTTPServer) Start() error {
 			if s.AsyncJobCleaner != nil {
 				logger.Info("stopping async job cleaner...")
 				s.AsyncJobCleaner.StopCleanupRoutine()
-			}
-			if s.Config != nil && s.Config.TokenRefreshWorker != nil {
-				logger.Info("stopping token refresh worker...")
-				s.Config.TokenRefreshWorker.Stop()
 			}
 			if s.WSTicketStore != nil {
 				logger.Info("stopping ws ticket store...")
@@ -1391,11 +1406,13 @@ func (s *BifrostHTTPServer) Start() error {
 				logger.Info("stopping dev pprof handler...")
 				s.devPprofHandler.Cleanup()
 			}
-			if s.Config != nil && s.Config.LogsStore != nil {
-				s.Config.LogsStore.Close(shutdownCtx)
+			if s.wsPool != nil {
+				logger.Info("closing websocket connection pool...")
+				s.wsPool.Close()
 			}
-			if s.Config != nil && s.Config.VectorStore != nil {
-				s.Config.VectorStore.Close(shutdownCtx, "")
+			// Cleanup Config and all its background components
+			if s.Config != nil {
+				s.Config.Close(shutdownCtx)
 			}
 			logger.Info("storage engines cleanup completed")
 		}()
@@ -1407,6 +1424,9 @@ func (s *BifrostHTTPServer) Start() error {
 		}
 
 	case err := <-errChan:
+		if s.wsPool != nil {
+			s.wsPool.Close()
+		}
 		return err
 	}
 	return nil

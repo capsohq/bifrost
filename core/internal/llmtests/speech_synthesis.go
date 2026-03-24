@@ -188,6 +188,11 @@ func RunSpeechSynthesisAdvancedTest(t *testing.T, client *bifrost.Bifrost, ctx c
 				Fallbacks: testConfig.SpeechSynthesisFallbacks,
 			}
 
+			// Groq doesn't support instructions
+			if testConfig.Provider == schemas.Groq {
+				request.Params.Instructions = ""
+			}
+
 			retryConfig := GetTestRetryConfigForScenario("SpeechSynthesisHD", testConfig)
 			retryContext := TestRetryContext{
 				ScenarioName: "SpeechSynthesis_HD_LongText",

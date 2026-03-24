@@ -3,12 +3,19 @@ package bedrock
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
 )
+
+// contentBlockMeta stores type and length of a content block for multi-turn reconstruction.
+type contentBlockMeta struct {
+	T string `json:"t"` // "thinking" or "text"
+	L int    `json:"l"` // length in UTF-8 bytes
+}
 
 // ToBedrockChatCompletionRequest converts a Bifrost request to Bedrock Converse API format
 func ToBedrockChatCompletionRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.BifrostChatRequest) (*BedrockConverseRequest, error) {
@@ -74,13 +81,8 @@ func (response *BedrockConverseResponse) ToBifrostChatResponse(ctx context.Conte
 				if structuredOutputToolName, ok := ctx.Value(schemas.BifrostContextKeyStructuredOutputToolName).(string); ok && contentBlock.ToolUse.Name == structuredOutputToolName {
 					// This is structured output - set contentStr and skip adding to toolCalls
 					if contentBlock.ToolUse.Input != nil {
-						if argBytes, err := sonic.Marshal(contentBlock.ToolUse.Input); err == nil {
-							jsonStr := string(argBytes)
-							contentStr = &jsonStr
-						} else {
-							jsonStr := fmt.Sprintf("%v", contentBlock.ToolUse.Input)
-							contentStr = &jsonStr
-						}
+						jsonStr := string(contentBlock.ToolUse.Input)
+						contentStr = &jsonStr
 					}
 					continue // Skip adding to toolCalls
 				}
@@ -88,11 +90,7 @@ func (response *BedrockConverseResponse) ToBifrostChatResponse(ctx context.Conte
 				// Regular tool call processing
 				var arguments string
 				if contentBlock.ToolUse.Input != nil {
-					if argBytes, err := sonic.Marshal(contentBlock.ToolUse.Input); err == nil {
-						arguments = string(argBytes)
-					} else {
-						arguments = fmt.Sprintf("%v", contentBlock.ToolUse.Input)
-					}
+					arguments = string(contentBlock.ToolUse.Input)
 				} else {
 					arguments = "{}"
 				}
@@ -181,9 +179,64 @@ func (response *BedrockConverseResponse) ToBifrostChatResponse(ctx context.Conte
 		}
 	}
 
-	if len(contentBlocks) == 1 && contentBlocks[0].Type == schemas.ChatContentBlockTypeText {
-		contentStr = contentBlocks[0].Text
-		contentBlocks = nil
+	if len(contentBlocks) > 0 {
+		allText := true
+		for _, block := range contentBlocks {
+			if block.Type != schemas.ChatContentBlockTypeText {
+				allText = false
+				break
+			}
+		}
+		if allText {
+			needsCombine := len(contentBlocks) > 1 || len(reasoningDetails) > 0
+			if !needsCombine {
+				// Single text block, no thinking — simple collapse
+				contentStr = contentBlocks[0].Text
+			} else {
+				// Combine thinking (first) + text blocks into a single string
+				var parts []string
+				var blockMeta []contentBlockMeta
+
+				// Thinking blocks first
+				for _, rd := range reasoningDetails {
+					if rd.Type == schemas.BifrostReasoningDetailsTypeText && rd.Text != nil {
+						parts = append(parts, *rd.Text)
+						blockMeta = append(blockMeta, contentBlockMeta{T: "thinking", L: len(*rd.Text)})
+					}
+				}
+
+				// Then text blocks top to bottom
+				for _, block := range contentBlocks {
+					if block.Text != nil {
+						parts = append(parts, *block.Text)
+						blockMeta = append(blockMeta, contentBlockMeta{T: "text", L: len(*block.Text)})
+					}
+				}
+
+				joined := strings.Join(parts, "\n\n")
+				contentStr = &joined
+
+				// Record boundaries for multi-turn reconstruction
+				if len(blockMeta) > 1 {
+					if metaJSON, err := providerUtils.MarshalSorted(blockMeta); err == nil {
+						metaStr := string(metaJSON)
+						reasoningDetails = append(reasoningDetails, schemas.ChatReasoningDetails{
+							Index: len(reasoningDetails),
+							Type:  schemas.BifrostReasoningDetailsTypeContentBlocks,
+							Text:  &metaStr,
+						})
+					}
+				}
+
+				// Clear thinking text from reasoning_details (keep signature only)
+				for i := range reasoningDetails {
+					if reasoningDetails[i].Type == schemas.BifrostReasoningDetailsTypeText {
+						reasoningDetails[i].Text = nil
+					}
+				}
+			}
+			contentBlocks = nil
+		}
 	}
 
 	// Create the message content
@@ -204,7 +257,9 @@ func (response *BedrockConverseResponse) ToBifrostChatResponse(ctx context.Conte
 			assistantMessage = &schemas.ChatAssistantMessage{}
 		}
 		assistantMessage.ReasoningDetails = reasoningDetails
-		assistantMessage.Reasoning = schemas.Ptr(reasoningText)
+		if reasoningText != "" {
+			assistantMessage.Reasoning = &reasoningText
+		}
 	}
 
 	// Create the response choice
@@ -267,7 +322,26 @@ func (response *BedrockConverseResponse) ToBifrostChatResponse(ctx context.Conte
 	return bifrostResponse, nil
 }
 
-func (chunk *BedrockStreamEvent) ToBifrostChatCompletionStream() (*schemas.BifrostChatResponse, *schemas.BifrostError, bool) {
+// BedrockStreamState tracks per-stream tool call index state.
+type BedrockStreamState struct {
+	nextToolCallIndex         int
+	contentBlockToToolCallIdx map[int]int
+}
+
+// NewBedrockStreamState returns initialised stream state for one streaming response.
+func NewBedrockStreamState() *BedrockStreamState {
+	return &BedrockStreamState{
+		contentBlockToToolCallIdx: make(map[int]int),
+	}
+}
+
+func (chunk *BedrockStreamEvent) ToBifrostChatCompletionStream(state *BedrockStreamState) (*schemas.BifrostChatResponse, *schemas.BifrostError, bool) {
+	if state == nil {
+		state = NewBedrockStreamState()
+	} else if state.contentBlockToToolCallIdx == nil {
+		state.contentBlockToToolCallIdx = make(map[int]int)
+	}
+
 	// event with metrics/usage is the last and with stop reason is the second last
 	switch {
 	case chunk.Role != nil:
@@ -291,16 +365,16 @@ func (chunk *BedrockStreamEvent) ToBifrostChatCompletionStream() (*schemas.Bifro
 	case chunk.Start != nil && chunk.Start.ToolUse != nil:
 		toolUseStart := chunk.Start.ToolUse
 
-		// Determine the tool call index from ContentBlockIndex
-		// ContentBlockIndex identifies which content block this tool call belongs to
-		var toolCallIndex uint16
+		toolCallIdx := 0
 		if chunk.ContentBlockIndex != nil {
-			toolCallIndex = uint16(*chunk.ContentBlockIndex)
+			toolCallIdx = state.nextToolCallIndex
+			state.contentBlockToToolCallIdx[*chunk.ContentBlockIndex] = toolCallIdx
+			state.nextToolCallIndex++
 		}
 
 		// Create tool call structure for start event
 		var toolCall schemas.ChatAssistantMessageToolCall
-		toolCall.Index = toolCallIndex
+		toolCall.Index = uint16(toolCallIdx)
 		toolCall.ID = schemas.Ptr(toolUseStart.ToolUseID)
 		toolCall.Type = schemas.Ptr("function")
 		toolCall.Function.Name = schemas.Ptr(toolUseStart.Name)
@@ -349,16 +423,14 @@ func (chunk *BedrockStreamEvent) ToBifrostChatCompletionStream() (*schemas.Bifro
 			// Handle tool use delta
 			toolUseDelta := chunk.Delta.ToolUse
 
-			// Determine the tool call index from ContentBlockIndex
-			// This must match the index used in the corresponding Start event
-			var toolCallIndex uint16
+			toolCallIdx := 0
 			if chunk.ContentBlockIndex != nil {
-				toolCallIndex = uint16(*chunk.ContentBlockIndex)
+				toolCallIdx = state.contentBlockToToolCallIdx[*chunk.ContentBlockIndex]
 			}
 
 			// Create tool call structure
 			var toolCall schemas.ChatAssistantMessageToolCall
-			toolCall.Index = toolCallIndex
+			toolCall.Index = uint16(toolCallIdx)
 			toolCall.Type = schemas.Ptr("function")
 
 			// For streaming, we need to accumulate tool use data
