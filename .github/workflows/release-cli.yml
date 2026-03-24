@@ -16,6 +16,7 @@ jobs:
     outputs:
       version: ${{ steps.get-version.outputs.version }}
       tag_exists: ${{ steps.check-tag.outputs.exists }}
+      has_changelog: ${{ steps.check-changelog.outputs.exists }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -36,9 +37,19 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check if CLI changelog has content
+        id: check-changelog
+        run: |
+          CHANGELOG=$(sed '/<!--/,/-->/d' cli/changelog.md | tr -d '[:space:]')
+          if [ -n "$CHANGELOG" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test-cli:
     needs: [check-version]
-    if: needs.check-version.outputs.tag_exists == 'false'
+    if: needs.check-version.outputs.tag_exists == 'false' && needs.check-version.outputs.has_changelog == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,7 +71,7 @@ jobs:
 
   release-cli:
     needs: [check-version, test-cli]
-    if: needs.check-version.outputs.tag_exists == 'false'
+    if: needs.check-version.outputs.tag_exists == 'false' && needs.check-version.outputs.has_changelog == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -96,7 +107,7 @@ jobs:
 
   push-mintlify-changelog:
     needs: [check-version, release-cli]
-    if: needs.check-version.outputs.tag_exists == 'false' && needs.release-cli.result == 'success'
+    if: needs.check-version.outputs.tag_exists == 'false' && needs.check-version.outputs.has_changelog == 'true' && needs.release-cli.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
