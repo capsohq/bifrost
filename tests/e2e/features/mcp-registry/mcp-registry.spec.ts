@@ -6,8 +6,6 @@ import {
     createSTDIOClientData
 } from './mcp-registry.data'
 
-const hasSSEHeaders = Boolean(process.env.MCP_SSE_HEADERS)
-
 // Track created clients for cleanup
 const createdClients: string[] = []
 const hasSSEHeaders = Boolean(process.env.MCP_SSE_HEADERS?.trim())

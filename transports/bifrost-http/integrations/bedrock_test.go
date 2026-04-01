@@ -6,7 +6,7 @@ import (
 
 	"github.com/capsohq/bifrost/core/providers/bedrock"
 	"github.com/capsohq/bifrost/core/schemas"
-	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/kvstore"
 	"github.com/capsohq/bifrost/framework/logstore"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	"github.com/stretchr/testify/assert"
