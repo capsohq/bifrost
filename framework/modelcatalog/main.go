@@ -9,7 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"encoding/json"
+
 	"github.com/bytedance/sonic"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore"
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
@@ -45,20 +48,14 @@ type ModelCatalog struct {
 
 	modelPool           map[schemas.ModelProvider][]string
 	unfilteredModelPool map[schemas.ModelProvider][]string // model pool without allowed models filtering
-	// providerModelSnapshots stores provider-discovered model inventories persisted in config store.
-	// This source is independent of pricing and is preferred when available.
-	providerModelSnapshots map[schemas.ModelProvider][]string
-	// model source metadata for filtered and unfiltered pools.
-	providerModelSources           map[schemas.ModelProvider]ProviderModelSource
-	unfilteredProviderModelSources map[schemas.ModelProvider]ProviderModelSource
-	// providerModelHealth tracks discovery recency and failures for filtered/unfiltered model listing.
-	providerModelHealth map[schemas.ModelProvider]providerModelHealthState
-	baseModelIndex      map[string]string // model string → canonical base model name
+	baseModelIndex      map[string]string                  // model string → canonical base model name
 
-	// Debounced persistence for provider model health metadata.
+	providerModelSnapshots             map[schemas.ModelProvider][]string
+	providerModelSources               map[schemas.ModelProvider]ProviderModelSource
+	unfilteredProviderModelSources     map[schemas.ModelProvider]ProviderModelSource
+	providerModelHealth                map[schemas.ModelProvider]providerModelHealthState
 	providerModelHealthPersistDebounce time.Duration
 	providerModelHealthPersistSignal   chan struct{}
-	// providerModelHealthPersistCallback is a test hook to observe persistence calls.
 	providerModelHealthPersistCallback func()
 
 	// Background sync worker
@@ -69,12 +66,41 @@ type ModelCatalog struct {
 	syncCancel context.CancelFunc
 }
 
+func (mc *ModelCatalog) ensureProviderModelStateLocked() {
+	if mc.modelPool == nil {
+		mc.modelPool = make(map[schemas.ModelProvider][]string)
+	}
+	if mc.unfilteredModelPool == nil {
+		mc.unfilteredModelPool = make(map[schemas.ModelProvider][]string)
+	}
+	if mc.baseModelIndex == nil {
+		mc.baseModelIndex = make(map[string]string)
+	}
+	if mc.providerModelSnapshots == nil {
+		mc.providerModelSnapshots = make(map[schemas.ModelProvider][]string)
+	}
+	if mc.providerModelSources == nil {
+		mc.providerModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
+	}
+	if mc.unfilteredProviderModelSources == nil {
+		mc.unfilteredProviderModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
+	}
+	if mc.providerModelHealth == nil {
+		mc.providerModelHealth = make(map[schemas.ModelProvider]providerModelHealthState)
+	}
+}
+
 // PricingEntry represents a single model's pricing information.
 // Field names and JSON tags match the datasheet schema exactly.
 type PricingEntry struct {
 	BaseModel string `json:"base_model,omitempty"`
 	Provider  string `json:"provider"`
 	Mode      string `json:"mode"`
+
+	ContextLength   *int                  `json:"context_length,omitempty"`
+	MaxInputTokens  *int                  `json:"max_input_tokens,omitempty"`
+	MaxOutputTokens *int                  `json:"max_output_tokens,omitempty"`
+	Architecture    *schemas.Architecture `json:"architecture,omitempty"`
 
 	// Costs - Text
 	InputCostPerToken          float64  `json:"input_cost_per_token"`
@@ -201,10 +227,6 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 	if config.PricingSyncInterval != nil {
 		pricingSyncInterval = *config.PricingSyncInterval
 	}
-	providerModelHealthPersistDebounce := DefaultProviderModelHealthPersistDebounce
-	if config.ProviderModelHealthPersistDebounce != nil {
-		providerModelHealthPersistDebounce = *config.ProviderModelHealthPersistDebounce
-	}
 
 	mc := &ModelCatalog{
 		pricingURL:                         pricingURL,
@@ -215,12 +237,12 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 		compiledOverrides:                  make(map[schemas.ModelProvider][]compiledProviderPricingOverride),
 		modelPool:                          make(map[schemas.ModelProvider][]string),
 		unfilteredModelPool:                make(map[schemas.ModelProvider][]string),
+		baseModelIndex:                     make(map[string]string),
 		providerModelSnapshots:             make(map[schemas.ModelProvider][]string),
 		providerModelSources:               make(map[schemas.ModelProvider]ProviderModelSource),
 		unfilteredProviderModelSources:     make(map[schemas.ModelProvider]ProviderModelSource),
 		providerModelHealth:                make(map[schemas.ModelProvider]providerModelHealthState),
-		providerModelHealthPersistDebounce: providerModelHealthPersistDebounce,
-		baseModelIndex:                     make(map[string]string),
+		providerModelHealthPersistDebounce: DefaultProviderModelHealthPersistDebounce,
 		done:                               make(chan struct{}),
 		shouldSyncPricingFunc:              shouldSyncPricingFunc,
 		distributedLockManager:             configstore.NewDistributedLockManager(configStore, logger, configstore.WithDefaultTTL(30*time.Second)),
@@ -228,6 +250,27 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 
 	logger.Info("initializing model catalog...")
 	if configStore != nil {
+		mc.loadProviderModelSnapshots(ctx)
+		mc.loadProviderModelHealthState(ctx)
+		mc.startProviderModelHealthPersistWorker(ctx)
+
+		// Register a cache miss handler so that on first request for a model,
+		// the cache lazily loads its parameters from the database.
+		providerUtils.SetCacheMissHandler(func(model string) *providerUtils.ModelParams {
+			missCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			params, err := configStore.GetModelParameters(missCtx, model)
+			if err != nil || params == nil {
+				return nil
+			}
+			var p struct {
+				MaxOutputTokens *int `json:"max_output_tokens"`
+			}
+			if err := json.Unmarshal([]byte(params.Data), &p); err != nil || p.MaxOutputTokens == nil {
+				return nil
+			}
+			return &providerUtils.ModelParams{MaxOutputTokens: p.MaxOutputTokens}
+		})
 		if mc.distributedLockManager == nil {
 			if err := mc.loadPricingFromDatabase(ctx); err != nil {
 				return nil, fmt.Errorf("failed to load initial pricing data: %w", err)
@@ -273,14 +316,9 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 
 	// Populate model pool with normalized providers from pricing data
 	mc.populateModelPoolFromPricingData()
-	mc.loadProviderModelSnapshots(ctx)
-	mc.loadProviderModelHealthState(ctx)
 
 	// Start background sync worker
 	mc.syncCtx, mc.syncCancel = context.WithCancel(ctx)
-	if _, ok := mc.getProviderModelHealthStore(); ok {
-		mc.startProviderModelHealthPersistWorker(mc.syncCtx)
-	}
 	mc.startSyncWorker(mc.syncCtx)
 	return mc, nil
 }
@@ -306,10 +344,6 @@ func (mc *ModelCatalog) ReloadPricing(ctx context.Context, config *Config) error
 	mc.pricingSyncInterval = DefaultPricingSyncInterval
 	if config.PricingSyncInterval != nil {
 		mc.pricingSyncInterval = *config.PricingSyncInterval
-	}
-	mc.providerModelHealthPersistDebounce = DefaultProviderModelHealthPersistDebounce
-	if config.ProviderModelHealthPersistDebounce != nil {
-		mc.providerModelHealthPersistDebounce = *config.ProviderModelHealthPersistDebounce
 	}
 
 	// Create new sync worker with updated configuration
@@ -375,16 +409,6 @@ func (mc *ModelCatalog) getPricingSyncInterval() time.Duration {
 	return mc.pricingSyncInterval
 }
 
-// getProviderModelHealthPersistDebounce returns a copy of the provider model health persist debounce under mutex protection.
-func (mc *ModelCatalog) getProviderModelHealthPersistDebounce() time.Duration {
-	mc.pricingMu.RLock()
-	defer mc.pricingMu.RUnlock()
-	if mc.providerModelHealthPersistDebounce <= 0 {
-		return DefaultProviderModelHealthPersistDebounce
-	}
-	return mc.providerModelHealthPersistDebounce
-}
-
 // GetPricingEntryForModel returns the pricing data
 func (mc *ModelCatalog) GetPricingEntryForModel(model string, provider schemas.ModelProvider) *PricingEntry {
 	mc.mu.RLock()
@@ -410,6 +434,107 @@ func (mc *ModelCatalog) GetPricingEntryForModel(model string, provider schemas.M
 		}
 	}
 	return nil
+}
+
+// GetModelCapabilityEntryForModel returns capability metadata for a model/provider pair.
+// It prefers chat, then responses, then text-completion entries; if none exist,
+// it falls back to the lexicographically first available mode for deterministic behavior.
+func (mc *ModelCatalog) GetModelCapabilityEntryForModel(model string, provider schemas.ModelProvider) *PricingEntry {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
+	if entry := mc.getCapabilityEntryForExactModelUnsafe(model, provider); entry != nil {
+		return entry
+	}
+
+	baseModel := mc.getBaseModelNameUnsafe(model)
+	if baseModel != model {
+		if entry := mc.getCapabilityEntryForExactModelUnsafe(baseModel, provider); entry != nil {
+			return entry
+		}
+	}
+
+	if entry := mc.getCapabilityEntryForModelFamilyUnsafe(baseModel, provider); entry != nil {
+		return entry
+	}
+
+	return nil
+}
+
+func (mc *ModelCatalog) getCapabilityEntryForExactModelUnsafe(model string, provider schemas.ModelProvider) *PricingEntry {
+	preferredModes := []schemas.RequestType{
+		schemas.ChatCompletionRequest,
+		schemas.ResponsesRequest,
+		schemas.TextCompletionRequest,
+	}
+
+	for _, mode := range preferredModes {
+		key := makeKey(model, string(provider), normalizeRequestType(mode))
+		pricing, ok := mc.pricingData[key]
+		if ok {
+			return convertTableModelPricingToPricingData(&pricing)
+		}
+	}
+
+	prefix := model + "|" + string(provider) + "|"
+	matchingKeys := make([]string, 0)
+	for key := range mc.pricingData {
+		if strings.HasPrefix(key, prefix) {
+			matchingKeys = append(matchingKeys, key)
+		}
+	}
+	return mc.selectCapabilityEntryFromKeysUnsafe(matchingKeys)
+}
+
+func (mc *ModelCatalog) getCapabilityEntryForModelFamilyUnsafe(baseModel string, provider schemas.ModelProvider) *PricingEntry {
+	if baseModel == "" {
+		return nil
+	}
+
+	matchingKeys := make([]string, 0)
+	for key, pricing := range mc.pricingData {
+		if normalizeProvider(pricing.Provider) != string(provider) {
+			continue
+		}
+		if mc.getBaseModelNameUnsafe(pricing.Model) != baseModel {
+			continue
+		}
+		matchingKeys = append(matchingKeys, key)
+	}
+	return mc.selectCapabilityEntryFromKeysUnsafe(matchingKeys)
+}
+
+func (mc *ModelCatalog) selectCapabilityEntryFromKeysUnsafe(matchingKeys []string) *PricingEntry {
+	if len(matchingKeys) == 0 {
+		return nil
+	}
+
+	preferredModes := []string{
+		normalizeRequestType(schemas.ChatCompletionRequest),
+		normalizeRequestType(schemas.ResponsesRequest),
+		normalizeRequestType(schemas.TextCompletionRequest),
+	}
+
+	for _, mode := range preferredModes {
+		modeMatches := make([]string, 0)
+		for _, key := range matchingKeys {
+			parts := strings.SplitN(key, "|", 3)
+			if len(parts) != 3 || parts[2] != mode {
+				continue
+			}
+			modeMatches = append(modeMatches, key)
+		}
+		if len(modeMatches) == 0 {
+			continue
+		}
+		slices.Sort(modeMatches)
+		pricing := mc.pricingData[modeMatches[0]]
+		return convertTableModelPricingToPricingData(&pricing)
+	}
+
+	slices.Sort(matchingKeys)
+	pricing := mc.pricingData[matchingKeys[0]]
+	return convertTableModelPricingToPricingData(&pricing)
 }
 
 // GetModelsForProvider returns all available models for a given provider (thread-safe)
@@ -661,78 +786,62 @@ func (mc *ModelCatalog) IsSameModel(model1, model2 string) bool {
 // DeleteModelDataForProvider deletes all model data from the pool for a given provider
 func (mc *ModelCatalog) DeleteModelDataForProvider(provider schemas.ModelProvider) {
 	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.ensureProviderModelStateLocked()
+
 	delete(mc.modelPool, provider)
 	delete(mc.unfilteredModelPool, provider)
 	delete(mc.providerModelSnapshots, provider)
 	delete(mc.providerModelSources, provider)
 	delete(mc.unfilteredProviderModelSources, provider)
 	delete(mc.providerModelHealth, provider)
-	mc.mu.Unlock()
-
-	mc.persistProviderModelHealthState()
 }
 
-func (mc *ModelCatalog) getSeedModelsForProviderLocked(provider schemas.ModelProvider) ([]string, ProviderModelSource) {
-	if snapshotModels, exists := mc.providerModelSnapshots[provider]; exists && len(snapshotModels) > 0 {
-		return slices.Clone(snapshotModels), ProviderModelSourcePersistedSnapshot
+// UpsertModelDataForProvider upserts model data for a given provider
+func (mc *ModelCatalog) UpsertModelDataForProvider(provider schemas.ModelProvider, modelData *schemas.BifrostListModelsResponse, allowedModels []schemas.Model, deniedModels []schemas.Model) {
+	if modelData == nil {
+		return
 	}
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.ensureProviderModelStateLocked()
 
-	// Fall back to pricing-backed models.
+	// Populating models from pricing data for the given provider
+	// Provider models map
 	providerModels := []string{}
+	// Iterate through all pricing data to collect models per provider
 	for _, pricing := range mc.pricingData {
+		// Normalize provider before adding to model pool
 		normalizedProvider := schemas.ModelProvider(normalizeProvider(pricing.Provider))
+		// We will only add models for the given provider
 		if normalizedProvider != provider {
 			continue
 		}
+		// Add model to the provider's model set (using map for deduplication)
 		if slices.Contains(providerModels, pricing.Model) {
 			continue
 		}
 		providerModels = append(providerModels, pricing.Model)
-		// Build base model index from pre-computed base_model field.
+		// Build base model index from pre-computed base_model field
 		if pricing.BaseModel != "" {
 			mc.baseModelIndex[pricing.Model] = pricing.BaseModel
 		}
 	}
-
-	// If datasheet does not have this provider yet, use curated fallback models.
-	if len(providerModels) == 0 {
-		providerModels = appendUniqueModels(providerModels, getDefaultModelsForProvider(provider))
-		if len(providerModels) > 0 {
-			return providerModels, ProviderModelSourceDefaultSeed
-		}
-		return providerModels, ProviderModelSourceUnknown
-	}
-
-	return providerModels, ProviderModelSourcePricingCatalog
-}
-
-// UpsertModelDataForProvider upserts model data for a given provider
-func (mc *ModelCatalog) UpsertModelDataForProvider(provider schemas.ModelProvider, modelData *schemas.BifrostListModelsResponse, allowedModels []schemas.Model) {
-	if modelData == nil {
-		return
-	}
-
-	mc.mu.Lock()
-	providerModels, seedSource := mc.getSeedModelsForProviderLocked(provider)
-
 	// If modelData is empty, then we allow all models
-	if len(modelData.Data) == 0 && len(allowedModels) == 0 {
-		mc.modelPool[provider] = providerModels
-		mc.providerModelSources[provider] = seedSource
-		mc.mu.Unlock()
-		mc.persistProviderModelHealthState()
+	if len(modelData.Data) == 0 && len(allowedModels) == 0 && len(deniedModels) == 0 {
+		modelsClone := slices.Clone(providerModels)
+		mc.modelPool[provider] = modelsClone
+		mc.providerModelSnapshots[provider] = slices.Clone(modelsClone)
+		mc.providerModelSources[provider] = ProviderModelSourcePricingCatalog
+		mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
 		return
 	}
 	// Here we make sure that we still keep the backup for model catalog intact
 	// So we start with a existing model pool and add the new models from incoming data
 	finalModelList := make([]string, 0)
 	seenModels := make(map[string]bool)
-	discoveredModels := make([]string, 0, len(modelData.Data))
-	seenDiscoveredModels := make(map[string]bool)
-	resultSource := seedSource
 	// Case where list models failed but we have allowed models from keys
 	if len(modelData.Data) == 0 && len(allowedModels) > 0 {
-		resultSource = ProviderModelSourceAllowedModels
 		for _, allowedModel := range allowedModels {
 			parsedProvider, parsedModel := schemas.ParseModelString(allowedModel.ID, "")
 			if parsedProvider != provider {
@@ -749,37 +858,39 @@ func (mc *ModelCatalog) UpsertModelDataForProvider(provider schemas.ModelProvide
 		if parsedProvider != provider {
 			continue
 		}
-		if !seenDiscoveredModels[parsedModel] {
-			seenDiscoveredModels[parsedModel] = true
-			discoveredModels = append(discoveredModels, parsedModel)
-		}
 		if !seenModels[parsedModel] {
 			seenModels[parsedModel] = true
 			finalModelList = append(finalModelList, parsedModel)
 		}
 	}
-	// If there are no allowed models, we add all models from the provider models
+
 	if len(allowedModels) == 0 {
+		deniedSet := make(map[string]struct{}, len(deniedModels))
+		for _, d := range deniedModels {
+			_, modelName := schemas.ParseModelString(d.ID, "")
+			deniedSet[modelName] = struct{}{}
+		}
 		for _, model := range providerModels {
+			if _, denied := deniedSet[model]; denied {
+				continue
+			}
 			if !seenModels[model] {
 				seenModels[model] = true
 				finalModelList = append(finalModelList, model)
 			}
 		}
 	}
-	mc.modelPool[provider] = finalModelList
-	if len(discoveredModels) > 0 {
-		mc.providerModelSnapshots[provider] = slices.Clone(discoveredModels)
-		mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
-		resultSource = ProviderModelSourceLiveDiscovery
+	mc.modelPool[provider] = slices.Clone(finalModelList)
+	mc.providerModelSnapshots[provider] = slices.Clone(finalModelList)
+	switch {
+	case len(modelData.Data) > 0:
+		mc.providerModelSources[provider] = ProviderModelSourceLiveDiscovery
+	case len(allowedModels) > 0:
+		mc.providerModelSources[provider] = ProviderModelSourceAllowedModels
+	default:
+		mc.providerModelSources[provider] = ProviderModelSourcePricingCatalog
 	}
-	mc.providerModelSources[provider] = resultSource
-	mc.mu.Unlock()
-	mc.persistProviderModelHealthState()
-
-	if len(discoveredModels) > 0 {
-		mc.persistProviderModelSnapshot(provider, discoveredModels)
-	}
+	mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
 }
 
 // UpsertUnfilteredModelDataForProvider upserts unfiltered model data for a given provider
@@ -788,41 +899,42 @@ func (mc *ModelCatalog) UpsertUnfilteredModelDataForProvider(provider schemas.Mo
 		return
 	}
 	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.ensureProviderModelStateLocked()
 
-	providerModels, seedSource := mc.getSeedModelsForProviderLocked(provider)
+	// Populating models from pricing data for the given provider
+	providerModels := []string{}
 	seenModels := make(map[string]bool)
-	for _, model := range providerModels {
-		seenModels[model] = true
+	for _, pricing := range mc.pricingData {
+		normalizedProvider := schemas.ModelProvider(normalizeProvider(pricing.Provider))
+		if normalizedProvider != provider {
+			continue
+		}
+		if !seenModels[pricing.Model] {
+			seenModels[pricing.Model] = true
+			providerModels = append(providerModels, pricing.Model)
+		}
 	}
-	discoveredModels := make([]string, 0, len(modelData.Data))
-	seenDiscoveredModels := make(map[string]bool)
-	resultSource := seedSource
 	for _, model := range modelData.Data {
 		parsedProvider, parsedModel := schemas.ParseModelString(model.ID, "")
 		if parsedProvider != provider {
 			continue
-		}
-		if !seenDiscoveredModels[parsedModel] {
-			seenDiscoveredModels[parsedModel] = true
-			discoveredModels = append(discoveredModels, parsedModel)
 		}
 		if !seenModels[parsedModel] {
 			seenModels[parsedModel] = true
 			providerModels = append(providerModels, parsedModel)
 		}
 	}
-	mc.unfilteredModelPool[provider] = providerModels
-	if len(discoveredModels) > 0 {
-		mc.providerModelSnapshots[provider] = slices.Clone(discoveredModels)
-		mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
-		resultSource = ProviderModelSourceLiveDiscovery
+	modelsClone := slices.Clone(providerModels)
+	mc.unfilteredModelPool[provider] = modelsClone
+	if len(modelData.Data) > 0 {
+		mc.unfilteredProviderModelSources[provider] = ProviderModelSourceLiveDiscovery
+	} else {
+		mc.unfilteredProviderModelSources[provider] = ProviderModelSourcePricingCatalog
 	}
-	mc.unfilteredProviderModelSources[provider] = resultSource
-	mc.mu.Unlock()
-	mc.persistProviderModelHealthState()
-
-	if len(discoveredModels) > 0 {
-		mc.persistProviderModelSnapshot(provider, discoveredModels)
+	if len(mc.providerModelSnapshots[provider]) == 0 {
+		mc.providerModelSnapshots[provider] = slices.Clone(modelsClone)
+		mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
 	}
 }
 
@@ -903,13 +1015,15 @@ func (mc *ModelCatalog) populateModelPoolFromPricingData() {
 	// Acquire write lock for the entire rebuild operation
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
+	mc.ensureProviderModelStateLocked()
 
 	// Clear existing model pool and base model index
 	mc.modelPool = make(map[schemas.ModelProvider][]string)
 	mc.unfilteredModelPool = make(map[schemas.ModelProvider][]string)
+	mc.baseModelIndex = make(map[string]string)
+	mc.providerModelSnapshots = make(map[schemas.ModelProvider][]string)
 	mc.providerModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
 	mc.unfilteredProviderModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
-	mc.baseModelIndex = make(map[string]string)
 
 	// Map to track unique models per provider
 	providerModels := make(map[schemas.ModelProvider]map[string]bool)
@@ -939,34 +1053,12 @@ func (mc *ModelCatalog) populateModelPoolFromPricingData() {
 		for model := range modelSet {
 			models = append(models, model)
 		}
-		mc.modelPool[provider] = models
-		mc.unfilteredModelPool[provider] = models
-		mc.providerModelSources[provider] = ProviderModelSourcePricingCatalog
-		mc.unfilteredProviderModelSources[provider] = ProviderModelSourcePricingCatalog
-	}
-	// Seed fallback providers only when pricing datasheet has no records for them.
-	for provider := range defaultProviderModels {
-		if _, exists := mc.modelPool[provider]; exists {
-			continue
-		}
-		defaultModels := getDefaultModelsForProvider(provider)
-		if len(defaultModels) == 0 {
-			continue
-		}
-		mc.modelPool[provider] = defaultModels
-		mc.unfilteredModelPool[provider] = slices.Clone(defaultModels)
-		mc.providerModelSources[provider] = ProviderModelSourceDefaultSeed
-		mc.unfilteredProviderModelSources[provider] = ProviderModelSourceDefaultSeed
-	}
-	// Overlay persisted provider-discovered snapshots so model visibility is decoupled from pricing.
-	for provider, models := range mc.providerModelSnapshots {
-		if len(models) == 0 {
-			continue
-		}
 		mc.modelPool[provider] = slices.Clone(models)
 		mc.unfilteredModelPool[provider] = slices.Clone(models)
-		mc.providerModelSources[provider] = ProviderModelSourcePersistedSnapshot
-		mc.unfilteredProviderModelSources[provider] = ProviderModelSourcePersistedSnapshot
+		mc.providerModelSnapshots[provider] = slices.Clone(models)
+		mc.providerModelSources[provider] = ProviderModelSourcePricingCatalog
+		mc.unfilteredProviderModelSources[provider] = ProviderModelSourcePricingCatalog
+		mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
 	}
 
 	// Log the populated model pool for debugging
@@ -1005,14 +1097,14 @@ func NewTestCatalog(baseModelIndex map[string]string) *ModelCatalog {
 	return &ModelCatalog{
 		modelPool:                          make(map[schemas.ModelProvider][]string),
 		unfilteredModelPool:                make(map[schemas.ModelProvider][]string),
+		baseModelIndex:                     baseModelIndex,
+		pricingData:                        make(map[string]configstoreTables.TableModelPricing),
+		compiledOverrides:                  make(map[schemas.ModelProvider][]compiledProviderPricingOverride),
 		providerModelSnapshots:             make(map[schemas.ModelProvider][]string),
 		providerModelSources:               make(map[schemas.ModelProvider]ProviderModelSource),
 		unfilteredProviderModelSources:     make(map[schemas.ModelProvider]ProviderModelSource),
 		providerModelHealth:                make(map[schemas.ModelProvider]providerModelHealthState),
 		providerModelHealthPersistDebounce: DefaultProviderModelHealthPersistDebounce,
-		baseModelIndex:                     baseModelIndex,
-		pricingData:                        make(map[string]configstoreTables.TableModelPricing),
-		compiledOverrides:                  make(map[schemas.ModelProvider][]compiledProviderPricingOverride),
 		done:                               make(chan struct{}),
 	}
 }

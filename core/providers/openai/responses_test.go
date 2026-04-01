@@ -1444,7 +1444,7 @@ func TestToOpenAIResponsesRequest_ToolNormalization(t *testing.T) {
 					},
 				},
 				{
-					Type: schemas.ResponsesToolTypeWebSearch,
+					Type:                   schemas.ResponsesToolTypeWebSearch,
 					ResponsesToolWebSearch: &schemas.ResponsesToolWebSearch{},
 				},
 			},

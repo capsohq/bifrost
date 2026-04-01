@@ -118,6 +118,7 @@ export interface ModelProviderKey {
 	name: string;
 	value?: EnvVar;
 	models?: string[];
+	blacklisted_models?: string[];
 	weight: number;
 	enabled?: boolean;
 	use_for_batch_api?: boolean;
@@ -141,6 +142,7 @@ export const DefaultModelProviderKey: ModelProviderKey = {
 		from_env: false,
 	},
 	models: [],
+	blacklisted_models: [],
 	weight: 1.0,
 	enabled: true,
 };
@@ -159,6 +161,7 @@ export interface NetworkConfig {
 	stream_idle_timeout_in_seconds?: number;
 	max_conns_per_host?: number;
 	enforce_http2?: boolean;
+	beta_header_overrides?: Record<string, boolean>;
 }
 
 // ConcurrencyAndBufferSize matching Go's schemas.ConcurrencyAndBufferSize
@@ -302,6 +305,11 @@ export interface ProviderPricingOverride {
 	cache_read_input_image_token_cost?: number;
 }
 
+// OpenAIConfig holds OpenAI-specific provider configuration.
+export interface OpenAIConfig {
+	disable_store?: boolean;
+}
+
 // ProviderConfig matching Go's lib.ProviderConfig
 export interface ModelProviderConfig {
 	keys: ModelProviderKey[];
@@ -312,6 +320,7 @@ export interface ModelProviderConfig {
 	send_back_raw_response?: boolean;
 	store_raw_request_response?: boolean;
 	custom_provider_config?: CustomProviderConfig;
+	openai_config?: OpenAIConfig;
 	pricing_overrides?: ProviderPricingOverride[];
 	status?: "unknown" | "success" | "list_models_failed";
 	description?: string;
@@ -341,6 +350,7 @@ export interface AddProviderRequest {
 	send_back_raw_response?: boolean;
 	store_raw_request_response?: boolean;
 	custom_provider_config?: CustomProviderConfig;
+	openai_config?: OpenAIConfig;
 	pricing_overrides?: ProviderPricingOverride[];
 }
 
@@ -354,6 +364,7 @@ export interface UpdateProviderRequest {
 	send_back_raw_response?: boolean;
 	store_raw_request_response?: boolean;
 	custom_provider_config?: CustomProviderConfig;
+	openai_config?: OpenAIConfig;
 	pricing_overrides?: ProviderPricingOverride[];
 }
 
@@ -508,11 +519,7 @@ export const DefaultCoreConfig: CoreConfig = {
 };
 
 // Semantic cache configuration types
-export interface CacheConfig {
-	provider: ModelProviderName;
-	keys: ModelProviderKey[];
-	embedding_model: string;
-	dimension: number;
+interface BaseCacheConfig {
 	ttl_seconds: number;
 	threshold: number;
 	conversation_history_threshold?: number;
@@ -521,6 +528,29 @@ export interface CacheConfig {
 	cache_by_provider: boolean;
 	created_at?: string;
 	updated_at?: string;
+}
+
+export interface DirectCacheConfig extends BaseCacheConfig {
+	dimension: 1;
+	provider?: undefined;
+	keys?: ModelProviderKey[];
+	embedding_model?: undefined;
+}
+
+export interface ProviderBackedCacheConfig extends BaseCacheConfig {
+	provider: ModelProviderName;
+	keys?: ModelProviderKey[];
+	embedding_model: string;
+	dimension: number;
+}
+
+export type CacheConfig = DirectCacheConfig | ProviderBackedCacheConfig;
+
+export interface EditorCacheConfig extends BaseCacheConfig {
+	provider?: ModelProviderName;
+	keys?: ModelProviderKey[];
+	embedding_model?: string;
+	dimension?: number;
 }
 
 // Maxim configuration types

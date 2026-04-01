@@ -3,8 +3,8 @@
 package handlers
 
 import (
-	"github.com/fasthttp/router"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/fasthttp/router"
 )
 
 // DevPprofHandler is a no-op stub for production builds (built without the "dev" tag).

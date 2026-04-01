@@ -250,6 +250,7 @@ func (s *RDBConfigStore) UpdateProvidersConfig(ctx context.Context, providers ma
 			SendBackRawResponse:      providerConfig.SendBackRawResponse,
 			StoreRawRequestResponse:  providerConfig.StoreRawRequestResponse,
 			CustomProviderConfig:     providerConfig.CustomProviderConfig,
+			OpenAIConfig:             providerConfig.OpenAIConfig,
 			PricingOverrides:         providerConfig.PricingOverrides,
 			ConfigHash:               providerConfig.ConfigHash,
 			Status:                   providerConfig.Status,
@@ -287,6 +288,7 @@ func (s *RDBConfigStore) UpdateProvidersConfig(ctx context.Context, providers ma
 				Name:               key.Name,
 				Value:              key.Value,
 				Models:             key.Models,
+				BlacklistedModels:  key.BlacklistedModels,
 				Weight:             &key.Weight,
 				Enabled:            key.Enabled,
 				UseForBatchAPI:     key.UseForBatchAPI,
@@ -421,6 +423,7 @@ func (s *RDBConfigStore) UpdateProvider(ctx context.Context, provider schemas.Mo
 	dbProvider.SendBackRawResponse = configCopy.SendBackRawResponse
 	dbProvider.StoreRawRequestResponse = configCopy.StoreRawRequestResponse
 	dbProvider.CustomProviderConfig = configCopy.CustomProviderConfig
+	dbProvider.OpenAIConfig = configCopy.OpenAIConfig
 	dbProvider.PricingOverrides = configCopy.PricingOverrides
 	dbProvider.ConfigHash = configCopy.ConfigHash
 
@@ -455,6 +458,7 @@ func (s *RDBConfigStore) UpdateProvider(ctx context.Context, provider schemas.Mo
 			Name:               key.Name,
 			Value:              key.Value,
 			Models:             key.Models,
+			BlacklistedModels:  key.BlacklistedModels,
 			Weight:             &key.Weight,
 			Enabled:            key.Enabled,
 			UseForBatchAPI:     key.UseForBatchAPI,
@@ -560,6 +564,7 @@ func (s *RDBConfigStore) AddProvider(ctx context.Context, provider schemas.Model
 		SendBackRawResponse:      configCopy.SendBackRawResponse,
 		StoreRawRequestResponse:  configCopy.StoreRawRequestResponse,
 		CustomProviderConfig:     configCopy.CustomProviderConfig,
+		OpenAIConfig:             configCopy.OpenAIConfig,
 		PricingOverrides:         configCopy.PricingOverrides,
 		ConfigHash:               configCopy.ConfigHash,
 	}
@@ -576,6 +581,7 @@ func (s *RDBConfigStore) AddProvider(ctx context.Context, provider schemas.Model
 			Name:               key.Name,
 			Value:              key.Value,
 			Models:             key.Models,
+			BlacklistedModels:  key.BlacklistedModels,
 			Weight:             &key.Weight,
 			Enabled:            key.Enabled,
 			UseForBatchAPI:     key.UseForBatchAPI,
@@ -697,6 +703,7 @@ func (s *RDBConfigStore) GetProvidersConfig(ctx context.Context) (map[schemas.Mo
 				Name:               dbKey.Name,
 				Value:              dbKey.Value,
 				Models:             dbKey.Models,
+				BlacklistedModels:  dbKey.BlacklistedModels,
 				Weight:             getWeight(dbKey.Weight),
 				Enabled:            dbKey.Enabled,
 				UseForBatchAPI:     dbKey.UseForBatchAPI,
@@ -719,6 +726,7 @@ func (s *RDBConfigStore) GetProvidersConfig(ctx context.Context) (map[schemas.Mo
 			SendBackRawResponse:      dbProvider.SendBackRawResponse,
 			StoreRawRequestResponse:  dbProvider.StoreRawRequestResponse,
 			CustomProviderConfig:     dbProvider.CustomProviderConfig,
+			OpenAIConfig:             dbProvider.OpenAIConfig,
 			PricingOverrides:         dbProvider.PricingOverrides,
 			ConfigHash:               dbProvider.ConfigHash,
 			Status:                   dbProvider.Status,
@@ -746,6 +754,7 @@ func (s *RDBConfigStore) GetProviderConfig(ctx context.Context, provider schemas
 			Name:               dbKey.Name,
 			Value:              dbKey.Value,
 			Models:             dbKey.Models,
+			BlacklistedModels:  dbKey.BlacklistedModels,
 			Weight:             getWeight(dbKey.Weight),
 			Enabled:            dbKey.Enabled,
 			UseForBatchAPI:     dbKey.UseForBatchAPI,
@@ -768,6 +777,7 @@ func (s *RDBConfigStore) GetProviderConfig(ctx context.Context, provider schemas
 		SendBackRawResponse:      dbProvider.SendBackRawResponse,
 		StoreRawRequestResponse:  dbProvider.StoreRawRequestResponse,
 		CustomProviderConfig:     dbProvider.CustomProviderConfig,
+		OpenAIConfig:             dbProvider.OpenAIConfig,
 		PricingOverrides:         dbProvider.PricingOverrides,
 		ConfigHash:               dbProvider.ConfigHash,
 		Status:                   dbProvider.Status,
@@ -1574,15 +1584,27 @@ func (s *RDBConfigStore) GetRedactedVirtualKeys(ctx context.Context, ids []strin
 	return virtualKeys, nil
 }
 
-// GetVirtualKeys retrieves all virtual keys from the database.
-func (s *RDBConfigStore) GetVirtualKeys(ctx context.Context) ([]tables.TableVirtualKey, error) {
-	var virtualKeys []tables.TableVirtualKey
+func preloadCustomerRelations(db *gorm.DB, prefix string) *gorm.DB {
+	relation := func(name string) string {
+		if prefix == "" {
+			return name
+		}
+		return prefix + name
+	}
 
-	// Preload all relationships for complete information
-	if err := s.db.WithContext(ctx).
-		Preload("Team").
-		Preload("Team.Customer").
-		Preload("Customer").
+	return db.
+		Preload(relation("Teams")).
+		Preload(relation("Budget")).
+		Preload(relation("RateLimit")).
+		Preload(relation("VirtualKeys"))
+}
+
+func preloadVirtualKeyBaseRelations(db *gorm.DB) *gorm.DB {
+	db = db.Preload("Team").Preload("Team.Customer")
+
+	db = db.Preload("Customer")
+
+	return db.
 		Preload("Budget").
 		Preload("RateLimit").
 		Preload("ProviderConfigs").
@@ -1592,7 +1614,19 @@ func (s *RDBConfigStore) GetVirtualKeys(ctx context.Context) ([]tables.TableVirt
 			return db.Select("id, name, key_id, models_json, provider")
 		}).
 		Preload("MCPConfigs").
-		Preload("MCPConfigs.MCPClient").
+		Preload("MCPConfigs.MCPClient")
+}
+
+func preloadVirtualKeyDetailRelations(db *gorm.DB) *gorm.DB {
+	return preloadCustomerRelations(preloadVirtualKeyBaseRelations(db), "Customer.")
+}
+
+// GetVirtualKeys retrieves all virtual keys from the database.
+func (s *RDBConfigStore) GetVirtualKeys(ctx context.Context) ([]tables.TableVirtualKey, error) {
+	var virtualKeys []tables.TableVirtualKey
+
+	// Preload all relationships for complete information
+	if err := preloadVirtualKeyBaseRelations(s.db.WithContext(ctx)).
 		Order("created_at ASC").
 		Find(&virtualKeys).Error; err != nil {
 		return nil, err
@@ -1641,20 +1675,7 @@ func (s *RDBConfigStore) GetVirtualKeysPaginated(ctx context.Context, params Vir
 
 	// Fetch with preloads and pagination
 	var virtualKeys []tables.TableVirtualKey
-	if err := baseQuery.
-		Preload("Team").
-		Preload("Team.Customer").
-		Preload("Customer").
-		Preload("Budget").
-		Preload("RateLimit").
-		Preload("ProviderConfigs").
-		Preload("ProviderConfigs.Budget").
-		Preload("ProviderConfigs.RateLimit").
-		Preload("ProviderConfigs.Keys", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id, name, key_id, models_json, provider")
-		}).
-		Preload("MCPConfigs").
-		Preload("MCPConfigs.MCPClient").
+	if err := preloadVirtualKeyBaseRelations(baseQuery).
 		Order("created_at ASC, id ASC").
 		Offset(offset).
 		Limit(limit).
@@ -1667,20 +1688,7 @@ func (s *RDBConfigStore) GetVirtualKeysPaginated(ctx context.Context, params Vir
 // GetVirtualKey retrieves a virtual key from the database.
 func (s *RDBConfigStore) GetVirtualKey(ctx context.Context, id string) (*tables.TableVirtualKey, error) {
 	var virtualKey tables.TableVirtualKey
-	if err := s.db.WithContext(ctx).
-		Preload("Team").
-		Preload("Team.Customer").
-		Preload("Customer").
-		Preload("Budget").
-		Preload("RateLimit").
-		Preload("ProviderConfigs").
-		Preload("ProviderConfigs.Budget").
-		Preload("ProviderConfigs.RateLimit").
-		Preload("ProviderConfigs.Keys", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id, name, key_id, models_json, provider")
-		}).
-		Preload("MCPConfigs").
-		Preload("MCPConfigs.MCPClient").
+	if err := preloadVirtualKeyDetailRelations(s.db.WithContext(ctx)).
 		First(&virtualKey, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
@@ -1694,20 +1702,7 @@ func (s *RDBConfigStore) GetVirtualKey(ctx context.Context, id string) (*tables.
 func (s *RDBConfigStore) GetVirtualKeyByValue(ctx context.Context, value string) (*tables.TableVirtualKey, error) {
 	valueHash := encrypt.HashSHA256(value)
 	var virtualKey tables.TableVirtualKey
-	query := s.db.WithContext(ctx).
-		Preload("Team").
-		Preload("Team.Customer").
-		Preload("Customer").
-		Preload("Budget").
-		Preload("RateLimit").
-		Preload("ProviderConfigs").
-		Preload("ProviderConfigs.Budget").
-		Preload("ProviderConfigs.RateLimit").
-		Preload("ProviderConfigs.Keys", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id, name, key_id, models_json, provider")
-		}).
-		Preload("MCPConfigs").
-		Preload("MCPConfigs.MCPClient")
+	query := preloadVirtualKeyBaseRelations(s.db.WithContext(ctx))
 
 	// Use hash-based lookup if hash column is populated, fall back to plaintext for backward compat
 	if err := query.Where("value_hash = ?", valueHash).First(&virtualKey).Error; err != nil {
@@ -1797,12 +1792,12 @@ func (s *RDBConfigStore) GetKeysByProvider(ctx context.Context, provider string)
 func (s *RDBConfigStore) GetAllRedactedKeys(ctx context.Context, ids []string) ([]schemas.Key, error) {
 	var keys []tables.TableKey
 	if len(ids) > 0 {
-		err := s.db.WithContext(ctx).Select("id, key_id, name, models_json, weight").Where("key_id IN ?", ids).Find(&keys).Error
+		err := s.db.WithContext(ctx).Select("id, key_id, name, models_json, blacklisted_models_json, weight").Where("key_id IN ?", ids).Find(&keys).Error
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		err := s.db.WithContext(ctx).Select("id, key_id, name, models_json, weight").Find(&keys).Error
+		err := s.db.WithContext(ctx).Select("id, key_id, name, models_json, blacklisted_models_json, weight").Find(&keys).Error
 		if err != nil {
 			return nil, err
 		}
@@ -1813,11 +1808,16 @@ func (s *RDBConfigStore) GetAllRedactedKeys(ctx context.Context, ids []string) (
 		if models == nil {
 			models = []string{} // Ensure models is never nil in JSON response
 		}
+		blacklisted := key.BlacklistedModels
+		if blacklisted == nil {
+			blacklisted = []string{}
+		}
 		redactedKeys[i] = schemas.Key{
-			ID:     key.KeyID,
-			Name:   key.Name,
-			Models: models,
-			Weight: getWeight(key.Weight),
+			ID:                key.KeyID,
+			Name:              key.Name,
+			Models:            models,
+			BlacklistedModels: blacklisted,
+			Weight:            getWeight(key.Weight),
 		}
 	}
 	return redactedKeys, nil
@@ -2306,7 +2306,9 @@ func (s *RDBConfigStore) DeleteTeam(ctx context.Context, id string) error {
 // GetCustomers retrieves all customers from the database.
 func (s *RDBConfigStore) GetCustomers(ctx context.Context) ([]tables.TableCustomer, error) {
 	var customers []tables.TableCustomer
-	if err := s.db.WithContext(ctx).Preload("Teams").Preload("Budget").Preload("RateLimit").Order("created_at ASC").Find(&customers).Error; err != nil {
+	if err := preloadCustomerRelations(s.db.WithContext(ctx), "").
+		Order("created_at ASC").
+		Find(&customers).Error; err != nil {
 		return nil, err
 	}
 	return customers, nil
@@ -2334,8 +2336,7 @@ func (s *RDBConfigStore) GetCustomersPaginated(ctx context.Context, params Custo
 		offset = 0
 	}
 	var customers []tables.TableCustomer
-	if err := baseQuery.
-		Preload("Teams").Preload("Budget").Preload("RateLimit").
+	if err := preloadCustomerRelations(baseQuery, "").
 		Order("created_at ASC, id ASC").
 		Offset(offset).Limit(limit).
 		Find(&customers).Error; err != nil {
@@ -2347,7 +2348,8 @@ func (s *RDBConfigStore) GetCustomersPaginated(ctx context.Context, params Custo
 // GetCustomer retrieves a specific customer from the database.
 func (s *RDBConfigStore) GetCustomer(ctx context.Context, id string) (*tables.TableCustomer, error) {
 	var customer tables.TableCustomer
-	if err := s.db.WithContext(ctx).Preload("Teams").Preload("Budget").Preload("RateLimit").First(&customer, "id = ?", id).Error; err != nil {
+	if err := preloadCustomerRelations(s.db.WithContext(ctx), "").
+		First(&customer, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}

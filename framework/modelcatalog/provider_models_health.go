@@ -111,6 +111,7 @@ func (mc *ModelCatalog) RecordProviderModelDiscoveryResult(
 	discoveryErr *schemas.BifrostError,
 ) {
 	mc.mu.Lock()
+	mc.ensureProviderModelStateLocked()
 	now := time.Now().UTC()
 	state := mc.providerModelHealth[provider]
 	target := &state.Filtered
@@ -365,6 +366,7 @@ func (mc *ModelCatalog) loadProviderModelHealthState(ctx context.Context) {
 
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
+	mc.ensureProviderModelStateLocked()
 	for providerName, entry := range persistedState {
 		provider := schemas.ModelProvider(providerName)
 		mc.providerModelHealth[provider] = providerModelHealthState{
@@ -403,6 +405,13 @@ func (mc *ModelCatalog) shouldPersistProviderModelHealthState() bool {
 	}
 	_, ok := mc.getProviderModelHealthStore()
 	return ok
+}
+
+func (mc *ModelCatalog) getProviderModelHealthPersistDebounce() time.Duration {
+	if mc.providerModelHealthPersistDebounce <= 0 {
+		return DefaultProviderModelHealthPersistDebounce
+	}
+	return mc.providerModelHealthPersistDebounce
 }
 
 func (mc *ModelCatalog) persistProviderModelHealthStateNow() {

@@ -136,32 +136,32 @@ func TestUnmarshalJSON_TTLFormats(t *testing.T) {
 
 func TestUnmarshalJSON_BoolPointerFields(t *testing.T) {
 	tests := []struct {
-		name                string
-		json                string
-		expectCacheByModel  *bool
-		expectCacheByProv   *bool
-		expectExcludeSys    *bool
+		name               string
+		json               string
+		expectCacheByModel *bool
+		expectCacheByProv  *bool
+		expectExcludeSys   *bool
 	}{
 		{
-			name:                "all set to true",
-			json:                `{"dimension": 1536, "cache_by_model": true, "cache_by_provider": true, "exclude_system_prompt": true}`,
-			expectCacheByModel:  bifrost.Ptr(true),
-			expectCacheByProv:   bifrost.Ptr(true),
-			expectExcludeSys:    bifrost.Ptr(true),
+			name:               "all set to true",
+			json:               `{"dimension": 1536, "cache_by_model": true, "cache_by_provider": true, "exclude_system_prompt": true}`,
+			expectCacheByModel: bifrost.Ptr(true),
+			expectCacheByProv:  bifrost.Ptr(true),
+			expectExcludeSys:   bifrost.Ptr(true),
 		},
 		{
-			name:                "all set to false",
-			json:                `{"dimension": 1536, "cache_by_model": false, "cache_by_provider": false, "exclude_system_prompt": false}`,
-			expectCacheByModel:  bifrost.Ptr(false),
-			expectCacheByProv:   bifrost.Ptr(false),
-			expectExcludeSys:    bifrost.Ptr(false),
+			name:               "all set to false",
+			json:               `{"dimension": 1536, "cache_by_model": false, "cache_by_provider": false, "exclude_system_prompt": false}`,
+			expectCacheByModel: bifrost.Ptr(false),
+			expectCacheByProv:  bifrost.Ptr(false),
+			expectExcludeSys:   bifrost.Ptr(false),
 		},
 		{
-			name:                "all omitted",
-			json:                `{"dimension": 1536}`,
-			expectCacheByModel:  nil,
-			expectCacheByProv:   nil,
-			expectExcludeSys:    nil,
+			name:               "all omitted",
+			json:               `{"dimension": 1536}`,
+			expectCacheByModel: nil,
+			expectCacheByProv:  nil,
+			expectExcludeSys:   nil,
 		},
 	}
 

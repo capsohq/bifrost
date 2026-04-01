@@ -440,6 +440,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -1989,6 +1995,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -2712,6 +2724,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -3658,6 +3676,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -4322,6 +4346,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -6120,6 +6150,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -7145,6 +7181,12 @@
                                 "hit_type": {
                                   "type": "string"
                                 },
+                                "requested_provider": {
+                                  "type": "string"
+                                },
+                                "requested_model": {
+                                  "type": "string"
+                                },
                                 "provider_used": {
                                   "type": "string"
                                 },
@@ -7873,6 +7915,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -8392,6 +8440,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -8881,6 +8935,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -9350,6 +9410,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -9472,6 +9538,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -9936,6 +10008,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -10101,6 +10179,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -10682,6 +10766,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -10971,6 +11061,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -11556,6 +11652,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -11835,6 +11937,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -12336,6 +12444,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -12843,6 +12957,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -13275,6 +13395,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -13693,6 +13819,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -14083,6 +14215,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -14910,6 +15048,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -15827,6 +15971,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -16263,6 +16413,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -16766,6 +16922,12 @@
                                   "hit_type": {
                                     "type": "string"
                                   },
+                                  "requested_provider": {
+                                    "type": "string"
+                                  },
+                                  "requested_model": {
+                                    "type": "string"
+                                  },
                                   "provider_used": {
                                     "type": "string"
                                   },
@@ -16871,6 +17033,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -17352,6 +17520,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -17733,6 +17907,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -18118,6 +18298,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -18553,6 +18739,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -18982,6 +19174,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -19364,6 +19562,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -19698,6 +19902,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -20354,6 +20564,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -20783,6 +20999,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -21166,6 +21388,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -21503,6 +21731,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -21904,6 +22138,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -22320,6 +22560,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -22689,6 +22935,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -23036,6 +23288,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -33110,6 +33368,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -33833,6 +34097,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -35235,6 +35505,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -35958,6 +36234,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -36919,6 +37201,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -37583,6 +37871,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -38562,6 +38856,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -39226,6 +39526,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -41031,6 +41337,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -42056,6 +42368,12 @@
                                 "hit_type": {
                                   "type": "string"
                                 },
+                                "requested_provider": {
+                                  "type": "string"
+                                },
+                                "requested_model": {
+                                  "type": "string"
+                                },
                                 "provider_used": {
                                   "type": "string"
                                 },
@@ -42782,6 +43100,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -44572,6 +44896,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -45597,6 +45927,12 @@
                                 "hit_type": {
                                   "type": "string"
                                 },
+                                "requested_provider": {
+                                  "type": "string"
+                                },
+                                "requested_model": {
+                                  "type": "string"
+                                },
                                 "provider_used": {
                                   "type": "string"
                                 },
@@ -46323,6 +46659,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -47339,6 +47681,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -47816,6 +48164,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -48315,6 +48669,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -48712,6 +49072,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -49129,6 +49495,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -49608,6 +49980,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -49773,6 +50151,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -50270,6 +50654,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -50435,6 +50825,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -51347,6 +51743,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -51814,6 +52216,12 @@
                                   "hit_type": {
                                     "type": "string"
                                   },
+                                  "requested_provider": {
+                                    "type": "string"
+                                  },
+                                  "requested_model": {
+                                    "type": "string"
+                                  },
                                   "provider_used": {
                                     "type": "string"
                                   },
@@ -51919,6 +52327,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -52374,6 +52788,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -52729,6 +53149,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -54094,6 +54520,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -54485,6 +54917,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -54841,6 +55279,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -55149,6 +55593,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -55779,6 +56229,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -56179,6 +56635,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -56536,6 +56998,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -56847,6 +57315,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -57222,6 +57696,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -57610,6 +58090,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -57953,6 +58439,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -58274,6 +58766,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -76825,6 +77323,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -77489,6 +77993,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -78871,6 +79381,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -79596,6 +80112,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -80073,6 +80595,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -82072,6 +82600,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -83097,6 +83631,12 @@
                                 "hit_type": {
                                   "type": "string"
                                 },
+                                "requested_provider": {
+                                  "type": "string"
+                                },
+                                "requested_model": {
+                                  "type": "string"
+                                },
                                 "provider_used": {
                                   "type": "string"
                                 },
@@ -83823,6 +84363,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -84839,6 +85385,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -85218,6 +85770,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -85697,6 +86255,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -85862,6 +86426,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -95222,6 +95792,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -95886,6 +96462,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -97268,6 +97850,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -97993,6 +98581,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -98470,6 +99064,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -100469,6 +101069,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -101494,6 +102100,12 @@
                                 "hit_type": {
                                   "type": "string"
                                 },
+                                "requested_provider": {
+                                  "type": "string"
+                                },
+                                "requested_model": {
+                                  "type": "string"
+                                },
                                 "provider_used": {
                                   "type": "string"
                                 },
@@ -102220,6 +102832,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -103236,6 +103854,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -103615,6 +104239,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -104094,6 +104724,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -104259,6 +104895,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -114269,6 +114911,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -114933,6 +115581,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -116315,6 +116969,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -117040,6 +117700,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -117517,6 +118183,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -119516,6 +120188,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -120541,6 +121219,12 @@
                                 "hit_type": {
                                   "type": "string"
                                 },
+                                "requested_provider": {
+                                  "type": "string"
+                                },
+                                "requested_model": {
+                                  "type": "string"
+                                },
                                 "provider_used": {
                                   "type": "string"
                                 },
@@ -121267,6 +121951,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -122283,6 +122973,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -122662,6 +123358,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -123141,6 +123843,12 @@
                             "hit_type": {
                               "type": "string"
                             },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
+                              "type": "string"
+                            },
                             "provider_used": {
                               "type": "string"
                             },
@@ -123306,6 +124014,12 @@
                               "type": "string"
                             },
                             "hit_type": {
+                              "type": "string"
+                            },
+                            "requested_provider": {
+                              "type": "string"
+                            },
+                            "requested_model": {
                               "type": "string"
                             },
                             "provider_used": {
@@ -139978,8 +140692,13 @@
             "name": "keys",
             "in": "query",
             "description": "Comma-separated list of key IDs to filter models accessible by those keys",
+            "style": "form",
+            "explode": false,
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -139989,6 +140708,15 @@
             "schema": {
               "type": "integer",
               "default": 5
+            }
+          },
+          {
+            "name": "unfiltered",
+            "in": "query",
+            "description": "If true, return all models including those filtered out by provider-level restrictions",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -140012,6 +140740,223 @@
                           },
                           "provider": {
                             "type": "string"
+                          },
+                          "accessible_by_keys": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Error response from Bifrost",
+                  "properties": {
+                    "event_id": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "is_bifrost_error": {
+                      "type": "boolean"
+                    },
+                    "status_code": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "param": {
+                          "type": "string"
+                        },
+                        "event_id": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "extra_fields": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "description": "AI model provider identifier",
+                          "enum": [
+                            "openai",
+                            "azure",
+                            "anthropic",
+                            "bedrock",
+                            "cohere",
+                            "vertex",
+                            "vllm",
+                            "mistral",
+                            "ollama",
+                            "groq",
+                            "sgl",
+                            "parasail",
+                            "perplexity",
+                            "replicate",
+                            "cerebras",
+                            "gemini",
+                            "openrouter",
+                            "elevenlabs",
+                            "huggingface",
+                            "nebius",
+                            "xai",
+                            "runway"
+                          ]
+                        },
+                        "model_requested": {
+                          "type": "string"
+                        },
+                        "request_type": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/details": {
+      "get": {
+        "operationId": "listModelDetailsManagement",
+        "summary": "List model details",
+        "description": "Lists available models with capability metadata, when available from the model catalog, with optional filtering by query, provider, or keys.\n",
+        "tags": [
+          "Providers"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Filter models by name (case-insensitive partial match)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "Filter by specific provider name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keys",
+            "in": "query",
+            "description": "Comma-separated list of key IDs to filter models accessible by those keys",
+            "style": "form",
+            "explode": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (default 20)",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "unfiltered",
+            "in": "query",
+            "description": "If true, return all models including those filtered out by provider-level restrictions",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "List model details response",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "Model details with capability metadata",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "context_length": {
+                            "type": "integer"
+                          },
+                          "max_input_tokens": {
+                            "type": "integer"
+                          },
+                          "max_output_tokens": {
+                            "type": "integer"
+                          },
+                          "architecture": {
+                            "type": "object",
+                            "properties": {
+                              "modality": {
+                                "type": "string"
+                              },
+                              "tokenizer": {
+                                "type": "string"
+                              },
+                              "instruct_type": {
+                                "type": "string"
+                              },
+                              "input_modalities": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "output_modalities": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
                           },
                           "accessible_by_keys": {
                             "type": "array",
@@ -145133,6 +146078,11 @@
                                       "type": "string",
                                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                                     },
+                                    "calendar_aligned": {
+                                      "type": "boolean",
+                                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                      "default": false
+                                    },
                                     "last_reset": {
                                       "type": "string",
                                       "format": "date-time"
@@ -145677,6 +146627,11 @@
                             },
                             "reset_duration": {
                               "type": "string"
+                            },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "default": false,
+                              "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
                             }
                           }
                         },
@@ -145745,6 +146700,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
                       }
                     }
                   },
@@ -145851,6 +146811,11 @@
                                   "reset_duration": {
                                     "type": "string",
                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                  },
+                                  "calendar_aligned": {
+                                    "type": "boolean",
+                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                    "default": false
                                   },
                                   "last_reset": {
                                     "type": "string",
@@ -146523,6 +147488,11 @@
                                     "type": "string",
                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                                   },
+                                  "calendar_aligned": {
+                                    "type": "boolean",
+                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                    "default": false
+                                  },
                                   "last_reset": {
                                     "type": "string",
                                     "format": "date-time"
@@ -147154,6 +148124,11 @@
                             },
                             "reset_duration": {
                               "type": "string"
+                            },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "nullable": true,
+                              "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                             }
                           }
                         },
@@ -147221,6 +148196,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                       }
                     }
                   },
@@ -147327,6 +148307,11 @@
                                   "reset_duration": {
                                     "type": "string",
                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                  },
+                                  "calendar_aligned": {
+                                    "type": "boolean",
+                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                    "default": false
                                   },
                                   "last_reset": {
                                     "type": "string",
@@ -148270,6 +149255,11 @@
                                     "type": "string",
                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                                   },
+                                  "calendar_aligned": {
+                                    "type": "boolean",
+                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                    "default": false
+                                  },
                                   "last_reset": {
                                     "type": "string",
                                     "format": "date-time"
@@ -148362,6 +149352,11 @@
                                               "reset_duration": {
                                                 "type": "string",
                                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                              },
+                                              "calendar_aligned": {
+                                                "type": "boolean",
+                                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                                "default": false
                                               },
                                               "last_reset": {
                                                 "type": "string",
@@ -148787,6 +149782,11 @@
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                               },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
+                              },
                               "last_reset": {
                                 "type": "string",
                                 "format": "date-time"
@@ -148873,6 +149873,11 @@
                                           "reset_duration": {
                                             "type": "string",
                                             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                          },
+                                          "calendar_aligned": {
+                                            "type": "boolean",
+                                            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                            "default": false
                                           },
                                           "last_reset": {
                                             "type": "string",
@@ -149428,6 +150433,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
                       }
                     }
                   }
@@ -149491,6 +150501,11 @@
                                 "reset_duration": {
                                   "type": "string",
                                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                },
+                                "calendar_aligned": {
+                                  "type": "boolean",
+                                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                  "default": false
                                 },
                                 "last_reset": {
                                   "type": "string",
@@ -149584,6 +150599,11 @@
                                             "reset_duration": {
                                               "type": "string",
                                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                            },
+                                            "calendar_aligned": {
+                                              "type": "boolean",
+                                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                              "default": false
                                             },
                                             "last_reset": {
                                               "type": "string",
@@ -150009,6 +151029,11 @@
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                             },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
+                            },
                             "last_reset": {
                               "type": "string",
                               "format": "date-time"
@@ -150095,6 +151120,11 @@
                                         "reset_duration": {
                                           "type": "string",
                                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                        },
+                                        "calendar_aligned": {
+                                          "type": "boolean",
+                                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                          "default": false
                                         },
                                         "last_reset": {
                                           "type": "string",
@@ -150774,6 +151804,11 @@
                                   "type": "string",
                                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                                 },
+                                "calendar_aligned": {
+                                  "type": "boolean",
+                                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                  "default": false
+                                },
                                 "last_reset": {
                                   "type": "string",
                                   "format": "date-time"
@@ -150866,6 +151901,11 @@
                                             "reset_duration": {
                                               "type": "string",
                                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                            },
+                                            "calendar_aligned": {
+                                              "type": "boolean",
+                                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                              "default": false
                                             },
                                             "last_reset": {
                                               "type": "string",
@@ -151291,6 +152331,11 @@
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                             },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
+                            },
                             "last_reset": {
                               "type": "string",
                               "format": "date-time"
@@ -151377,6 +152422,11 @@
                                         "reset_duration": {
                                           "type": "string",
                                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                        },
+                                        "calendar_aligned": {
+                                          "type": "boolean",
+                                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                          "default": false
                                         },
                                         "last_reset": {
                                           "type": "string",
@@ -152016,6 +153066,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                       }
                     }
                   }
@@ -152079,6 +153134,11 @@
                                 "reset_duration": {
                                   "type": "string",
                                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                },
+                                "calendar_aligned": {
+                                  "type": "boolean",
+                                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                  "default": false
                                 },
                                 "last_reset": {
                                   "type": "string",
@@ -152172,6 +153232,11 @@
                                             "reset_duration": {
                                               "type": "string",
                                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                            },
+                                            "calendar_aligned": {
+                                              "type": "boolean",
+                                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                              "default": false
                                             },
                                             "last_reset": {
                                               "type": "string",
@@ -152597,6 +153662,11 @@
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                             },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
+                            },
                             "last_reset": {
                               "type": "string",
                               "format": "date-time"
@@ -152683,6 +153753,11 @@
                                         "reset_duration": {
                                           "type": "string",
                                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                        },
+                                        "calendar_aligned": {
+                                          "type": "boolean",
+                                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                          "default": false
                                         },
                                         "last_reset": {
                                           "type": "string",
@@ -153629,6 +154704,11 @@
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                               },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
+                              },
                               "last_reset": {
                                 "type": "string",
                                 "format": "date-time"
@@ -153721,6 +154801,11 @@
                                           "reset_duration": {
                                             "type": "string",
                                             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                          },
+                                          "calendar_aligned": {
+                                            "type": "boolean",
+                                            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                            "default": false
                                           },
                                           "last_reset": {
                                             "type": "string",
@@ -154260,6 +155345,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
                       }
                     }
                   }
@@ -154307,6 +155397,11 @@
                             "reset_duration": {
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                            },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
                             },
                             "last_reset": {
                               "type": "string",
@@ -154400,6 +155495,11 @@
                                         "reset_duration": {
                                           "type": "string",
                                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                        },
+                                        "calendar_aligned": {
+                                          "type": "boolean",
+                                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                          "default": false
                                         },
                                         "last_reset": {
                                           "type": "string",
@@ -155050,6 +156150,11 @@
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                             },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
+                            },
                             "last_reset": {
                               "type": "string",
                               "format": "date-time"
@@ -155116,6 +156221,11 @@
                                       "reset_duration": {
                                         "type": "string",
                                         "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                      },
+                                      "calendar_aligned": {
+                                        "type": "boolean",
+                                        "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                        "default": false
                                       },
                                       "last_reset": {
                                         "type": "string",
@@ -155209,6 +156319,11 @@
                                                   "reset_duration": {
                                                     "type": "string",
                                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                                  },
+                                                  "calendar_aligned": {
+                                                    "type": "boolean",
+                                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                                    "default": false
                                                   },
                                                   "last_reset": {
                                                     "type": "string",
@@ -155634,6 +156749,11 @@
                                     "type": "string",
                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                                   },
+                                  "calendar_aligned": {
+                                    "type": "boolean",
+                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                    "default": false
+                                  },
                                   "last_reset": {
                                     "type": "string",
                                     "format": "date-time"
@@ -155720,6 +156840,11 @@
                                               "reset_duration": {
                                                 "type": "string",
                                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                              },
+                                              "calendar_aligned": {
+                                                "type": "boolean",
+                                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                                "default": false
                                               },
                                               "last_reset": {
                                                 "type": "string",
@@ -156209,6 +157334,11 @@
                                         "reset_duration": {
                                           "type": "string",
                                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                        },
+                                        "calendar_aligned": {
+                                          "type": "boolean",
+                                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                          "default": false
                                         },
                                         "last_reset": {
                                           "type": "string",
@@ -156832,6 +157962,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                       }
                     }
                   }
@@ -156879,6 +158014,11 @@
                             "reset_duration": {
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                            },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
                             },
                             "last_reset": {
                               "type": "string",
@@ -156972,6 +158112,11 @@
                                         "reset_duration": {
                                           "type": "string",
                                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                        },
+                                        "calendar_aligned": {
+                                          "type": "boolean",
+                                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                          "default": false
                                         },
                                         "last_reset": {
                                           "type": "string",
@@ -157891,6 +159036,11 @@
                           "reset_duration": {
                             "type": "string",
                             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                          },
+                          "calendar_aligned": {
+                            "type": "boolean",
+                            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                            "default": false
                           },
                           "last_reset": {
                             "type": "string",
@@ -160060,6 +161210,11 @@
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                               },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
+                              },
                               "last_reset": {
                                 "type": "string",
                                 "format": "date-time"
@@ -160281,6 +161436,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
                       }
                     }
                   },
@@ -160351,6 +161511,11 @@
                             "reset_duration": {
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                            },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
                             },
                             "last_reset": {
                               "type": "string",
@@ -160672,6 +161837,11 @@
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                             },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
+                            },
                             "last_reset": {
                               "type": "string",
                               "format": "date-time"
@@ -160976,6 +162146,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                       }
                     }
                   },
@@ -161046,6 +162221,11 @@
                             "reset_duration": {
                               "type": "string",
                               "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                            },
+                            "calendar_aligned": {
+                              "type": "boolean",
+                              "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                              "default": false
                             },
                             "last_reset": {
                               "type": "string",
@@ -161640,6 +162820,11 @@
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                               },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
+                              },
                               "last_reset": {
                                 "type": "string",
                                 "format": "date-time"
@@ -161849,6 +163034,11 @@
                       },
                       "reset_duration": {
                         "type": "string"
+                      },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                       }
                     }
                   },
@@ -161904,6 +163094,11 @@
                         "reset_duration": {
                           "type": "string",
                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                        },
+                        "calendar_aligned": {
+                          "type": "boolean",
+                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                          "default": false
                         },
                         "last_reset": {
                           "type": "string",
@@ -170343,6 +171538,11 @@
                                     "reset_duration": {
                                       "type": "string",
                                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                    },
+                                    "calendar_aligned": {
+                                      "type": "boolean",
+                                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                      "default": false
                                     },
                                     "last_reset": {
                                       "type": "string",
@@ -179298,6 +180498,12 @@
               "hit_type": {
                 "type": "string"
               },
+              "requested_provider": {
+                "type": "string"
+              },
+              "requested_model": {
+                "type": "string"
+              },
               "provider_used": {
                 "type": "string"
               },
@@ -179327,6 +180533,12 @@
             "type": "string"
           },
           "hit_type": {
+            "type": "string"
+          },
+          "requested_provider": {
+            "type": "string"
+          },
+          "requested_model": {
             "type": "string"
           },
           "provider_used": {
@@ -179898,6 +181110,12 @@
                     "type": "string"
                   },
                   "hit_type": {
+                    "type": "string"
+                  },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
                     "type": "string"
                   },
                   "provider_used": {
@@ -181401,6 +182619,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -182497,6 +183721,12 @@
                     "type": "string"
                   },
                   "hit_type": {
+                    "type": "string"
+                  },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
                     "type": "string"
                   },
                   "provider_used": {
@@ -184101,6 +185331,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -184482,6 +185718,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -184841,6 +186083,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -185110,6 +186358,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -185376,6 +186630,12 @@
                     "type": "string"
                   },
                   "hit_type": {
+                    "type": "string"
+                  },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
                     "type": "string"
                   },
                   "provider_used": {
@@ -186015,6 +187275,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -186257,6 +187523,12 @@
                     "type": "string"
                   },
                   "hit_type": {
+                    "type": "string"
+                  },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
                     "type": "string"
                   },
                   "provider_used": {
@@ -186514,6 +187786,12 @@
                         "hit_type": {
                           "type": "string"
                         },
+                        "requested_provider": {
+                          "type": "string"
+                        },
+                        "requested_model": {
+                          "type": "string"
+                        },
                         "provider_used": {
                           "type": "string"
                         },
@@ -186619,6 +187897,12 @@
                     "type": "string"
                   },
                   "hit_type": {
+                    "type": "string"
+                  },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
                     "type": "string"
                   },
                   "provider_used": {
@@ -186868,6 +188152,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -187072,6 +188362,12 @@
                   "hit_type": {
                     "type": "string"
                   },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
+                    "type": "string"
+                  },
                   "provider_used": {
                     "type": "string"
                   },
@@ -187231,6 +188527,12 @@
                     "type": "string"
                   },
                   "hit_type": {
+                    "type": "string"
+                  },
+                  "requested_provider": {
+                    "type": "string"
+                  },
+                  "requested_model": {
                     "type": "string"
                   },
                   "provider_used": {
@@ -199000,6 +200302,11 @@
                       "type": "string",
                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                     },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                      "default": false
+                    },
                     "last_reset": {
                       "type": "string",
                       "format": "date-time"
@@ -199466,6 +200773,11 @@
                           "type": "string",
                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                         },
+                        "calendar_aligned": {
+                          "type": "boolean",
+                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                          "default": false
+                        },
                         "last_reset": {
                           "type": "string",
                           "format": "date-time"
@@ -199905,6 +201217,11 @@
               "reset_duration": {
                 "type": "string",
                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                "default": false
               },
               "last_reset": {
                 "type": "string",
@@ -200365,6 +201682,11 @@
                             "type": "string",
                             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                           },
+                          "calendar_aligned": {
+                            "type": "boolean",
+                            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                            "default": false
+                          },
                           "last_reset": {
                             "type": "string",
                             "format": "date-time"
@@ -200809,6 +202131,11 @@
                     },
                     "reset_duration": {
                       "type": "string"
+                    },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
                     }
                   }
                 },
@@ -200877,6 +202204,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "default": false,
+                "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
               }
             }
           },
@@ -200944,6 +202276,11 @@
                     },
                     "reset_duration": {
                       "type": "string"
+                    },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "nullable": true,
+                      "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
                     }
                   }
                 },
@@ -201011,6 +202348,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "nullable": true,
+                "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
               }
             }
           },
@@ -201082,6 +202424,11 @@
                   "reset_duration": {
                     "type": "string",
                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                  },
+                  "calendar_aligned": {
+                    "type": "boolean",
+                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                    "default": false
                   },
                   "last_reset": {
                     "type": "string",
@@ -201175,6 +202522,11 @@
                               "reset_duration": {
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                              },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
                               },
                               "last_reset": {
                                 "type": "string",
@@ -201600,6 +202952,11 @@
                 "type": "string",
                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
               },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                "default": false
+              },
               "last_reset": {
                 "type": "string",
                 "format": "date-time"
@@ -201686,6 +203043,11 @@
                           "reset_duration": {
                             "type": "string",
                             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                          },
+                          "calendar_aligned": {
+                            "type": "boolean",
+                            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                            "default": false
                           },
                           "last_reset": {
                             "type": "string",
@@ -202160,6 +203522,11 @@
                         "type": "string",
                         "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                       },
+                      "calendar_aligned": {
+                        "type": "boolean",
+                        "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                        "default": false
+                      },
                       "last_reset": {
                         "type": "string",
                         "format": "date-time"
@@ -202252,6 +203619,11 @@
                                   "reset_duration": {
                                     "type": "string",
                                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                  },
+                                  "calendar_aligned": {
+                                    "type": "boolean",
+                                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                    "default": false
                                   },
                                   "last_reset": {
                                     "type": "string",
@@ -202677,6 +204049,11 @@
                     "type": "string",
                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                   },
+                  "calendar_aligned": {
+                    "type": "boolean",
+                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                    "default": false
+                  },
                   "last_reset": {
                     "type": "string",
                     "format": "date-time"
@@ -202763,6 +204140,11 @@
                               "reset_duration": {
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                              },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
                               },
                               "last_reset": {
                                 "type": "string",
@@ -203238,6 +204620,11 @@
                           "type": "string",
                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                         },
+                        "calendar_aligned": {
+                          "type": "boolean",
+                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                          "default": false
+                        },
                         "last_reset": {
                           "type": "string",
                           "format": "date-time"
@@ -203330,6 +204717,11 @@
                                     "reset_duration": {
                                       "type": "string",
                                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                    },
+                                    "calendar_aligned": {
+                                      "type": "boolean",
+                                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                      "default": false
                                     },
                                     "last_reset": {
                                       "type": "string",
@@ -203755,6 +205147,11 @@
                       "type": "string",
                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                     },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                      "default": false
+                    },
                     "last_reset": {
                       "type": "string",
                       "format": "date-time"
@@ -203841,6 +205238,11 @@
                                 "reset_duration": {
                                   "type": "string",
                                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                },
+                                "calendar_aligned": {
+                                  "type": "boolean",
+                                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                  "default": false
                                 },
                                 "last_reset": {
                                   "type": "string",
@@ -204296,6 +205698,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "default": false,
+                "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
               }
             }
           }
@@ -204320,6 +205727,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "nullable": true,
+                "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
               }
             }
           }
@@ -204352,6 +205764,11 @@
               "reset_duration": {
                 "type": "string",
                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                "default": false
               },
               "last_reset": {
                 "type": "string",
@@ -204419,6 +205836,11 @@
                         "reset_duration": {
                           "type": "string",
                           "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                        },
+                        "calendar_aligned": {
+                          "type": "boolean",
+                          "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                          "default": false
                         },
                         "last_reset": {
                           "type": "string",
@@ -204512,6 +205934,11 @@
                                     "reset_duration": {
                                       "type": "string",
                                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                    },
+                                    "calendar_aligned": {
+                                      "type": "boolean",
+                                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                      "default": false
                                     },
                                     "last_reset": {
                                       "type": "string",
@@ -204937,6 +206364,11 @@
                       "type": "string",
                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                     },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                      "default": false
+                    },
                     "last_reset": {
                       "type": "string",
                       "format": "date-time"
@@ -205023,6 +206455,11 @@
                                 "reset_duration": {
                                   "type": "string",
                                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                },
+                                "calendar_aligned": {
+                                  "type": "boolean",
+                                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                  "default": false
                                 },
                                 "last_reset": {
                                   "type": "string",
@@ -205513,6 +206950,11 @@
                             "type": "string",
                             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                           },
+                          "calendar_aligned": {
+                            "type": "boolean",
+                            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                            "default": false
+                          },
                           "last_reset": {
                             "type": "string",
                             "format": "date-time"
@@ -205957,6 +207399,11 @@
                     "type": "string",
                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                   },
+                  "calendar_aligned": {
+                    "type": "boolean",
+                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                    "default": false
+                  },
                   "last_reset": {
                     "type": "string",
                     "format": "date-time"
@@ -206049,6 +207496,11 @@
                               "reset_duration": {
                                 "type": "string",
                                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                              },
+                              "calendar_aligned": {
+                                "type": "boolean",
+                                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                "default": false
                               },
                               "last_reset": {
                                 "type": "string",
@@ -206495,6 +207947,11 @@
                       "type": "string",
                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                     },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                      "default": false
+                    },
                     "last_reset": {
                       "type": "string",
                       "format": "date-time"
@@ -206587,6 +208044,11 @@
                                 "reset_duration": {
                                   "type": "string",
                                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                                },
+                                "calendar_aligned": {
+                                  "type": "boolean",
+                                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                                  "default": false
                                 },
                                 "last_reset": {
                                   "type": "string",
@@ -207026,6 +208488,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "default": false,
+                "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
               }
             }
           }
@@ -207047,6 +208514,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "nullable": true,
+                "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
               }
             }
           }
@@ -207066,6 +208538,11 @@
           "reset_duration": {
             "type": "string",
             "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+          },
+          "calendar_aligned": {
+            "type": "boolean",
+            "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+            "default": false
           },
           "last_reset": {
             "type": "string",
@@ -207161,6 +208638,11 @@
                 "reset_duration": {
                   "type": "string",
                   "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                },
+                "calendar_aligned": {
+                  "type": "boolean",
+                  "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                  "default": false
                 },
                 "last_reset": {
                   "type": "string",
@@ -207267,6 +208749,11 @@
           },
           "reset_duration": {
             "type": "string"
+          },
+          "calendar_aligned": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
           }
         }
       },
@@ -207279,6 +208766,11 @@
           },
           "reset_duration": {
             "type": "string"
+          },
+          "calendar_aligned": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
           }
         }
       },
@@ -208307,6 +209799,11 @@
                 "type": "string",
                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
               },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                "default": false
+              },
               "last_reset": {
                 "type": "string",
                 "format": "date-time"
@@ -208430,6 +209927,11 @@
                   "reset_duration": {
                     "type": "string",
                     "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+                  },
+                  "calendar_aligned": {
+                    "type": "boolean",
+                    "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                    "default": false
                   },
                   "last_reset": {
                     "type": "string",
@@ -208556,6 +210058,11 @@
                       "type": "string",
                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                     },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                      "default": false
+                    },
                     "last_reset": {
                       "type": "string",
                       "format": "date-time"
@@ -208677,6 +210184,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "default": false,
+                "description": "When true, usage resets at the start of each calendar period in UTC instead of on a rolling window from last reset. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`). For example `1d` resets at midnight UTC; `1w` at Monday 00:00 UTC; `1M` on the first day of each month; `1Y` on January 1. Sub-day durations (e.g. `1h`) cannot use calendar alignment.\n"
               }
             }
           },
@@ -208723,6 +210235,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "nullable": true,
+                "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
               }
             }
           },
@@ -208770,6 +210287,11 @@
               "reset_duration": {
                 "type": "string",
                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                "default": false
               },
               "last_reset": {
                 "type": "string",
@@ -208869,6 +210391,11 @@
               "reset_duration": {
                 "type": "string",
                 "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                "default": false
               },
               "last_reset": {
                 "type": "string",
@@ -208975,6 +210502,11 @@
                       "type": "string",
                       "description": "Reset duration (e.g., \"30s\", \"5m\", \"1h\", \"1d\", \"1w\", \"1M\")"
                     },
+                    "calendar_aligned": {
+                      "type": "boolean",
+                      "description": "When true, resets align to calendar period boundaries in UTC (not rolling from last reset)",
+                      "default": false
+                    },
                     "last_reset": {
                       "type": "string",
                       "format": "date-time"
@@ -209071,6 +210603,11 @@
               },
               "reset_duration": {
                 "type": "string"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "nullable": true,
+                "description": "Set to true or false to enable or disable calendar-aligned resets. Only valid with reset durations that use day, week, month, or year suffixes (`d`, `w`, `M`, `Y`); sub-day durations (e.g. `1h`, `30m`) are invalid with calendar alignment and the API rejects that combination. When enabling on an existing budget, current usage is reset to zero and last_reset snaps to the current period start.\n"
               }
             }
           },

@@ -1073,18 +1073,18 @@ func buildResponseForRequestType(requestType schemas.RequestType, usage *schemas
 					CachedWriteTokens: usage.PromptTokensDetails.CachedWriteTokens,
 				}
 			}
-		if usage.CompletionTokensDetails != nil {
-			respUsage.OutputTokensDetails = &schemas.ResponsesResponseOutputTokens{
-				TextTokens:               usage.CompletionTokensDetails.TextTokens,
-				AcceptedPredictionTokens: usage.CompletionTokensDetails.AcceptedPredictionTokens,
-				AudioTokens:              usage.CompletionTokensDetails.AudioTokens,
-				ImageTokens:              usage.CompletionTokensDetails.ImageTokens,
-				ReasoningTokens:          usage.CompletionTokensDetails.ReasoningTokens,
-				RejectedPredictionTokens: usage.CompletionTokensDetails.RejectedPredictionTokens,
-				CitationTokens:           usage.CompletionTokensDetails.CitationTokens,
-				NumSearchQueries:         usage.CompletionTokensDetails.NumSearchQueries,
+			if usage.CompletionTokensDetails != nil {
+				respUsage.OutputTokensDetails = &schemas.ResponsesResponseOutputTokens{
+					TextTokens:               usage.CompletionTokensDetails.TextTokens,
+					AcceptedPredictionTokens: usage.CompletionTokensDetails.AcceptedPredictionTokens,
+					AudioTokens:              usage.CompletionTokensDetails.AudioTokens,
+					ImageTokens:              usage.CompletionTokensDetails.ImageTokens,
+					ReasoningTokens:          usage.CompletionTokensDetails.ReasoningTokens,
+					RejectedPredictionTokens: usage.CompletionTokensDetails.RejectedPredictionTokens,
+					CitationTokens:           usage.CompletionTokensDetails.CitationTokens,
+					NumSearchQueries:         usage.CompletionTokensDetails.NumSearchQueries,
+				}
 			}
-		}
 		}
 		return &schemas.BifrostResponse{
 			ResponsesResponse: &schemas.BifrostResponsesResponse{

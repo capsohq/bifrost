@@ -136,6 +136,7 @@ func (p *LoggerPlugin) scheduleDeferredUsageUpdate(ctx *schemas.BifrostContext, 
 		tempEntry := &logstore.Log{TokenUsageParsed: deferredUsage}
 		if serErr := tempEntry.SerializeFields(); serErr == nil {
 			usageUpdates["token_usage"] = tempEntry.TokenUsage
+			usageUpdates["cached_read_tokens"] = tempEntry.CachedReadTokens
 		}
 		if updErr := p.store.Update(p.ctx, requestID, usageUpdates); updErr != nil {
 			p.logger.Warn("failed to update deferred usage for request %s: %v", requestID, updErr)
@@ -226,7 +227,7 @@ type LoggerPlugin struct {
 	pendingLogs           sync.Map              // Maps requestID -> *PendingLogData (PreLLMHook input data awaiting PostLLMHook)
 	writeQueue            chan *writeQueueEntry // Buffered channel for batch write queue
 	closed                atomic.Bool           // Set during cleanup to prevent sends on closed writeQueue
-	deferredUsageSem      chan struct{}          // Limits concurrent deferred usage DB updates
+	deferredUsageSem      chan struct{}         // Limits concurrent deferred usage DB updates
 }
 
 // Init creates new logger plugin with given log store

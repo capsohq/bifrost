@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bytedance/sonic"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )
 
@@ -77,21 +78,21 @@ type OpenAIChatRequest struct {
 
 	//NOTE: MaxCompletionTokens is a new replacement for max_tokens but some providers still use max_tokens.
 	// This Field is populated only for such providers and is NOT to be used externally.
-	MaxTokens *int                `json:"max_tokens,omitempty"`
-	Thinking  *OpenAIThinkingMode `json:"thinking,omitempty"`
+	MaxTokens *int `json:"max_tokens,omitempty"`
 
-	// Qwen-specific thinking controls for OpenAI-compatible API.
-	EnableThinking *bool `json:"enable_thinking,omitempty"`
-	ThinkingBudget *int  `json:"thinking_budget,omitempty"`
+	// Provider-specific reasoning compatibility fields used for OpenAI-compatible
+	// providers that expose DeepSeek/Qwen/GLM-style thinking controls.
+	Thinking       *OpenAIThinkingMode `json:"thinking,omitempty"`
+	EnableThinking *bool               `json:"enable_thinking,omitempty"`
+	ThinkingBudget *int                `json:"thinking_budget,omitempty"`
 
 	// Bifrost specific field (only parsed when converting from Provider -> Bifrost request)
 	Fallbacks   []string               `json:"fallbacks,omitempty"`
 	ExtraParams map[string]interface{} `json:"-"` // Optional: Extra parameters
 }
 
-// OpenAIThinkingMode represents non-OpenAI thinking controls used by OpenAI-compatible providers.
 type OpenAIThinkingMode struct {
-	Type string `json:"type,omitempty"`
+	Type string `json:"type"`
 }
 
 // GetExtraParams implements the ExtraParamsGetter interface
@@ -120,7 +121,7 @@ type OpenAIMessage struct {
 // OpenAIChatAssistantMessage represents an OpenAI chat assistant message
 type OpenAIChatAssistantMessage struct {
 	Refusal     *string                                  `json:"refusal,omitempty"`
-	Reasoning   *string                                  `json:"reasoning,omitempty"`
+	Reasoning   *string                                  `json:"reasoning_content,omitempty"`
 	Annotations []schemas.ChatAssistantMessageAnnotation `json:"annotations,omitempty"`
 	ToolCalls   []schemas.ChatAssistantMessageToolCall   `json:"tool_calls,omitempty"`
 }
@@ -244,7 +245,7 @@ func (req *OpenAIChatRequest) MarshalJSON() ([]byte, error) {
 		aux.ReasoningEffort = req.Reasoning.Effort
 	}
 
-	return sonic.Marshal(aux)
+	return providerUtils.MarshalSorted(aux)
 }
 
 // UnmarshalJSON implements custom JSON unmarshalling for OpenAIChatRequest.
@@ -311,7 +312,7 @@ func (r *OpenAIResponsesRequestInput) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements custom JSON marshalling for OpenAIResponsesRequestInput
 func (r *OpenAIResponsesRequestInput) MarshalJSON() ([]byte, error) {
 	if r.OpenAIResponsesRequestInputStr != nil {
-		return sonic.Marshal(*r.OpenAIResponsesRequestInputStr)
+		return providerUtils.MarshalSorted(*r.OpenAIResponsesRequestInputStr)
 	}
 	if r.OpenAIResponsesRequestInputArray != nil {
 		// First pass: check if we need to modify anything
@@ -325,7 +326,7 @@ func (r *OpenAIResponsesRequestInput) MarshalJSON() ([]byte, error) {
 
 		// If no CacheControl found anywhere, marshal as-is
 		if !needsCopy {
-			return sonic.Marshal(r.OpenAIResponsesRequestInputArray)
+			return providerUtils.MarshalSorted(r.OpenAIResponsesRequestInputArray)
 		}
 
 		// Only copy messages that have CacheControl
@@ -468,9 +469,9 @@ func (r *OpenAIResponsesRequestInput) MarshalJSON() ([]byte, error) {
 				}
 			}
 		}
-		return sonic.Marshal(messagesCopy)
+		return providerUtils.MarshalSorted(messagesCopy)
 	}
-	return sonic.Marshal(nil)
+	return providerUtils.MarshalSorted(nil)
 }
 
 // Helper function to check if a chat message has any CacheControl fields or FileType in file blocks
@@ -663,7 +664,7 @@ func (resp *OpenAIResponsesRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	return sonic.Marshal(aux)
+	return providerUtils.MarshalSorted(aux)
 }
 
 // IsStreamingRequested implements the StreamingRequest interface

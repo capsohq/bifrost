@@ -24,7 +24,7 @@ func TestProviderModelSnapshotHealthReportHealthy(t *testing.T) {
 
 	mc.RecordProviderModelDiscoveryResult(provider, false, modelData, nil)
 	mc.RecordProviderModelDiscoveryResult(provider, true, modelData, nil)
-	mc.UpsertModelDataForProvider(provider, modelData, nil)
+	mc.UpsertModelDataForProvider(provider, modelData, nil, nil)
 	mc.UpsertUnfilteredModelDataForProvider(provider, modelData)
 
 	report := mc.GetProviderModelSnapshotHealthReport()

@@ -119,7 +119,15 @@ func assertBedrockRequestEqual(t *testing.T, expected, actual *bedrock.BedrockCo
 		actualTool, exists := actualToolMap[name]
 		assert.True(t, exists, "Tool %s not found in actual tools", name)
 		if exists {
-			assert.Equal(t, expectedTool, actualTool, "Tool %s differs", name)
+			// Compare tool specs field-by-field, using JSON-semantic comparison
+			// for InputSchema to handle key ordering differences from sorted marshaling
+			if expectedTool.ToolSpec != nil && actualTool.ToolSpec != nil {
+				assert.Equal(t, expectedTool.ToolSpec.Name, actualTool.ToolSpec.Name, "Tool %s name differs", name)
+				assert.Equal(t, expectedTool.ToolSpec.Description, actualTool.ToolSpec.Description, "Tool %s description differs", name)
+				jsonEqual(t, expectedTool.ToolSpec.InputSchema.JSON, actualTool.ToolSpec.InputSchema.JSON, "Tool %s input schema differs", name)
+			} else {
+				assert.Equal(t, expectedTool, actualTool, "Tool %s differs", name)
+			}
 		}
 	}
 }
@@ -167,50 +175,53 @@ func TestBedrock(t *testing.T) {
 			{Provider: schemas.Bedrock, Model: "claude-4-sonnet"},
 			{Provider: schemas.Bedrock, Model: "claude-4.5-sonnet"},
 		},
-		EmbeddingModel:      "cohere.embed-v4:0",
-		RerankModel:         rerankModelARN,
-		ReasoningModel:      "claude-4.5-sonnet",
-		PromptCachingModel:  "claude-4.5-sonnet",
-		ImageEditModel:      "amazon.nova-canvas-v1:0",
-		ImageVariationModel: "amazon.nova-canvas-v1:0",
-		BatchExtraParams:    batchExtraParams,
-		FileExtraParams:     fileExtraParams,
+		EmbeddingModel:           "cohere.embed-v4:0",
+		RerankModel:              rerankModelARN,
+		ReasoningModel:           "claude-4.5-sonnet",
+		PromptCachingModel:       "claude-4.5-sonnet",
+		ImageEditModel:           "amazon.nova-canvas-v1:0",
+		ImageVariationModel:      "amazon.nova-canvas-v1:0",
+		InterleavedThinkingModel: "global.anthropic.claude-opus-4-5-20251101-v1:0",
+		BatchExtraParams:         batchExtraParams,
+		FileExtraParams:          fileExtraParams,
 		Scenarios: llmtests.TestScenarios{
-			TextCompletion:        false, // Not supported
-			SimpleChat:            true,
-			CompletionStream:      true,
-			MultiTurnConversation: true,
-			ToolCalls:             true,
-			ToolCallsStreaming:    true,
-			MultipleToolCalls:     true,
-			End2EndToolCalling:    true,
-			AutomaticFunctionCall: true,
-			ImageURL:              false, // Bedrock doesn't support image URL
-			ImageBase64:           true,
-			MultipleImages:        false, // Since one of the image is URL
-			FileBase64:            true,
-			FileURL:               false, // S3 urls supported for nova models
-			CompleteEnd2End:       true,
-			Embedding:             true,
-			Rerank:                rerankModelARN != "",
-			ListModels:            true,
-			Reasoning:             true,
-			PromptCaching:         true,
-			BatchCreate:           true,
-			BatchList:             true,
-			BatchRetrieve:         true,
-			BatchCancel:           true,
-			BatchResults:          true,
-			FileUpload:            true,
-			FileList:              true,
-			FileRetrieve:          true,
-			FileDelete:            true,
-			FileContent:           true,
-			FileBatchInput:        true,
-			CountTokens:           true,
-			ImageEdit:             true,
-			ImageVariation:        true,
-			StructuredOutputs:     true,
+			TextCompletion:             false, // Not supported
+			SimpleChat:                 true,
+			CompletionStream:           true,
+			MultiTurnConversation:      true,
+			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
+			MultipleToolCalls:          true,
+			MultipleToolCallsStreaming: true,
+			End2EndToolCalling:         true,
+			AutomaticFunctionCall:      true,
+			ImageURL:                   false, // Bedrock doesn't support image URL
+			ImageBase64:                true,
+			MultipleImages:             false, // Since one of the image is URL
+			FileBase64:                 true,
+			FileURL:                    false, // S3 urls supported for nova models
+			CompleteEnd2End:            true,
+			Embedding:                  true,
+			Rerank:                     rerankModelARN != "",
+			ListModels:                 true,
+			Reasoning:                  true,
+			PromptCaching:              true,
+			BatchCreate:                true,
+			BatchList:                  true,
+			BatchRetrieve:              true,
+			BatchCancel:                true,
+			BatchResults:               true,
+			FileUpload:                 true,
+			FileList:                   true,
+			FileRetrieve:               true,
+			FileDelete:                 true,
+			FileContent:                true,
+			FileBatchInput:             true,
+			CountTokens:                true,
+			ImageEdit:                  true,
+			ImageVariation:             true,
+			StructuredOutputs:          true,
+			InterleavedThinking:        true,
 		},
 	}
 
@@ -1245,7 +1256,7 @@ func TestBedrockToBifrostRequestConversion(t *testing.T) {
 								ToolUse: &bedrock.BedrockToolUse{
 									ToolUseID: "tool-use-123",
 									Name:      "get_weather",
-									Input: json.RawMessage(`{"location":"NYC"}`),
+									Input:     json.RawMessage(`{"location":"NYC"}`),
 								},
 							},
 						},
@@ -1320,7 +1331,7 @@ func TestBedrockToBifrostRequestConversion(t *testing.T) {
 								ToolUse: &bedrock.BedrockToolUse{
 									ToolUseID: "tool-use-456",
 									Name:      "calculate",
-									Input: json.RawMessage(`{"expression":"2+2"}`),
+									Input:     json.RawMessage(`{"expression":"2+2"}`),
 								},
 							},
 						},
@@ -1849,7 +1860,7 @@ func TestBifrostToBedrockResponseConversion(t *testing.T) {
 								ToolUse: &bedrock.BedrockToolUse{
 									ToolUseID: "call-111",
 									Name:      "get_weather",
-									Input: json.RawMessage(`{"location":"NYC"}`),
+									Input:     json.RawMessage(`{"location":"NYC"}`),
 								},
 							},
 							{
@@ -2237,7 +2248,7 @@ func TestToolResultJSONParsingResponsesAPI(t *testing.T) {
 			name:                "JSONObjectResult",
 			toolResultContent:   `{"location":"NYC","temperature":72}`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{"location": "NYC", "temperature": float64(72)}),
+			expectedJSON:        mustMarshalJSON(map[string]any{"location": "NYC", "temperature": float64(72)}),
 		},
 		{
 			name:                "JSONArrayResult",
@@ -2254,37 +2265,37 @@ func TestToolResultJSONParsingResponsesAPI(t *testing.T) {
 			name:                "JSONPrimitiveNumberResult",
 			toolResultContent:   `42`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{"value": float64(42)}),
+			expectedJSON:        mustMarshalJSON(map[string]any{"value": float64(42)}),
 		},
 		{
 			name:                "JSONPrimitiveStringResult",
 			toolResultContent:   `"hello world"`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{"value": "hello world"}),
+			expectedJSON:        mustMarshalJSON(map[string]any{"value": "hello world"}),
 		},
 		{
 			name:                "JSONPrimitiveBooleanResult",
 			toolResultContent:   `true`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{"value": true}),
+			expectedJSON:        mustMarshalJSON(map[string]any{"value": true}),
 		},
 		{
 			name:                "JSONPrimitiveNullResult",
 			toolResultContent:   `null`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{"value": nil}),
+			expectedJSON:        mustMarshalJSON(map[string]any{"value": nil}),
 		},
 		{
 			name:                "EmptyJSONObjectResult",
 			toolResultContent:   `{}`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{}),
+			expectedJSON:        mustMarshalJSON(map[string]any{}),
 		},
 		{
 			name:                "EmptyJSONArrayResult",
 			toolResultContent:   `[]`,
 			expectedContentType: "json",
-			expectedJSON: mustMarshalJSON(map[string]any{"results": []any{}}),
+			expectedJSON:        mustMarshalJSON(map[string]any{"results": []any{}}),
 		},
 	}
 
@@ -3597,4 +3608,58 @@ func TestBedrockToolInputKeyOrderPreservation(t *testing.T) {
 	}
 	assert.True(t, cmdIdx2 < descIdx2,
 		"block 2: key order not preserved, expected command < description in: %s", s2)
+}
+
+// TestToBedrockInvokeMessagesStreamResponse_NoDuplicateContentBlockStop verifies that
+// ContentPartDone does not emit a content_block_stop event (only OutputItemDone does),
+// preventing duplicate content_block_stop events in the stream. (Issue #2293)
+func TestToBedrockInvokeMessagesStreamResponse_NoDuplicateContentBlockStop(t *testing.T) {
+	ctx := &schemas.BifrostContext{}
+	contentIdx := 0
+	model := "anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+	// Simulate the sequence FinalizeBedrockStream emits for a text block:
+	// 1. OutputTextDone  — should be skipped
+	// 2. ContentPartDone — should be skipped (was previously emitting content_block_stop)
+	// 3. OutputItemDone  — should emit content_block_stop
+	events := []*schemas.BifrostResponsesStreamResponse{
+		{
+			Type:         schemas.ResponsesStreamResponseTypeOutputTextDone,
+			ContentIndex: &contentIdx,
+			ExtraFields:  schemas.BifrostResponseExtraFields{ModelRequested: model},
+		},
+		{
+			Type:         schemas.ResponsesStreamResponseTypeContentPartDone,
+			ContentIndex: &contentIdx,
+			ExtraFields:  schemas.BifrostResponseExtraFields{ModelRequested: model},
+		},
+		{
+			Type:         schemas.ResponsesStreamResponseTypeOutputItemDone,
+			ContentIndex: &contentIdx,
+			ExtraFields:  schemas.BifrostResponseExtraFields{ModelRequested: model},
+		},
+	}
+
+	type bedrockChunk struct {
+		InvokeModelRawChunk []byte `json:"invokeModelRawChunk"`
+	}
+
+	var stopCount int
+	for _, ev := range events {
+		_, result, err := bedrock.ToBedrockInvokeMessagesStreamResponse(ctx, ev)
+		require.NoError(t, err)
+		if result == nil {
+			continue
+		}
+		raw, err := json.Marshal(result)
+		require.NoError(t, err)
+		var chunk bedrockChunk
+		require.NoError(t, json.Unmarshal(raw, &chunk))
+		if len(chunk.InvokeModelRawChunk) > 0 &&
+			strings.Contains(string(chunk.InvokeModelRawChunk), "content_block_stop") {
+			stopCount++
+		}
+	}
+
+	assert.Equal(t, 1, stopCount, "expected exactly one content_block_stop event, got %d", stopCount)
 }

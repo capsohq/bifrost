@@ -691,7 +691,7 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 				Object:          object,
 				SparseEmbedding: nativeResp.Data.SparseEmbedding,
 				Embedding: schemas.EmbeddingStruct{
-					EmbeddingArray: nativeResp.Data.Embedding,
+					EmbeddingArray: convertFloat32SliceToFloat64(nativeResp.Data.Embedding),
 				},
 			},
 		},
@@ -721,6 +721,17 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 	}
 
 	return response, nil
+}
+
+func convertFloat32SliceToFloat64(values []float32) []float64 {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]float64, len(values))
+	for i, v := range values {
+		out[i] = float64(v)
+	}
+	return out
 }
 
 // Speech is not supported by the Volcengine provider.

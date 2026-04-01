@@ -34,7 +34,7 @@ func ParseVirtualKeyFromFastHTTPRequest(req *fasthttp.RequestCtx) *string {
 		return bifrost.Ptr(xAPIKey)
 	}
 	xGoogleAPIKey := string(req.Request.Header.Peek("x-goog-api-key"))
-	if xGoogleAPIKey != "" && strings.HasPrefix(strings.ToLower(xGoogleAPIKey), VirtualKeyPrefix) {		
+	if xGoogleAPIKey != "" && strings.HasPrefix(strings.ToLower(xGoogleAPIKey), VirtualKeyPrefix) {
 		return bifrost.Ptr(xGoogleAPIKey)
 	}
 	return nil

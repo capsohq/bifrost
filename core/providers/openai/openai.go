@@ -30,6 +30,7 @@ type OpenAIProvider struct {
 	sendBackRawRequest   bool                          // Whether to include raw request in BifrostResponse
 	sendBackRawResponse  bool                          // Whether to include raw response in BifrostResponse
 	customProviderConfig *schemas.CustomProviderConfig // Custom provider config
+	disableStore         bool                          // Whether to force store=false on outgoing requests
 }
 
 // NewOpenAIProvider creates a new OpenAI provider instance.
@@ -71,6 +72,7 @@ func NewOpenAIProvider(config *schemas.ProviderConfig, logger schemas.Logger) *O
 		sendBackRawRequest:   config.SendBackRawRequest,
 		sendBackRawResponse:  config.SendBackRawResponse,
 		customProviderConfig: config.CustomProviderConfig,
+		disableStore:         config.OpenAIConfig != nil && config.OpenAIConfig.DisableStore,
 	}
 }
 
@@ -179,7 +181,7 @@ func ListModelsByKey(
 		return nil, bifrostErr
 	}
 
-	response := openaiResponse.ToBifrostListModelsResponse(providerName, key.Models, unfiltered)
+	response := openaiResponse.ToBifrostListModelsResponse(providerName, key.Models, key.BlacklistedModels, unfiltered)
 
 	response.ExtraFields.Provider = providerName
 	response.ExtraFields.RequestType = schemas.ListModelsRequest
@@ -499,7 +501,7 @@ func HandleOpenAITextCompletionStreaming(
 			}, jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
+			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 	}
@@ -746,6 +748,13 @@ func (provider *OpenAIProvider) ChatCompletion(ctx *schemas.BifrostContext, key 
 		return nil, err
 	}
 
+	if provider.disableStore {
+		if request.Params == nil {
+			request.Params = &schemas.ChatParameters{}
+		}
+		request.Params.Store = schemas.Ptr(false)
+	}
+
 	return HandleOpenAIChatCompletionRequest(
 		ctx,
 		provider.client,
@@ -911,6 +920,13 @@ func (provider *OpenAIProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
 	}
+	if provider.disableStore {
+		if request.Params == nil {
+			request.Params = &schemas.ChatParameters{}
+		}
+		request.Params.Store = schemas.Ptr(false)
+	}
+
 	// Use shared streaming logic
 	return HandleOpenAIChatCompletionStreaming(
 		ctx,
@@ -1038,7 +1054,7 @@ func HandleOpenAIChatCompletionStreaming(
 			}, jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
+			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 	}
@@ -1363,6 +1379,13 @@ func (provider *OpenAIProvider) Responses(ctx *schemas.BifrostContext, key schem
 		return nil, err
 	}
 
+	if provider.disableStore {
+		if request.Params == nil {
+			request.Params = &schemas.ResponsesParameters{}
+		}
+		request.Params.Store = schemas.Ptr(false)
+	}
+
 	return HandleOpenAIResponsesRequest(
 		ctx,
 		provider.client,
@@ -1526,6 +1549,13 @@ func (provider *OpenAIProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
 	}
+	if provider.disableStore {
+		if request.Params == nil {
+			request.Params = &schemas.ResponsesParameters{}
+		}
+		request.Params.Store = schemas.Ptr(false)
+	}
+
 	// Use shared streaming logic
 	return HandleOpenAIResponsesStreaming(
 		ctx,
@@ -1634,7 +1664,7 @@ func HandleOpenAIResponsesStreaming(
 			}, jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
+			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 	}
@@ -2229,7 +2259,7 @@ func HandleOpenAISpeechStreamRequest(
 			}, jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
+			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 		}
 		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName), jsonBody, nil, sendBackRawRequest, sendBackRawResponse)
 	}
@@ -2671,7 +2701,7 @@ func HandleOpenAITranscriptionStreamRequest(
 			}
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName)
+			return nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName)
 		}
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName)
 	}
@@ -3123,7 +3153,7 @@ func HandleOpenAIImageGenerationStreaming(
 			}
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName)
+			return nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName)
 		}
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName)
 	}
@@ -4383,7 +4413,7 @@ func HandleOpenAIImageEditStreamRequest(
 			}
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName)
+			return nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName)
 		}
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, providerName)
 	}
@@ -5457,7 +5487,7 @@ func (provider *OpenAIProvider) BatchCreate(ctx *schemas.BifrostContext, key sch
 		openAIReq.CompletionWindow = "24h"
 	}
 
-	jsonData, err := sonic.Marshal(openAIReq)
+	jsonData, err := providerUtils.MarshalSorted(openAIReq)
 	if err != nil {
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err, providerName)
 	}
@@ -5943,7 +5973,7 @@ func (provider *OpenAIProvider) ContainerCreate(ctx *schemas.BifrostContext, key
 		}
 	}
 
-	jsonBody, err := sonic.Marshal(reqBody)
+	jsonBody, err := providerUtils.MarshalSorted(reqBody)
 	if err != nil {
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err, providerName)
 	}
@@ -7114,7 +7144,7 @@ func (provider *OpenAIProvider) PassthroughStream(
 			}
 		}
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
+			return nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
 		}
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err, provider.GetProviderKey())
 	}

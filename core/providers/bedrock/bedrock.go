@@ -81,10 +81,18 @@ func NewBedrockProvider(config *schemas.ProviderConfig, logger schemas.Logger) (
 		MaxIdleConns:          schemas.DefaultMaxIdleConnsPerHost,
 		MaxIdleConnsPerHost:   schemas.DefaultMaxIdleConnsPerHost,
 		IdleConnTimeout:       30 * time.Second,
-		TLSHandshakeTimeout:  10 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: requestTimeout,
 		ExpectContinueTimeout: 1 * time.Second,
 		ForceAttemptHTTP2:     config.NetworkConfig.EnforceHTTP2,
+	}
+
+	// Disable HTTP/2 auto-negotiation when not explicitly enforced.
+	// ForceAttemptHTTP2=false alone does NOT prevent HTTP/2 — Go's http2 package
+	// auto-registers h2 via TLSNextProto in init(). Setting TLSNextProto to an
+	// empty map prevents ALPN negotiation from upgrading connections to h2.
+	if !config.NetworkConfig.EnforceHTTP2 {
+		transport.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	}
 
 	// Apply TLS settings from NetworkConfig
@@ -170,6 +178,12 @@ func (provider *BedrockProvider) completeRequest(ctx *schemas.BifrostContext, js
 	// Set any extra headers from network config
 	providerUtils.SetExtraHeadersHTTP(ctx, req, provider.networkConfig.ExtraHeaders, nil)
 
+	if filtered := anthropic.FilterBetaHeadersForProvider(anthropic.MergeBetaHeaders(provider.networkConfig.ExtraHeaders, ctx), schemas.Bedrock, provider.networkConfig.BetaHeaderOverrides); len(filtered) > 0 {
+		req.Header.Set(anthropic.AnthropicBetaHeader, strings.Join(filtered, ","))
+	} else {
+		req.Header.Del(anthropic.AnthropicBetaHeader)
+	}
+
 	// If Value is set, use API Key authentication - else use IAM role authentication
 	if key.Value.GetValue() != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key.Value.GetValue()))
@@ -198,10 +212,10 @@ func (provider *BedrockProvider) completeRequest(ctx *schemas.BifrostContext, js
 		// Check for timeout first using net.Error before checking net.OpError
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
-			return nil, latency, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
+			return nil, latency, nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
 		}
 		if errors.Is(err, http.ErrHandlerTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, latency, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
+			return nil, latency, nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
 		}
 		// Check for DNS lookup and network errors after timeout checks
 		var opErr *net.OpError
@@ -323,10 +337,10 @@ func (provider *BedrockProvider) completeAgentRuntimeRequest(ctx *schemas.Bifros
 		}
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
-			return nil, latency, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
+			return nil, latency, nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
 		}
 		if errors.Is(err, http.ErrHandlerTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, latency, nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
+			return nil, latency, nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, provider.GetProviderKey())
 		}
 		var opErr *net.OpError
 		var dnsErr *net.DNSError
@@ -397,6 +411,12 @@ func (provider *BedrockProvider) makeStreamingRequest(ctx *schemas.BifrostContex
 	// Set any extra headers from network config
 	providerUtils.SetExtraHeadersHTTP(ctx, req, provider.networkConfig.ExtraHeaders, nil)
 
+	if filtered := anthropic.FilterBetaHeadersForProvider(anthropic.MergeBetaHeaders(provider.networkConfig.ExtraHeaders, ctx), schemas.Bedrock, provider.networkConfig.BetaHeaderOverrides); len(filtered) > 0 {
+		req.Header.Set(anthropic.AnthropicBetaHeader, strings.Join(filtered, ","))
+	} else {
+		req.Header.Del(anthropic.AnthropicBetaHeader)
+	}
+
 	// If Value is set, use API Key authentication - else use IAM role authentication
 	req.Header.Set("Accept", "application/vnd.amazon.eventstream")
 	if key.Value.GetValue() != "" {
@@ -425,10 +445,10 @@ func (provider *BedrockProvider) makeStreamingRequest(ctx *schemas.BifrostContex
 		// Check for timeout first using net.Error before checking net.OpError
 		var netErr net.Error
 		if errors.As(respErr, &netErr) && netErr.Timeout() {
-			return nil, deployment, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, respErr, providerName)
+			return nil, deployment, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, respErr, providerName)
 		}
 		if errors.Is(respErr, http.ErrHandlerTimeout) || errors.Is(respErr, context.DeadlineExceeded) {
-			return nil, deployment, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, respErr, providerName)
+			return nil, deployment, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, respErr, providerName)
 		}
 		// Check for DNS lookup and network errors after timeout checks
 		var opErr *net.OpError
@@ -673,10 +693,10 @@ func (provider *BedrockProvider) listModelsByKey(ctx *schemas.BifrostContext, ke
 		// Check for timeout first using net.Error before checking net.OpError
 		var netErr net.Error
 		if errors.As(err, &netErr) && netErr.Timeout() {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName)
+			return nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName)
 		}
 		if errors.Is(err, http.ErrHandlerTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestTimedOut, err, providerName)
+			return nil, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err, providerName)
 		}
 		// Check for DNS lookup and network errors after timeout checks
 		var opErr *net.OpError
@@ -724,7 +744,7 @@ func (provider *BedrockProvider) listModelsByKey(ctx *schemas.BifrostContext, ke
 	}
 
 	// Convert to Bifrost response
-	response := bedrockResponse.ToBifrostListModelsResponse(providerName, key.Models, config.Deployments, request.Unfiltered)
+	response := bedrockResponse.ToBifrostListModelsResponse(providerName, key.Models, config.Deployments, key.BlacklistedModels, request.Unfiltered)
 	if response == nil {
 		return nil, providerUtils.NewBifrostOperationError("failed to convert Bedrock model list response", nil, providerName)
 	}
@@ -2870,7 +2890,7 @@ func (provider *BedrockProvider) BatchCreate(ctx *schemas.BifrostContext, key sc
 		}
 	}
 
-	jsonData, err := sonic.Marshal(bedrockReq)
+	jsonData, err := providerUtils.MarshalSorted(bedrockReq)
 	if err != nil {
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err, providerName)
 	}
@@ -3601,7 +3621,7 @@ func (provider *BedrockProvider) CountTokens(ctx *schemas.BifrostContext, key sc
 	countTokensReq := &BedrockCountTokensRequest{}
 	countTokensReq.Input.Converse = converseReq
 
-	jsonData, err := sonic.Marshal(countTokensReq)
+	jsonData, err := providerUtils.MarshalSorted(countTokensReq)
 	if err != nil {
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err, providerName)
 	}

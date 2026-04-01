@@ -47,49 +47,50 @@ func TestGemini(t *testing.T) {
 		VideoGenerationModel: "veo-3.1-generate-preview",
 		PassthroughModel:     "gemini-2.5-flash",
 		Scenarios: llmtests.TestScenarios{
-			TextCompletion:        false, // Not supported
-			SimpleChat:            true,
-			CompletionStream:      true,
-			MultiTurnConversation: true,
-			ToolCalls:             true,
-			ToolCallsStreaming:    true,
-			MultipleToolCalls:     true,
-			End2EndToolCalling:    true,
-			AutomaticFunctionCall: true,
-			WebSearchTool:         true,
-			ImageURL:              false,
-			ImageBase64:           true,
-			MultipleImages:        false,
-			ImageGeneration:       true,
-			ImageGenerationStream: false,
-			ImageEdit:             true,
-			VideoGeneration:       false, // disabled for now because of long running operations
-			VideoRetrieve:         false,
-			VideoDownload:         false,
-			FileBase64:            true,
-			FileURL:               false, // supported files via gemini files api
-			CompleteEnd2End:       true,
-			Embedding:             true,
-			Transcription:         false,
-			TranscriptionStream:   false,
-			SpeechSynthesis:       true,
-			SpeechSynthesisStream: true,
-			Reasoning:             true,
-			ListModels:            true,
-			BatchCreate:           true,
-			BatchList:             true,
-			BatchRetrieve:         true,
-			BatchCancel:           true,
-			BatchResults:          true,
-			FileUpload:            true,
-			FileList:              true,
-			FileRetrieve:          true,
-			FileDelete:            true,
-			FileContent:           false,
-			FileBatchInput:        true,
-			CountTokens:           true,
-			StructuredOutputs:     true, // Structured outputs with nullable enum support
-			PassthroughAPI:        true,
+			TextCompletion:             false, // Not supported
+			SimpleChat:                 true,
+			CompletionStream:           true,
+			MultiTurnConversation:      true,
+			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
+			MultipleToolCalls:          true,
+			MultipleToolCallsStreaming: true,
+			End2EndToolCalling:         true,
+			AutomaticFunctionCall:      true,
+			WebSearchTool:              true,
+			ImageURL:                   false,
+			ImageBase64:                true,
+			MultipleImages:             false,
+			ImageGeneration:            true,
+			ImageGenerationStream:      false,
+			ImageEdit:                  true,
+			VideoGeneration:            false, // disabled for now because of long running operations
+			VideoRetrieve:              false,
+			VideoDownload:              false,
+			FileBase64:                 true,
+			FileURL:                    false, // supported files via gemini files api
+			CompleteEnd2End:            true,
+			Embedding:                  true,
+			Transcription:              false,
+			TranscriptionStream:        false,
+			SpeechSynthesis:            true,
+			SpeechSynthesisStream:      true,
+			Reasoning:                  true,
+			ListModels:                 true,
+			BatchCreate:                true,
+			BatchList:                  true,
+			BatchRetrieve:              true,
+			BatchCancel:                true,
+			BatchResults:               true,
+			FileUpload:                 true,
+			FileList:                   true,
+			FileRetrieve:               true,
+			FileDelete:                 true,
+			FileContent:                false,
+			FileBatchInput:             true,
+			CountTokens:                true,
+			StructuredOutputs:          true, // Structured outputs with nullable enum support
+			PassthroughAPI:             true,
 		},
 	}
 
@@ -197,6 +198,24 @@ func TestEmptyCandidatesRegression(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestToBifrostEmbeddingResponsePreservesPrecision(t *testing.T) {
+	const want = 0.12345678901234568
+
+	resp := gemini.ToBifrostEmbeddingResponse(&gemini.GeminiEmbeddingResponse{
+		Embeddings: []gemini.GeminiEmbedding{
+			{
+				Values: []float64{want},
+			},
+		},
+	}, "gemini-embedding-001")
+
+	require.NotNil(t, resp)
+
+	got := resp.Data[0].Embedding.EmbeddingArray[0]
+	assert.Equal(t, want, got)
+	assert.NotEqual(t, float64(float32(want)), got)
 }
 
 // TestThoughtSignatureInToolCalls tests that thought signatures are properly embedded in tool call IDs

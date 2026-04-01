@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/capsohq/bifrost/cli/internal/apis"
-	"github.com/capsohq/bifrost/cli/internal/harness"
+	"github.com/maximhq/bifrost/cli/internal/apis"
+	"github.com/maximhq/bifrost/cli/internal/harness"
 )
 
 // LaunchSpec holds the parameters needed to launch a harness subprocess.
@@ -34,6 +34,9 @@ func BuildEnv(spec LaunchSpec) ([]string, error) {
 	vk := strings.TrimSpace(spec.VirtualKey)
 	if vk != "" {
 		env = append(env, spec.Harness.APIKeyEnv+"="+vk)
+		if spec.Harness.AuthTokenEnv != "" {
+			env = append(env, spec.Harness.AuthTokenEnv+"="+vk)
+		}
 	}
 	model := strings.TrimSpace(spec.Model)
 	if model != "" {

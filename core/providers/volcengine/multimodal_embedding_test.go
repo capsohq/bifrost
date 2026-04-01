@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -168,8 +169,8 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 	if len(resp.Data[0].Embedding.EmbeddingArray) != 4 {
 		t.Fatalf("expected 4-dim embedding, got %d", len(resp.Data[0].Embedding.EmbeddingArray))
 	}
-	if resp.Data[0].Embedding.EmbeddingArray[0] != 0.1 {
-		t.Fatalf("expected first value 0.1, got %f", resp.Data[0].Embedding.EmbeddingArray[0])
+	if math.Abs(resp.Data[0].Embedding.EmbeddingArray[0]-0.1) > 1e-6 {
+		t.Fatalf("expected first value close to 0.1, got %f", resp.Data[0].Embedding.EmbeddingArray[0])
 	}
 	if resp.Data[0].Object != "embedding" {
 		t.Fatalf("expected object 'embedding', got '%s'", resp.Data[0].Object)

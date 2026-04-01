@@ -16,8 +16,8 @@ import (
 
 // mockHandlerStore implements lib.HandlerStore for testing
 type mockHandlerStore struct {
-	allowDirectKeys bool
-	headerMatcher   *lib.HeaderMatcher
+	allowDirectKeys    bool
+	headerMatcher      *lib.HeaderMatcher
 	availableProviders []schemas.ModelProvider
 }
 

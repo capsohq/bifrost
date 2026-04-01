@@ -293,7 +293,7 @@ type CohereEmbeddingResponse struct {
 
 // CohereEmbeddingData represents the embeddings object with different types
 type CohereEmbeddingData struct {
-	Float   [][]float32 `json:"float,omitempty"`   // Float embeddings
+	Float   [][]float64 `json:"float,omitempty"`   // Float embeddings
 	Int8    [][]int8    `json:"int8,omitempty"`    // Int8 embeddings
 	Uint8   [][]uint8   `json:"uint8,omitempty"`   // Uint8 embeddings
 	Binary  [][]int8    `json:"binary,omitempty"`  // Binary embeddings

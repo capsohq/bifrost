@@ -4358,13 +4358,7 @@ func (bifrost *Bifrost) tryRequest(ctx *schemas.BifrostContext, req *schemas.Bif
 		return nil, bifrostErr
 	case <-ctx.Done():
 		bifrost.releaseChannelMessage(msg)
-		bifrostErr := newBifrostErrorFromMsg("request cancelled while waiting for queue space")
-		bifrostErr.ExtraFields = schemas.BifrostErrorExtraFields{
-			RequestType:    req.RequestType,
-			Provider:       provider,
-			ModelRequested: model,
-		}
-		return nil, bifrostErr
+		return nil, newBifrostCtxDoneError(ctx, provider, model, req.RequestType, "while waiting for queue space")
 	default:
 		if bifrost.dropExcessRequests.Load() {
 			bifrost.releaseChannelMessage(msg)
@@ -4402,13 +4396,7 @@ func (bifrost *Bifrost) tryRequest(ctx *schemas.BifrostContext, req *schemas.Bif
 			return nil, bifrostErr
 		case <-ctx.Done():
 			bifrost.releaseChannelMessage(msg)
-			bifrostErr := newBifrostErrorFromMsg("request cancelled while waiting for queue space")
-			bifrostErr.ExtraFields = schemas.BifrostErrorExtraFields{
-				RequestType:    req.RequestType,
-				Provider:       provider,
-				ModelRequested: model,
-			}
-			return nil, bifrostErr
+			return nil, newBifrostCtxDoneError(ctx, provider, model, req.RequestType, "while waiting for queue space")
 		}
 	}
 
@@ -4454,20 +4442,7 @@ func (bifrost *Bifrost) tryRequest(ctx *schemas.BifrostContext, req *schemas.Bif
 	case <-ctx.Done():
 		bifrost.releaseChannelMessage(msg)
 		provider, model, _ := req.GetRequestFields()
-		bifrostErr := &schemas.BifrostError{
-			IsBifrostError: true,
-			Error: &schemas.ErrorField{
-				Type:    schemas.Ptr(schemas.RequestCancelled),
-				Message: fmt.Sprintf("request timed out waiting for provider response: %v", ctx.Err()),
-				Error:   ctx.Err(),
-			},
-			ExtraFields: schemas.BifrostErrorExtraFields{
-				RequestType:    req.RequestType,
-				Provider:       provider,
-				ModelRequested: model,
-			},
-		}
-		return nil, bifrostErr
+		return nil, newBifrostCtxDoneError(ctx, provider, model, req.RequestType, "waiting for provider response")
 	}
 }
 
@@ -4630,13 +4605,7 @@ func (bifrost *Bifrost) tryStreamRequest(ctx *schemas.BifrostContext, req *schem
 		return nil, bifrostErr
 	case <-ctx.Done():
 		bifrost.releaseChannelMessage(msg)
-		bifrostErr := newBifrostErrorFromMsg("request cancelled while waiting for queue space")
-		bifrostErr.ExtraFields = schemas.BifrostErrorExtraFields{
-			RequestType:    req.RequestType,
-			Provider:       provider,
-			ModelRequested: model,
-		}
-		return nil, bifrostErr
+		return nil, newBifrostCtxDoneError(ctx, provider, model, req.RequestType, "while waiting for queue space")
 	default:
 		if bifrost.dropExcessRequests.Load() {
 			bifrost.releaseChannelMessage(msg)
@@ -4674,13 +4643,7 @@ func (bifrost *Bifrost) tryStreamRequest(ctx *schemas.BifrostContext, req *schem
 			return nil, bifrostErr
 		case <-ctx.Done():
 			bifrost.releaseChannelMessage(msg)
-			bifrostErr := newBifrostErrorFromMsg("request cancelled while waiting for queue space")
-			bifrostErr.ExtraFields = schemas.BifrostErrorExtraFields{
-				RequestType:    req.RequestType,
-				Provider:       provider,
-				ModelRequested: model,
-			}
-			return nil, bifrostErr
+			return nil, newBifrostCtxDoneError(ctx, provider, model, req.RequestType, "while waiting for queue space")
 		}
 	}
 
@@ -4821,8 +4784,31 @@ func executeRequestWithRetries[T any](
 		// Attempt the request
 		result, bifrostError = requestHandler()
 
+		// For streaming requests that returned success, check if the first chunk
+		// is actually an error (e.g., rate limits sent as SSE events in HTTP 200).
+		// This enables retries and fallbacks for providers that embed errors in
+		// the SSE stream instead of returning proper HTTP error status codes.
+		if bifrostError == nil {
+			if streamChan, ok := any(result).(chan *schemas.BifrostStreamChunk); ok {
+				checkedStream, drainDone, firstChunkErr := providerUtils.CheckFirstStreamChunkForError(streamChan)
+				if firstChunkErr != nil {
+					<-drainDone
+					bifrostError = firstChunkErr
+				} else {
+					result = any(checkedStream).(T)
+				}
+			}
+		}
+
 		// Check if result is a streaming channel - if so, defer span completion
-		if _, isStreamChan := any(result).(chan *schemas.BifrostStreamChunk); isStreamChan {
+		// Only defer for successful stream setup; error paths must end the span synchronously
+		isStreamChan := false
+		if bifrostError == nil {
+			if ch, ok := any(result).(chan *schemas.BifrostStreamChunk); ok && ch != nil {
+				isStreamChan = true
+			}
+		}
+		if isStreamChan {
 			// For streaming requests, store the span handle in TraceStore keyed by trace ID
 			// This allows the provider's streaming goroutine to retrieve it later
 			if traceID, ok := ctx.Value(schemas.BifrostContextKeyTraceID).(string); ok && traceID != "" {
@@ -4870,7 +4856,8 @@ func executeRequestWithRetries[T any](
 		if (bifrostError.StatusCode != nil && retryableStatusCodes[*bifrostError.StatusCode]) ||
 			(bifrostError.Error != nil &&
 				(IsRateLimitErrorMessage(bifrostError.Error.Message) ||
-					(bifrostError.Error.Type != nil && IsRateLimitErrorMessage(*bifrostError.Error.Type)))) {
+					(bifrostError.Error.Type != nil && IsRateLimitErrorMessage(*bifrostError.Error.Type)) ||
+					(bifrostError.Error.Code != nil && IsRateLimitErrorMessage(*bifrostError.Error.Code)))) {
 			shouldRetry = true
 			logger.Debug("detected rate limit error in message, will retry: %s", bifrostError.Error.Message)
 		}
@@ -6116,10 +6103,14 @@ func (bifrost *Bifrost) getKeysForBatchAndFileOps(ctx *schemas.BifrostContext, p
 		// Model filtering logic:
 		// - If model is nil or empty → include all keys (no model filter)
 		// - If model is specified:
-		//   - If key.Models is empty → include key (supports all models)
+		//   - If model is in key.BlacklistedModels → exclude (wins over Models allow list)
+		//   - If key.Models is empty → include key (supports all non-blacklisted models)
 		//   - If key.Models is non-empty → only include if model is in list
-		if model != nil && *model != "" && len(k.Models) > 0 {
-			if !slices.Contains(k.Models, *model) {
+		if model != nil && *model != "" {
+			if len(k.BlacklistedModels) > 0 && slices.Contains(k.BlacklistedModels, *model) {
+				continue
+			}
+			if len(k.Models) > 0 && !slices.Contains(k.Models, *model) {
 				continue
 			}
 		}
@@ -6187,7 +6178,8 @@ func (bifrost *Bifrost) selectKeyFromProviderForModel(ctx *schemas.BifrostContex
 		keys = batchEnabledKeys
 	}
 
-	// filter out keys which don't support the model, if the key has no models, it is supported for all models
+	// Filter out keys that don't support the model: blacklisted_models wins over models allow list;
+	// if the key has no models list, it supports all models except those blacklisted.
 	var supportedKeys []schemas.Key
 
 	// Skip model check conditions
@@ -6212,7 +6204,12 @@ func (bifrost *Bifrost) selectKeyFromProviderForModel(ctx *schemas.BifrostContex
 				continue
 			}
 			hasValue := strings.TrimSpace(key.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType)
-			modelSupported := (len(key.Models) == 0 && hasValue) || (slices.Contains(key.Models, model) && hasValue)
+			var modelSupported bool
+			if len(key.BlacklistedModels) > 0 && slices.Contains(key.BlacklistedModels, model) {
+				modelSupported = false
+			} else {
+				modelSupported = (len(key.Models) == 0 && hasValue) || (slices.Contains(key.Models, model) && hasValue)
+			}
 			// Additional deployment checks for Azure, Bedrock and Vertex
 			deploymentSupported := true
 			if baseProviderType == schemas.Azure && key.AzureKeyConfig != nil {

@@ -305,6 +305,7 @@ func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContex
 		jsonData,
 		headers,
 		provider.networkConfig.ExtraHeaders,
+		provider.networkConfig.BetaHeaderOverrides,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
 		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
 		provider.GetProviderKey(),

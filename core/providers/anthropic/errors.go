@@ -3,7 +3,6 @@ package anthropic
 import (
 	"fmt"
 
-	"github.com/bytedance/sonic"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	schemas "github.com/capsohq/bifrost/core/schemas"
 	"github.com/valyala/fasthttp"
@@ -46,7 +45,7 @@ func ToAnthropicResponsesStreamError(bifrostErr *schemas.BifrostError) string {
 	anthropicErr := ToAnthropicChatCompletionError(bifrostErr)
 
 	// Marshal to JSON
-	jsonData, err := sonic.Marshal(anthropicErr)
+	jsonData, err := providerUtils.MarshalSorted(anthropicErr)
 	if err != nil {
 		return ""
 	}

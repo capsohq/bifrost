@@ -34,6 +34,7 @@ func (mc *ModelCatalog) loadProviderModelSnapshots(ctx context.Context) {
 
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
+	mc.ensureProviderModelStateLocked()
 
 	for provider, models := range snapshots {
 		if len(models) == 0 {
