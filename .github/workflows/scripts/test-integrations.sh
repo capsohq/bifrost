@@ -28,6 +28,41 @@ BIFROST_PID=""
 TEST_FAILED=0
 LOG_FILE="$(mktemp /tmp/bifrost-integrations.XXXXXX.log)"
 
+# Some integration runners still check GOOGLE_API_KEY, while workflow secrets
+# provide GEMINI_API_KEY. Mirror it here so both code paths work.
+export GOOGLE_API_KEY="${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}"
+
+has_any_provider_credentials() {
+  local vars=(
+    OPENAI_API_KEY
+    ANTHROPIC_API_KEY
+    GEMINI_API_KEY
+    GOOGLE_API_KEY
+    VERTEX_PROJECT_ID
+    VERTEX_CREDENTIALS
+    MISTRAL_API_KEY
+    COHERE_API_KEY
+    GROQ_API_KEY
+    PERPLEXITY_API_KEY
+    CEREBRAS_API_KEY
+    OPENROUTER_API_KEY
+    PARASAIL_API_KEY
+    ELEVENLABS_API_KEY
+    XAI_API_KEY
+    HUGGING_FACE_API_KEY
+    AZURE_API_KEY
+    AWS_ACCESS_KEY_ID
+  )
+
+  local var_name
+  for var_name in "${vars[@]}"; do
+    if [ -n "${!var_name:-}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Cleanup function
 cleanup() {
   local exit_code=$?
@@ -118,6 +153,13 @@ fi
 export BIFROST_BASE_URL="http://$TEST_HOST:$TEST_PORT"
 echo "   BIFROST_BASE_URL=$BIFROST_BASE_URL"
 
+if ! has_any_provider_credentials; then
+  echo ""
+  echo "⏭️  No provider credentials available in CI."
+  echo "   Skipping SDK integration suites after successful Bifrost startup smoke test."
+  exit 0
+fi
+
 # Step 3: Run Python integration tests
 echo ""
 echo "🐍 Running Python integration tests..."
@@ -132,7 +174,7 @@ if command -v uv >/dev/null 2>&1; then
   
   echo ""
   echo "🏃 Running Python tests..."
-  if ! uv run pytest -v --tb=short; then
+  if ! uv run python run_all_tests.py; then
     echo "⚠️  Python tests failed"
     TEST_FAILED=1
   fi
@@ -149,7 +191,7 @@ else
   
   echo ""
   echo "🏃 Running Python tests..."
-  if ! pytest -v --tb=short; then
+  if ! python run_all_tests.py; then
     echo "⚠️  Python tests failed"
     TEST_FAILED=1
   fi
