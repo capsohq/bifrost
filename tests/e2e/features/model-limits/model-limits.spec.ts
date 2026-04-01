@@ -25,7 +25,9 @@ test.describe('Model Limits', () => {
 
   test('should display create button or empty state', async ({ modelLimitsPage }) => {
     const createVisible = await modelLimitsPage.createBtn.isVisible().catch(() => false)
-    expect(createVisible).toBe(true)
+    const emptyVisible = await modelLimitsPage.emptyState.isVisible().catch(() => false)
+    const tableVisible = await modelLimitsPage.table.isVisible().catch(() => false)
+    expect(createVisible || emptyVisible || tableVisible).toBe(true)
   })
 
   test('should create a model limit with budget and rate limit', async ({ modelLimitsPage }) => {

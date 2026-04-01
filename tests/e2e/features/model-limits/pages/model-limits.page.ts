@@ -21,6 +21,7 @@ export class ModelLimitsPage extends BasePage {
   readonly createBtn: Locator
   readonly table: Locator
   readonly sheet: Locator
+  readonly emptyState: Locator
 
   constructor(page: Page) {
     super(page)
@@ -28,10 +29,16 @@ export class ModelLimitsPage extends BasePage {
     this.createBtn = page.getByTestId('model-limits-button-create')
     this.table = page.getByTestId('model-limits-table')
     this.sheet = page.getByTestId('model-limit-sheet')
+    this.emptyState = page.getByTestId('model-limits-empty-state')
   }
 
   async goto(): Promise<void> {
     await this.page.goto('/workspace/model-limits')
+    await Promise.race([
+      this.createBtn.waitFor({ state: 'visible', timeout: 15000 }),
+      this.table.waitFor({ state: 'visible', timeout: 15000 }),
+      this.emptyState.waitFor({ state: 'visible', timeout: 15000 }),
+    ])
     await waitForNetworkIdle(this.page)
   }
 

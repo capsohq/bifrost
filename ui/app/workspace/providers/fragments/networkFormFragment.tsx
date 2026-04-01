@@ -190,6 +190,7 @@ export function NetworkFormFragment({ provider }: NetworkFormFragmentProps) {
 										<FormControl>
 											<Input
 												placeholder="30"
+												data-testid="network-config-timeout-input"
 												{...field}
 												value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
 												disabled={!hasUpdateProviderAccess}
