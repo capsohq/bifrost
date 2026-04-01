@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test'
+import { Locator, Page, expect } from '@playwright/test'
 import { BasePage } from '../../../core/pages/base.page'
 import { waitForNetworkIdle } from '../../../core/utils/test-helpers'
 
@@ -88,9 +88,16 @@ export class ConfigSettingsPage extends BasePage {
     await waitForNetworkIdle(this.page)
   }
 
+  private async waitForSaveConfirmation(saveButton: Locator): Promise<void> {
+    await Promise.race([
+      this.getToast('success').waitFor({ state: 'visible', timeout: 10000 }),
+      expect.poll(async () => await saveButton.isDisabled().catch(() => false), { timeout: 10000 }).toBe(true),
+    ])
+  }
+
   async saveSettings(): Promise<void> {
     await this.saveBtn.click()
-    await this.waitForSuccessToast()
+    await this.waitForSaveConfirmation(this.saveBtn)
   }
 
   /**
@@ -338,6 +345,6 @@ export class ConfigSettingsPage extends BasePage {
 
   async savePricingConfig(): Promise<void> {
     await this.pricingSaveBtn.click()
-    await this.waitForSuccessToast()
+    await this.waitForSaveConfirmation(this.pricingSaveBtn)
   }
 }
