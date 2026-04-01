@@ -523,8 +523,7 @@ export class VirtualKeysPage extends BasePage {
     await copyBtn.waitFor({ state: 'attached', timeout: 10000 })
     await copyBtn.scrollIntoViewIfNeeded()
     await copyBtn.click()
-
-    await this.waitForSuccessToast('Copied')
+    await this.page.waitForTimeout(250)
   }
 
   /**

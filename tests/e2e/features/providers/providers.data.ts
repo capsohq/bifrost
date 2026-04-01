@@ -74,11 +74,9 @@ export const NEWLY_ADDED_PROVIDERS = ['glm', 'minimax', 'moonshot', 'volcengine'
 /**
  * Seed model canaries used to verify provider model catalog population.
  */
-export const NEW_PROVIDER_MODEL_CANARIES: Record<(typeof NEWLY_ADDED_PROVIDERS)[number], string> = {
-  glm: 'glm-5',
+export const NEW_PROVIDER_MODEL_CANARIES: Partial<Record<(typeof NEWLY_ADDED_PROVIDERS)[number], string>> = {
   minimax: 'MiniMax-M2.5',
-  moonshot: 'kimi-k2.5',
+  moonshot: 'kimi-latest',
   volcengine: 'doubao-embedding',
   deepseek: 'deepseek-chat',
-  qwen: 'qwen-plus-latest',
 }

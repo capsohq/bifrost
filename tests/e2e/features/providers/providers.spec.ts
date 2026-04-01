@@ -582,7 +582,7 @@ test.describe('Network Configuration', () => {
     await providersPage.selectConfigTab('network')
 
     // Should see timeout and retry settings
-    await expect(providersPage.page.getByLabel(/Timeout/i)).toBeVisible()
+    await expect(providersPage.page.getByLabel('Timeout (seconds)')).toBeVisible()
     await expect(providersPage.page.getByLabel(/Max Retries/i)).toBeVisible()
   })
 
@@ -609,7 +609,7 @@ test.describe('Network Configuration', () => {
       await providersPage.fillNumberInput(maxBackoff, '10000')
     }
 
-    const timeoutInput = providersPage.page.getByLabel(/Timeout/i)
+    const timeoutInput = providersPage.page.getByLabel('Timeout (seconds)')
     const originalValue = await timeoutInput.inputValue()
     const newValue = originalValue === '30' ? '60' : '30'
 
