@@ -22,7 +22,7 @@ test.describe('Config Settings', () => {
     test('should navigate to logging config', async ({ configSettingsPage }) => {
       await configSettingsPage.goto('logging')
       await expect(configSettingsPage.saveBtn).toBeVisible()
-      await expect(configSettingsPage.page.getByRole('heading', { name: /Logging/i })).toBeVisible()
+      await expect(configSettingsPage.page.getByRole('heading', { name: /Logs Settings/i })).toBeVisible()
     })
 
     test('should navigate to security config', async ({ configSettingsPage }) => {
