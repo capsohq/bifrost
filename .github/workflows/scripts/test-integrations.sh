@@ -83,9 +83,10 @@ BIFROST_PID=$!
 echo "   Started with PID: $BIFROST_PID"
 
 
-# Wait for server to be ready
+# Wait for server to be ready. Startup now includes model catalog sync,
+# optional MCP client retries, and provider/model discovery, so 30s is too low.
 echo "⏳ Waiting for Bifrost to be ready..."
-MAX_WAIT=30
+MAX_WAIT="${BIFROST_STARTUP_MAX_WAIT:-90}"
 ELAPSED=0
 SERVER_READY=false
 
@@ -108,6 +109,8 @@ done
 
 if [ "$SERVER_READY" = false ]; then
   echo "❌ Bifrost failed to start within ${MAX_WAIT}s"
+  echo "📄 Last 200 lines of server log:"
+  tail -n 200 "$LOG_FILE" || true
   exit 1
 fi
 

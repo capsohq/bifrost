@@ -170,7 +170,7 @@ for config in "${CONFIGS_TO_TEST[@]}"; do
 
   # Wait for server to be ready by looking for the startup message
   echo "    ⏳ Waiting for server to start..."
-  MAX_WAIT=30
+  MAX_WAIT="${BIFROST_STARTUP_MAX_WAIT:-90}"
   ELAPSED=0
   SERVER_READY=false
 
@@ -194,6 +194,8 @@ for config in "${CONFIGS_TO_TEST[@]}"; do
 
   if [ "$SERVER_READY" = false ]; then
     echo "    ❌ Server failed to start within ${MAX_WAIT}s with config: $config"
+    echo "    📄 Last 200 lines of server log:"
+    tail -n 200 "$SERVER_LOG" || true
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
