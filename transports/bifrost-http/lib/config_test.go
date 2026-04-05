@@ -16643,7 +16643,7 @@ func TestLoadConfig_NoConfigFile_FreshStart(t *testing.T) {
 	require.NotNil(t, config.ConfigStore, "ConfigStore should be created by default")
 
 	// Verify default client config
-	assertDefaultClientConfigValues(t, config.ClientConfig)
+	assertDefaultClientConfigValues(t, *config.ClientConfig)
 
 	// HeaderMatcher is nil when no header filter is configured (DefaultClientConfig has nil HeaderFilterConfig)
 	// This is expected behavior - it's only set when HeaderFilterConfig is non-nil
@@ -16803,7 +16803,7 @@ func TestLoadConfig_PartialConfigFile_OnlyProviders(t *testing.T) {
 	require.True(t, hasOpenAI, "OpenAI should be loaded from file")
 
 	// Verify client config gets defaults (no client in file)
-	assertDefaultClientConfigValues(t, config.ClientConfig)
+	assertDefaultClientConfigValues(t, *config.ClientConfig)
 
 	// Verify other sections are nil/empty
 	require.Empty(t, config.PluginConfigs, "Plugins should be empty")
@@ -16870,7 +16870,7 @@ func TestLoadConfig_PartialConfigFile_OnlyGovernance(t *testing.T) {
 	require.Equal(t, 500.0, config.GovernanceConfig.Budgets[0].MaxLimit)
 
 	// Verify client config gets defaults
-	assertDefaultClientConfigValues(t, config.ClientConfig)
+	assertDefaultClientConfigValues(t, *config.ClientConfig)
 }
 
 // TestLoadConfig_PartialConfigFile_OnlyPlugins tests config.json with only plugins section
@@ -16897,7 +16897,7 @@ func TestLoadConfig_PartialConfigFile_OnlyPlugins(t *testing.T) {
 	require.Equal(t, "my-plugin", config.PluginConfigs[0].Name)
 
 	// Verify client gets defaults
-	assertDefaultClientConfigValues(t, config.ClientConfig)
+	assertDefaultClientConfigValues(t, *config.ClientConfig)
 }
 
 // TestLoadConfig_PartialConfigFile_OnlyMCP tests config.json with only MCP section
@@ -16926,7 +16926,7 @@ func TestLoadConfig_PartialConfigFile_OnlyMCP(t *testing.T) {
 	require.Equal(t, "mcp_test", config.MCPConfig.ClientConfigs[0].Name)
 
 	// Verify client gets defaults
-	assertDefaultClientConfigValues(t, config.ClientConfig)
+	assertDefaultClientConfigValues(t, *config.ClientConfig)
 }
 
 // TestLoadConfig_PartialConfigFile_ClientAndProviders tests the most common minimal config
@@ -17152,7 +17152,7 @@ func TestLoadConfig_DefaultClientConfig_Values(t *testing.T) {
 	require.NotNil(t, config)
 	defer config.Close(ctx)
 
-	assertDefaultClientConfigValues(t, config.ClientConfig)
+	assertDefaultClientConfigValues(t, *config.ClientConfig)
 }
 
 // TestLoadConfig_PartialClientConfig_DefaultsFillGaps tests that missing client fields get defaults

@@ -120,7 +120,7 @@ curl -X POST http://localhost:8080/api/governance/virtual-keys \
 
 > **Note**: 
 > - `team_id` and `customer_id` are mutually exclusive - a VK can only belong to one team OR one customer, not both.
-> - `key_ids` restricts the VK to only use those specific provider API keys. Omit this field to allow access to all available keys.
+> - `key_ids` restricts the VK to only use those specific provider API keys. Use `["*"]` to allow access to all available keys. An empty array `[]` or omitting the field entirely denies all keys.
 
 **Update Virtual Key:**
 ```bash
@@ -155,7 +155,7 @@ curl -X DELETE http://localhost:8080/api/governance/virtual-keys/{vk_id}
 ```json
 {
   "client": {
-    "enforce_governance_header": true
+    "enforce_auth_on_inference": true
   },
   "governance": {
     "virtual_keys": [
@@ -520,7 +520,7 @@ curl -X PUT http://localhost:8080/api/config \
   -H "Content-Type: application/json" \
   -d '{
     "client_config": {
-      "enforce_governance_header": true
+      "enforce_auth_on_inference": true
     }
   }'
 ```
@@ -531,7 +531,7 @@ curl -X PUT http://localhost:8080/api/config \
 ```json
 {
   "client": {
-    "enforce_governance_header": true
+    "enforce_auth_on_inference": true
   }
 }
 ```

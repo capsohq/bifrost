@@ -55,6 +55,7 @@ export const ModelPlaceholders = {
 	vllm: "e.g. Qwen/Qwen3-0.6B, Qwen/Qwen3-1.5B",
 	runway: "e.g. gen4_turbo_image_to_video, gen3a_turbo_image_to_video",
 	volcengine: "e.g. doubao-seed-1-6-250615, doubao-seed-1-6-thinking-250615, doubao-1.5-vision-pro-250328, doubao-seedream-4-5-251128",
+	fireworks: "e.g. accounts/fireworks/models/llama-v3p1-70b-instruct",
 };
 
 export const isKeyRequiredByProvider: Record<ProviderName, boolean> = {
@@ -87,6 +88,7 @@ export const isKeyRequiredByProvider: Record<ProviderName, boolean> = {
 	runway: true,
 	vllm: false,
 	volcengine: true,
+	fireworks: true,
 };
 
 export const DefaultNetworkConfig = {

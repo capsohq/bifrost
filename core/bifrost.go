@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
-
 	"github.com/capsohq/bifrost/core/mcp"
 	"github.com/capsohq/bifrost/core/mcp/codemode/starlark"
 	"github.com/capsohq/bifrost/core/providers/anthropic"
@@ -26,6 +24,7 @@ import (
 	"github.com/capsohq/bifrost/core/providers/cohere"
 	"github.com/capsohq/bifrost/core/providers/deepseek"
 	"github.com/capsohq/bifrost/core/providers/elevenlabs"
+	"github.com/capsohq/bifrost/core/providers/fireworks"
 	"github.com/capsohq/bifrost/core/providers/gemini"
 	"github.com/capsohq/bifrost/core/providers/glm"
 	"github.com/capsohq/bifrost/core/providers/groq"
@@ -49,6 +48,7 @@ import (
 	"github.com/capsohq/bifrost/core/providers/volcengine"
 	"github.com/capsohq/bifrost/core/providers/xai"
 	schemas "github.com/capsohq/bifrost/core/schemas"
+	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
 )
 
@@ -3624,6 +3624,8 @@ func (bifrost *Bifrost) createBaseProvider(providerKey schemas.ModelProvider, co
 		return vllm.NewVLLMProvider(config, bifrost.logger)
 	case schemas.Runway:
 		return runway.NewRunwayProvider(config, bifrost.logger)
+	case schemas.Fireworks:
+		return fireworks.NewFireworksProvider(config, bifrost.logger)
 	case schemas.Minimax:
 		return minimax.NewMinimaxProvider(config, bifrost.logger)
 	case schemas.Moonshot:
