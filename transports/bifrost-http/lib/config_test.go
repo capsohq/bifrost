@@ -15492,7 +15492,9 @@ var excludedGoFields = map[string]map[string]bool{
 	"tables.GlobalHeaderFilterConfig": {},
 	"configstore.AuthConfig":          {},
 	"schemas.MCPStdioConfig":          {},
-	"lib.ConfigData":                  {},
+	"lib.ConfigData": {
+		"large_payload_optimization": true, // Enterprise-only top-level config
+	},
 	"vectorstore.Config":              {},
 	"configstore.Config":              {},
 	"logstore.Config":                 {},
@@ -15757,6 +15759,7 @@ func TestConfigSchemaSyncTopLevel(t *testing.T) {
 		"saml_config":          true,
 		"load_balancer_config": true,
 		"guardrails_config":    true,
+		"large_payload_optimization": true,
 	}
 
 	schema := loadJSONSchema(t)

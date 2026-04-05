@@ -122,16 +122,17 @@ type ConfigData struct {
 	Client        *configstore.ClientConfig `json:"client"`
 	EncryptionKey *schemas.EnvVar           `json:"encryption_key"`
 	// Deprecated: Use GovernanceConfig.AuthConfig instead
-	AuthConfig        *configstore.AuthConfig               `json:"auth_config,omitempty"`
-	Providers         map[string]configstore.ProviderConfig `json:"providers"`
-	FrameworkConfig   *framework.FrameworkConfig            `json:"framework,omitempty"`
-	MCP               *schemas.MCPConfig                    `json:"mcp,omitempty"`
-	Governance        *configstore.GovernanceConfig         `json:"governance,omitempty"`
-	VectorStoreConfig *vectorstore.Config                   `json:"vector_store,omitempty"`
-	ConfigStoreConfig *configstore.Config                   `json:"config_store,omitempty"`
-	LogsStoreConfig   *logstore.Config                      `json:"logs_store,omitempty"`
-	Plugins           []*schemas.PluginConfig               `json:"plugins,omitempty"`
-	WebSocket         *schemas.WebSocketConfig              `json:"websocket,omitempty"`
+	AuthConfig               *configstore.AuthConfig               `json:"auth_config,omitempty"`
+	Providers                map[string]configstore.ProviderConfig `json:"providers"`
+	FrameworkConfig          *framework.FrameworkConfig            `json:"framework,omitempty"`
+	MCP                      *schemas.MCPConfig                    `json:"mcp,omitempty"`
+	Governance               *configstore.GovernanceConfig         `json:"governance,omitempty"`
+	VectorStoreConfig        *vectorstore.Config                   `json:"vector_store,omitempty"`
+	ConfigStoreConfig        *configstore.Config                   `json:"config_store,omitempty"`
+	LogsStoreConfig          *logstore.Config                      `json:"logs_store,omitempty"`
+	LargePayloadOptimization json.RawMessage                       `json:"large_payload_optimization,omitempty"`
+	Plugins                  []*schemas.PluginConfig               `json:"plugins,omitempty"`
+	WebSocket                *schemas.WebSocketConfig              `json:"websocket,omitempty"`
 }
 
 // UnmarshalJSON unmarshals the ConfigData from JSON using internal unmarshallers
@@ -140,18 +141,19 @@ type ConfigData struct {
 func (cd *ConfigData) UnmarshalJSON(data []byte) error {
 	// First, unmarshal into a temporary struct to get all fields except the complex configs
 	type TempConfigData struct {
-		FrameworkConfig   json.RawMessage                       `json:"framework,omitempty"`
-		Client            *configstore.ClientConfig             `json:"client"`
-		EncryptionKey     *schemas.EnvVar                       `json:"encryption_key"`
-		AuthConfig        *configstore.AuthConfig               `json:"auth_config,omitempty"`
-		Providers         map[string]configstore.ProviderConfig `json:"providers"`
-		MCP               *schemas.MCPConfig                    `json:"mcp,omitempty"`
-		Governance        *configstore.GovernanceConfig         `json:"governance,omitempty"`
-		VectorStoreConfig json.RawMessage                       `json:"vector_store,omitempty"`
-		ConfigStoreConfig json.RawMessage                       `json:"config_store,omitempty"`
-		LogsStoreConfig   json.RawMessage                       `json:"logs_store,omitempty"`
-		Plugins           []*schemas.PluginConfig               `json:"plugins,omitempty"`
-		WebSocket         *schemas.WebSocketConfig              `json:"websocket,omitempty"`
+		FrameworkConfig          json.RawMessage                       `json:"framework,omitempty"`
+		Client                   *configstore.ClientConfig             `json:"client"`
+		EncryptionKey            *schemas.EnvVar                       `json:"encryption_key"`
+		AuthConfig               *configstore.AuthConfig               `json:"auth_config,omitempty"`
+		Providers                map[string]configstore.ProviderConfig `json:"providers"`
+		MCP                      *schemas.MCPConfig                    `json:"mcp,omitempty"`
+		Governance               *configstore.GovernanceConfig         `json:"governance,omitempty"`
+		VectorStoreConfig        json.RawMessage                       `json:"vector_store,omitempty"`
+		ConfigStoreConfig        json.RawMessage                       `json:"config_store,omitempty"`
+		LogsStoreConfig          json.RawMessage                       `json:"logs_store,omitempty"`
+		LargePayloadOptimization json.RawMessage                       `json:"large_payload_optimization,omitempty"`
+		Plugins                  []*schemas.PluginConfig               `json:"plugins,omitempty"`
+		WebSocket                *schemas.WebSocketConfig              `json:"websocket,omitempty"`
 	}
 
 	var temp TempConfigData
@@ -166,6 +168,7 @@ func (cd *ConfigData) UnmarshalJSON(data []byte) error {
 	cd.Providers = temp.Providers
 	cd.MCP = temp.MCP
 	cd.Governance = temp.Governance
+	cd.LargePayloadOptimization = temp.LargePayloadOptimization
 	cd.Plugins = temp.Plugins
 	cd.WebSocket = temp.WebSocket
 	// Initialize providers map if nil
