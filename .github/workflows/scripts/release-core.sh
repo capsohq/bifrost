@@ -10,6 +10,8 @@ if [[ "${1:-}" == "" ]]; then
   exit 1
 fi
 VERSION="$1"
+REPO_SLUG="${GITHUB_REPOSITORY:-capsohq/bifrost}"
+MODULE_ROOT="github.com/${REPO_SLUG}"
 
 TAG_NAME="core/v${VERSION}"
 
@@ -87,7 +89,7 @@ $CHANGELOG_BODY
 ### Installation
 
 \`\`\`bash
-go get github.com/maximhq/bifrost/core@v$VERSION
+go get ${MODULE_ROOT}/core@v$VERSION
 \`\`\`
 
 ---

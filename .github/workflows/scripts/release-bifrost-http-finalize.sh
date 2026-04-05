@@ -11,6 +11,8 @@ if [ "${1:-}" = "" ]; then
 fi
 
 VERSION="$1"
+REPO_SLUG="${GITHUB_REPOSITORY:-capsohq/bifrost}"
+MODULE_ROOT="github.com/${REPO_SLUG}"
 TAG_NAME="transports/v${VERSION}"
 
 echo "🏷️ Finalizing bifrost-http v$VERSION release..."
@@ -43,7 +45,7 @@ while IFS= read -r plugin_line; do
     PLUGIN_VERSIONS["$plugin_name"]="$plugin_version"
     PLUGINS_USED+=("$plugin_name:$plugin_version")
   fi
-done < <(grep "github.com/maximhq/bifrost/plugins/" transports/go.mod)
+done < <(grep "${MODULE_ROOT}/plugins/" transports/go.mod)
 
 echo "🔧 Versions:"
 echo "   Core: $CORE_VERSION"

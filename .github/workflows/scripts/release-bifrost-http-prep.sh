@@ -22,6 +22,8 @@ if [ "${1:-}" = "" ]; then
 fi
 
 VERSION="$1"
+REPO_SLUG="${GITHUB_REPOSITORY:-capsohq/bifrost}"
+MODULE_ROOT="github.com/${REPO_SLUG}"
 
 echo "🚀 Preparing bifrost-http v$VERSION release..."
 
@@ -60,7 +62,7 @@ while IFS= read -r plugin_line; do
     echo "   📦 $plugin_name: $current_version (from transport go.mod)"
     PLUGIN_VERSIONS["$plugin_name"]="$current_version"
   fi
-done < <(grep "github.com/maximhq/bifrost/plugins/" go.mod)
+done < <(grep "${MODULE_ROOT}/plugins/" go.mod)
 cd ..
 
 echo "🔧 Using versions:"
@@ -80,19 +82,19 @@ for plugin_name in "${!PLUGIN_VERSIONS[@]}"; do
   plugin_version="${PLUGIN_VERSIONS[$plugin_name]}"
 
   # Check if transport depends on this plugin
-  if grep -q "github.com/maximhq/bifrost/plugins/$plugin_name" go.mod; then
+  if grep -q "${MODULE_ROOT}/plugins/$plugin_name" go.mod; then
     echo "  📦 Using $plugin_name plugin $plugin_version"
-    go_get_with_backoff "github.com/maximhq/bifrost/plugins/$plugin_name@$plugin_version"
+    go_get_with_backoff "${MODULE_ROOT}/plugins/$plugin_name@$plugin_version"
   fi
 done
 
 # Also ensure core and framework are up to date
 
 echo "  🔧 Updating core to $CORE_VERSION"
-go_get_with_backoff "github.com/maximhq/bifrost/core@$CORE_VERSION"
+go_get_with_backoff "${MODULE_ROOT}/core@$CORE_VERSION"
 
 echo "  📦 Updating framework to $FRAMEWORK_VERSION"
-go_get_with_backoff "github.com/maximhq/bifrost/framework@$FRAMEWORK_VERSION"
+go_get_with_backoff "${MODULE_ROOT}/framework@$FRAMEWORK_VERSION"
 
 go mod tidy
 

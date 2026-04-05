@@ -12,6 +12,8 @@ if [[ $# -lt 1 ]]; then
 fi
 
 PLUGIN_NAME="$1"
+REPO_SLUG="${GITHUB_REPOSITORY:-capsohq/bifrost}"
+MODULE_ROOT="github.com/${REPO_SLUG}"
 
 # Get core version from parameter or version file
 if [ -n "${2:-}" ]; then
@@ -65,8 +67,8 @@ cd "$PLUGIN_DIR"
 
 # Update core dependency
 if [ -f "go.mod" ]; then
-  go_get_with_backoff "github.com/maximhq/bifrost/core@${CORE_VERSION}"
-  go_get_with_backoff "github.com/maximhq/bifrost/framework@${FRAMEWORK_VERSION}"
+  go_get_with_backoff "${MODULE_ROOT}/core@${CORE_VERSION}"
+  go_get_with_backoff "${MODULE_ROOT}/framework@${FRAMEWORK_VERSION}"
   go mod tidy
   git add go.mod go.sum || true
 
@@ -162,7 +164,7 @@ $CHANGELOG_BODY
 
 \`\`\`bash
 # Update your go.mod to use the new plugin version
-go get github.com/maximhq/bifrost/plugins/$PLUGIN_NAME@v$PLUGIN_VERSION
+go get ${MODULE_ROOT}/plugins/$PLUGIN_NAME@v$PLUGIN_VERSION
 \`\`\`
 
 ---

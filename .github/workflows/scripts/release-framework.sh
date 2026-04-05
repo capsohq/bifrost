@@ -14,6 +14,8 @@ if [ $# -ne 1 ]; then
 fi
 
 VERSION_RAW="$1"
+REPO_SLUG="${GITHUB_REPOSITORY:-capsohq/bifrost}"
+MODULE_ROOT="github.com/${REPO_SLUG}"
 # Ensure leading 'v' for module/tag semver
 if [[ "$VERSION_RAW" == v* ]]; then
   VERSION="$VERSION_RAW"
@@ -61,7 +63,7 @@ CORE_VERSION="v$(tr -d '\n\r' < core/version)"
 # Before starting the test, we need to update hello-word plugin core dependencies
 echo "🔧 Updating hello-word plugin core dependencies..."
 cd examples/plugins/hello-world
-go_get_with_backoff "github.com/maximhq/bifrost/core@$CORE_VERSION"
+go_get_with_backoff "${MODULE_ROOT}/core@$CORE_VERSION"
 go mod tidy
 git add go.mod go.sum
 cd ../../..
@@ -71,7 +73,7 @@ echo "🔧 Using core version: $CORE_VERSION"
 # Update framework dependencies
 echo "🔧 Updating framework dependencies..."
 cd framework
-go_get_with_backoff "github.com/maximhq/bifrost/core@$CORE_VERSION"
+go_get_with_backoff "${MODULE_ROOT}/core@$CORE_VERSION"
 go mod tidy
 git add go.mod go.sum
 
@@ -162,7 +164,7 @@ $CHANGELOG_BODY
 ### Installation
 
 \`\`\`bash
-go get github.com/maximhq/bifrost/framework@$VERSION
+go get ${MODULE_ROOT}/framework@$VERSION
 \`\`\`
 
 ---
