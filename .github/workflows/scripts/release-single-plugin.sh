@@ -67,9 +67,8 @@ cd "$PLUGIN_DIR"
 
 # Update core dependency
 if [ -f "go.mod" ]; then
-  go_get_with_backoff "${MODULE_ROOT}/core@${CORE_VERSION}"
-  go_get_with_backoff "${MODULE_ROOT}/framework@${FRAMEWORK_VERSION}"
-  go mod tidy
+  set_internal_module_version "${MODULE_ROOT}/core" "$CORE_VERSION"
+  set_internal_module_version "${MODULE_ROOT}/framework" "$FRAMEWORK_VERSION"
   git add go.mod go.sum || true
 
   # Validate build

@@ -84,19 +84,18 @@ for plugin_name in "${!PLUGIN_VERSIONS[@]}"; do
   # Check if transport depends on this plugin
   if grep -q "${MODULE_ROOT}/plugins/$plugin_name" go.mod; then
     echo "  📦 Using $plugin_name plugin $plugin_version"
-    go_get_with_backoff "${MODULE_ROOT}/plugins/$plugin_name@$plugin_version"
+    set_internal_module_version "${MODULE_ROOT}/plugins/$plugin_name" "$plugin_version"
   fi
 done
 
 # Also ensure core and framework are up to date
 
 echo "  🔧 Updating core to $CORE_VERSION"
-go_get_with_backoff "${MODULE_ROOT}/core@$CORE_VERSION"
+set_internal_module_version "${MODULE_ROOT}/core" "$CORE_VERSION"
 
 echo "  📦 Updating framework to $FRAMEWORK_VERSION"
-go_get_with_backoff "${MODULE_ROOT}/framework@$FRAMEWORK_VERSION"
+set_internal_module_version "${MODULE_ROOT}/framework" "$FRAMEWORK_VERSION"
 
-go mod tidy
 
 cd ..
 

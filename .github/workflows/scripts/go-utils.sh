@@ -43,3 +43,17 @@ go_get_with_backoff() {
   
   return 1
 }
+
+
+# Update an internal module dependency without resolving the currently pinned version first.
+# This avoids failures when older fork tags do not exist remotely.
+# Usage: set_internal_module_version <module> <version>
+set_internal_module_version() {
+  local module="$1"
+  local version="$2"
+
+  echo "🔧 Pinning $module to $version via go mod edit..."
+  go mod edit -require="${module}@${version}"
+  echo "🧹 Running go mod tidy after pinning $module..."
+  go mod tidy
+}

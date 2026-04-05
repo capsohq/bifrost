@@ -63,8 +63,7 @@ CORE_VERSION="v$(tr -d '\n\r' < core/version)"
 # Before starting the test, we need to update hello-word plugin core dependencies
 echo "🔧 Updating hello-word plugin core dependencies..."
 cd examples/plugins/hello-world
-go_get_with_backoff "${MODULE_ROOT}/core@$CORE_VERSION"
-go mod tidy
+set_internal_module_version "${MODULE_ROOT}/core" "$CORE_VERSION"
 git add go.mod go.sum
 cd ../../..
 
@@ -73,8 +72,7 @@ echo "🔧 Using core version: $CORE_VERSION"
 # Update framework dependencies
 echo "🔧 Updating framework dependencies..."
 cd framework
-go_get_with_backoff "${MODULE_ROOT}/core@$CORE_VERSION"
-go mod tidy
+set_internal_module_version "${MODULE_ROOT}/core" "$CORE_VERSION"
 git add go.mod go.sum
 
 # Check if there are any changes to commit
