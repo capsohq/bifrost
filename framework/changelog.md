@@ -1,1 +1,0 @@
-fix: increases buffer size for custom plugin installs from URLs

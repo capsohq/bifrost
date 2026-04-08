@@ -144,7 +144,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Routes that bypass auth middleware."
+          "description": "Routes that bypass auth middleware. Requests to these exact paths skip authentication checks."
         },
         "hide_deleted_virtual_keys_in_filters": {
           "type": "boolean",
@@ -273,6 +273,9 @@
           "$ref": "#/$defs/provider"
         },
         "qwen": {
+          "$ref": "#/$defs/provider"
+        },
+        "fireworks": {
           "$ref": "#/$defs/provider"
         }
       },
