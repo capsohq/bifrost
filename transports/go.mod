@@ -6,7 +6,7 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.4.16
+	github.com/capsohq/bifrost/core v1.4.17
 	github.com/capsohq/bifrost/framework v1.2.35
 	github.com/capsohq/bifrost/plugins/governance v1.4.24
 	github.com/capsohq/bifrost/plugins/litellmcompat v0.0.13
