@@ -1,8 +1,8 @@
 module github.com/capsohq/bifrost/examples/plugins/hello-world
 
-go 1.26.1
+go 1.26.2
 
-require github.com/capsohq/bifrost/core v1.4.16
+require github.com/capsohq/bifrost/core v1.4.17
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
