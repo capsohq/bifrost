@@ -78,5 +78,5 @@ export const NEW_PROVIDER_MODEL_CANARIES: Partial<Record<(typeof NEWLY_ADDED_PRO
   minimax: 'MiniMax-M2.5',
   moonshot: 'kimi-latest',
   volcengine: 'doubao-embedding',
-  deepseek: 'deepseek-chat',
+  deepseek: 'deepseek/deepseek-chat',
 }
