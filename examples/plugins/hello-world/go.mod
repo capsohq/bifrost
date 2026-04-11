@@ -2,7 +2,7 @@ module github.com/capsohq/bifrost/examples/plugins/hello-world
 
 go 1.26.2
 
-require github.com/capsohq/bifrost/core v1.4.17
+require github.com/capsohq/bifrost/core v1.4.18
 
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
@@ -34,3 +34,5 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/capsohq/bifrost/core => ../../../core

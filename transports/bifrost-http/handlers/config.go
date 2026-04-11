@@ -144,7 +144,7 @@ func (h *ConfigHandler) getConfig(ctx *fasthttp.RequestCtx) {
 			}
 			syncIntervalSeconds := int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
 			if h.store.FrameworkConfig.Pricing.PricingSyncInterval != nil {
-				syncIntervalSeconds = int64((*h.store.FrameworkConfig.Pricing.PricingSyncInterval).Seconds())
+				syncIntervalSeconds = *h.store.FrameworkConfig.Pricing.PricingSyncInterval
 			}
 			debounceMilliseconds := int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())
 			if h.store.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce != nil {
@@ -530,11 +530,11 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 	}
 	// Reload config if required
 	if shouldReloadFrameworkConfig {
-		var syncDuration time.Duration
+		var syncSeconds int64
 		if frameworkConfig.PricingSyncInterval != nil {
-			syncDuration = time.Duration(*frameworkConfig.PricingSyncInterval) * time.Second
+			syncSeconds = *frameworkConfig.PricingSyncInterval
 		} else {
-			syncDuration = modelcatalog.DefaultPricingSyncInterval
+			syncSeconds = int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
 		}
 		var providerModelHealthPersistDebounce time.Duration
 		if frameworkConfig.ProviderModelHealthPersistDebounce != nil {
@@ -545,7 +545,7 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 		h.store.FrameworkConfig = &framework.FrameworkConfig{
 			Pricing: &modelcatalog.Config{
 				PricingURL:                         frameworkConfig.PricingURL,
-				PricingSyncInterval:                &syncDuration,
+				PricingSyncInterval:                &syncSeconds,
 				ProviderModelHealthPersistDebounce: &providerModelHealthPersistDebounce,
 			},
 		}

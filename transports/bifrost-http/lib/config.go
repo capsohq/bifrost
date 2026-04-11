@@ -1950,43 +1950,191 @@ func buildMCPPricingDataFromConfig(ctx context.Context, configData *ConfigData) 
 	return mcpPricingData
 }
 
-// initFrameworkConfigFromFile initializes framework config and pricing manager from file
+// redactURL truncates a URL for safe logging, avoiding leakage of tokens or
+// credentials that may be embedded in query parameters or paths.
+func redactURL(u string) string {
+	if len(u) <= 8 {
+		return "***"
+	}
+	return u[:8] + "..."
+}
+
+// ResolveFrameworkPricingConfig resolves framework pricing configuration.
+//
+// Precedence order (highest → lowest): DB > config.json > built-in defaults.
+func ResolveFrameworkPricingConfig(
+	dbConfig *configstoreTables.TableFrameworkConfig,
+	fileConfig *framework.FrameworkConfig,
+) (*configstoreTables.TableFrameworkConfig, *modelcatalog.Config, bool) {
+	defaultPricingURL := modelcatalog.DefaultPricingURL
+	defaultSyncSeconds := int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
+	defaultDebounceMs := int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())
+
+	filePricingURL := (*string)(nil)
+	fileSyncSeconds := (*int64)(nil)
+	fileDebounceMs := (*int64)(nil)
+	skipURLBackfill := false
+	if fileConfig != nil && fileConfig.Pricing != nil {
+		if fileConfig.Pricing.PricingURL != nil {
+			raw := *fileConfig.Pricing.PricingURL
+			if strings.HasPrefix(raw, "env.") {
+				resolvedURL, err := envutils.ProcessEnvValue(raw)
+				if err != nil {
+					logger.Warn("pricing_url: env variable not found (%v); keeping original value %q", err, raw)
+					filePricingURL = fileConfig.Pricing.PricingURL
+					skipURLBackfill = true
+				} else {
+					filePricingURL = &resolvedURL
+				}
+			} else {
+				filePricingURL = &raw
+			}
+		}
+		if fileConfig.Pricing.PricingSyncInterval != nil {
+			val := *fileConfig.Pricing.PricingSyncInterval
+			switch {
+			case val <= 0:
+				logger.Warn("pricing_sync_interval in config.json is invalid (%d seconds), ignoring — using default (%d seconds)", val, defaultSyncSeconds)
+			case val < modelcatalog.MinimumPricingSyncIntervalSec:
+				clamped := modelcatalog.MinimumPricingSyncIntervalSec
+				logger.Warn("pricing_sync_interval in config.json is below minimum (%d seconds), clamping to %d seconds", val, clamped)
+				fileSyncSeconds = &clamped
+			default:
+				fileSyncSeconds = &val
+			}
+		}
+		if fileConfig.Pricing.ProviderModelHealthPersistDebounce != nil {
+			val := int64((*fileConfig.Pricing.ProviderModelHealthPersistDebounce).Milliseconds())
+			if val <= 0 {
+				logger.Warn("provider_model_health_persist_debounce_ms in config.json is invalid (%d ms), ignoring — using default (%d ms)", val, defaultDebounceMs)
+			} else {
+				fileDebounceMs = &val
+			}
+		}
+	}
+
+	resolvedPricingURL := &defaultPricingURL
+	resolvedSyncSeconds := &defaultSyncSeconds
+	resolvedDebounceMs := &defaultDebounceMs
+	urlSource := "default"
+	intervalSource := "default"
+	debounceSource := "default"
+
+	if filePricingURL != nil {
+		resolvedPricingURL = filePricingURL
+		urlSource = "file"
+	}
+	if fileSyncSeconds != nil {
+		resolvedSyncSeconds = fileSyncSeconds
+		intervalSource = "file"
+	}
+	if fileDebounceMs != nil {
+		resolvedDebounceMs = fileDebounceMs
+		debounceSource = "file"
+	}
+
+	needsDBUpdate := false
+	configID := uint(0)
+	if dbConfig != nil {
+		configID = dbConfig.ID
+		if dbConfig.PricingURL != nil {
+			if filePricingURL != nil && *filePricingURL != *dbConfig.PricingURL {
+				logger.Info("pricing_url overridden by DB: file=%s db=%s", redactURL(*filePricingURL), redactURL(*dbConfig.PricingURL))
+			}
+			resolvedPricingURL = dbConfig.PricingURL
+			urlSource = "db"
+		} else if !skipURLBackfill {
+			needsDBUpdate = true
+		}
+		if dbConfig.PricingSyncInterval != nil {
+			val := *dbConfig.PricingSyncInterval
+			if val <= 0 {
+				logger.Warn("pricing_sync_interval in DB is corrupted (%d seconds), ignoring — backfilling with %d seconds", val, *resolvedSyncSeconds)
+				needsDBUpdate = true
+			} else if val < modelcatalog.MinimumPricingSyncIntervalSec {
+				logger.Warn("pricing_sync_interval in DB is below minimum (%d seconds), clamping to %d seconds — backfilling", val, modelcatalog.MinimumPricingSyncIntervalSec)
+				clamped := modelcatalog.MinimumPricingSyncIntervalSec
+				resolvedSyncSeconds = &clamped
+				intervalSource = "db"
+				needsDBUpdate = true
+			} else {
+				resolvedSyncSeconds = dbConfig.PricingSyncInterval
+				intervalSource = "db"
+			}
+		} else {
+			needsDBUpdate = true
+		}
+		if dbConfig.ProviderModelHealthPersistDebounce != nil {
+			val := *dbConfig.ProviderModelHealthPersistDebounce
+			if val <= 0 {
+				logger.Warn("provider_model_health_persist_debounce_ms in DB is corrupted (%d ms), ignoring — backfilling with %d ms", val, *resolvedDebounceMs)
+				needsDBUpdate = true
+			} else {
+				resolvedDebounceMs = dbConfig.ProviderModelHealthPersistDebounce
+				debounceSource = "db"
+			}
+		} else {
+			needsDBUpdate = true
+		}
+	}
+
+	if resolvedPricingURL == nil {
+		logger.Warn("invariant violation: pricing_url resolved to nil — falling back to default %q", defaultPricingURL)
+		resolvedPricingURL = &defaultPricingURL
+		urlSource = "default(invariant-fallback)"
+	}
+	if resolvedSyncSeconds == nil {
+		logger.Warn("invariant violation: pricing_sync_interval resolved to nil — falling back to default %d seconds", defaultSyncSeconds)
+		resolvedSyncSeconds = &defaultSyncSeconds
+		intervalSource = "default(invariant-fallback)"
+	}
+	if resolvedDebounceMs == nil {
+		logger.Warn("invariant violation: provider_model_health_persist_debounce_ms resolved to nil — falling back to default %d ms", defaultDebounceMs)
+		resolvedDebounceMs = &defaultDebounceMs
+		debounceSource = "default(invariant-fallback)"
+	}
+
+	logger.Info("resolved pricing config: url=%s (source: %s) sync_interval=%d seconds (source: %s) debounce=%d ms (source: %s)",
+		redactURL(*resolvedPricingURL), urlSource, *resolvedSyncSeconds, intervalSource, *resolvedDebounceMs, debounceSource)
+
+	debounceDuration := time.Duration(*resolvedDebounceMs) * time.Millisecond
+
+	return &configstoreTables.TableFrameworkConfig{
+			ID:                                 configID,
+			PricingURL:                         resolvedPricingURL,
+			PricingSyncInterval:                resolvedSyncSeconds,
+			ProviderModelHealthPersistDebounce: resolvedDebounceMs,
+		}, &modelcatalog.Config{
+			PricingURL:                         resolvedPricingURL,
+			PricingSyncInterval:                resolvedSyncSeconds,
+			ProviderModelHealthPersistDebounce: &debounceDuration,
+		}, needsDBUpdate
+}
+
+// initFrameworkConfig initializes framework config and pricing manager from file
 func initFrameworkConfig(ctx context.Context, config *Config, configData *ConfigData) {
-	pricingConfig := &modelcatalog.Config{}
 	mcpPricingConfig := &mcpcatalog.Config{}
+	var frameworkConfigFromDB *configstoreTables.TableFrameworkConfig
 	if config.ConfigStore != nil {
 		frameworkConfig, err := config.ConfigStore.GetFrameworkConfig(ctx)
 		if err != nil {
 			logger.Warn("failed to get framework config from store: %v", err)
 		}
-		if frameworkConfig != nil && frameworkConfig.PricingURL != nil {
-			pricingConfig.PricingURL = frameworkConfig.PricingURL
-		}
-		if frameworkConfig != nil && frameworkConfig.PricingSyncInterval != nil {
-			syncDuration := time.Duration(*frameworkConfig.PricingSyncInterval) * time.Second
-			pricingConfig.PricingSyncInterval = &syncDuration
-		}
-		if frameworkConfig != nil && frameworkConfig.ProviderModelHealthPersistDebounce != nil {
-			debounceDuration := time.Duration(*frameworkConfig.ProviderModelHealthPersistDebounce) * time.Millisecond
-			pricingConfig.ProviderModelHealthPersistDebounce = &debounceDuration
-		}
+		frameworkConfigFromDB = frameworkConfig
 		mcpPricingConfig.PricingData = buildMCPPricingDataFromStore(ctx, config.ConfigStore)
-	} else if configData.FrameworkConfig != nil && configData.FrameworkConfig.Pricing != nil {
-		pricingConfig.PricingURL = configData.FrameworkConfig.Pricing.PricingURL
-		if configData.FrameworkConfig.Pricing.PricingSyncInterval != nil && *configData.FrameworkConfig.Pricing.PricingSyncInterval > 0 {
-			syncDuration := time.Duration(*configData.FrameworkConfig.Pricing.PricingSyncInterval) * time.Second
-			pricingConfig.PricingSyncInterval = &syncDuration
-		}
-		if configData.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce != nil && *configData.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce > 0 {
-			debounceDuration := time.Duration(*configData.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce) * time.Millisecond
-			pricingConfig.ProviderModelHealthPersistDebounce = &debounceDuration
+	}
+	var fileFrameworkConfig *framework.FrameworkConfig
+	if configData != nil {
+		fileFrameworkConfig = configData.FrameworkConfig
+	}
+	normalizedFrameworkConfig, pricingConfig, needsFrameworkBackfill := ResolveFrameworkPricingConfig(frameworkConfigFromDB, fileFrameworkConfig)
+	if config.ConfigStore != nil && (frameworkConfigFromDB == nil || needsFrameworkBackfill) {
+		if err := config.ConfigStore.UpdateFrameworkConfig(ctx, normalizedFrameworkConfig); err != nil {
+			logger.Warn("failed to normalize framework config in store: %v", err)
 		}
 	}
 
-	// Initialize OAuth provider
 	config.OAuthProvider = oauth2.NewOAuth2Provider(config.ConfigStore, logger)
-
-	// Start token refresh worker for automatic OAuth token refresh
 	config.TokenRefreshWorker = oauth2.NewTokenRefreshWorker(config.OAuthProvider, logger)
 	if config.TokenRefreshWorker != nil {
 		config.TokenRefreshWorker.Start(ctx)
@@ -1998,8 +2146,6 @@ func initFrameworkConfig(ctx context.Context, config *Config, configData *Config
 
 	var pricingManager *modelcatalog.ModelCatalog
 	var err error
-
-	// Use default modelcatalog initialization when no enterprise overrides are provided
 	pricingManager, err = modelcatalog.Init(ctx, pricingConfig, config.ConfigStore, nil, logger)
 	if err != nil {
 		logger.Error("failed to initialize pricing manager: %v", err)
@@ -2008,7 +2154,6 @@ func initFrameworkConfig(ctx context.Context, config *Config, configData *Config
 		applyProviderPricingOverrides(config.ModelCatalog, config.Providers)
 	}
 
-	// Initialize MCP catalog
 	mcpCatalog, err := mcpcatalog.Init(ctx, &mcpcatalog.Config{
 		PricingData: buildMCPPricingDataFromConfig(ctx, configData),
 	}, logger)
@@ -2324,10 +2469,10 @@ func initDefaultFrameworkConfig(ctx context.Context, config *Config) error {
 		pricingConfig.PricingURL = bifrost.Ptr(modelcatalog.DefaultPricingURL)
 	}
 	if frameworkConfig != nil && frameworkConfig.PricingSyncInterval != nil && *frameworkConfig.PricingSyncInterval > 0 {
-		syncDuration := time.Duration(*frameworkConfig.PricingSyncInterval) * time.Second
-		pricingConfig.PricingSyncInterval = &syncDuration
+		pricingConfig.PricingSyncInterval = frameworkConfig.PricingSyncInterval
 	} else {
-		pricingConfig.PricingSyncInterval = bifrost.Ptr(modelcatalog.DefaultPricingSyncInterval)
+		defaultSyncSecs := int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
+		pricingConfig.PricingSyncInterval = bifrost.Ptr(defaultSyncSecs)
 	}
 	if frameworkConfig != nil && frameworkConfig.ProviderModelHealthPersistDebounce != nil && *frameworkConfig.ProviderModelHealthPersistDebounce > 0 {
 		debounceDuration := time.Duration(*frameworkConfig.ProviderModelHealthPersistDebounce) * time.Millisecond
@@ -2343,7 +2488,7 @@ func initDefaultFrameworkConfig(ctx context.Context, config *Config) error {
 	}
 	var durationSec int64
 	if pricingConfig.PricingSyncInterval != nil {
-		durationSec = int64((*pricingConfig.PricingSyncInterval).Seconds())
+		durationSec = *pricingConfig.PricingSyncInterval
 	} else {
 		d := modelcatalog.DefaultPricingSyncInterval
 		durationSec = int64(d.Seconds())

@@ -15811,6 +15811,235 @@ func TestConfigSchemaSyncTopLevel(t *testing.T) {
 // AUTH CONFIG PASSWORD HASHING TESTS
 // ===================================================================================
 
+func TestResolveFrameworkPricingConfig(t *testing.T) {
+	initTestLogger()
+	defaultURL := modelcatalog.DefaultPricingURL
+	defaultSyncSeconds := int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
+	defaultDebounceMs := int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())
+	fileURL := "https://example.com/pricing.json"
+	fileSyncSeconds := int64((12 * time.Hour).Seconds())
+	dbURL := "https://db.example.com/pricing.json"
+	dbSyncSeconds := int64((6 * time.Hour).Seconds())
+
+	t.Run("db values take precedence", func(t *testing.T) {
+		dbDebounceMs := defaultDebounceMs
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                                 7,
+			PricingURL:                         &dbURL,
+			PricingSyncInterval:                &dbSyncSeconds,
+			ProviderModelHealthPersistDebounce: &dbDebounceMs,
+		}
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL:          &fileURL,
+				PricingSyncInterval: &fileSyncSeconds,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, fileConfig)
+		require.False(t, needsDBUpdate)
+		require.Equal(t, uint(7), normalizedTable.ID)
+		require.Equal(t, dbURL, *normalizedTable.PricingURL)
+		require.Equal(t, dbSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, dbURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, dbSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("fallback to file when db fields are missing", func(t *testing.T) {
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                  3,
+			PricingURL:          nil,
+			PricingSyncInterval: nil,
+		}
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL:          &fileURL,
+				PricingSyncInterval: &fileSyncSeconds,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, fileConfig)
+		require.True(t, needsDBUpdate)
+		require.Equal(t, uint(3), normalizedTable.ID)
+		require.Equal(t, fileURL, *normalizedTable.PricingURL)
+		require.Equal(t, fileSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, fileURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, fileSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("fallback to defaults when db and file are missing", func(t *testing.T) {
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(nil, nil)
+		require.False(t, needsDBUpdate)
+		require.Equal(t, defaultURL, *normalizedTable.PricingURL)
+		require.Equal(t, defaultSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, defaultURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, defaultSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("invalid db interval (zero) falls back and requests db update", func(t *testing.T) {
+		invalidDBSync := int64(0)
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                  5,
+			PricingURL:          &dbURL,
+			PricingSyncInterval: &invalidDBSync,
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, nil)
+		require.True(t, needsDBUpdate)
+		require.Equal(t, dbURL, *normalizedTable.PricingURL)
+		require.Equal(t, defaultSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, dbURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, defaultSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("invalid db interval (negative) falls back and requests db update", func(t *testing.T) {
+		negativeDBSync := int64(-100)
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                  6,
+			PricingURL:          &dbURL,
+			PricingSyncInterval: &negativeDBSync,
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, nil)
+		require.True(t, needsDBUpdate)
+		require.Equal(t, defaultSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, defaultSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("file interval below minimum is clamped to 3600", func(t *testing.T) {
+		tooLow := int64(1800)
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingSyncInterval: &tooLow,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(nil, fileConfig)
+		require.False(t, needsDBUpdate)
+		require.Equal(t, modelcatalog.MinimumPricingSyncIntervalSec, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, modelcatalog.MinimumPricingSyncIntervalSec, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("file interval of zero is ignored and defaults apply", func(t *testing.T) {
+		zero := int64(0)
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingSyncInterval: &zero,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(nil, fileConfig)
+		require.False(t, needsDBUpdate)
+		require.Equal(t, defaultSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, defaultSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("file interval negative is ignored and defaults apply", func(t *testing.T) {
+		neg := int64(-1)
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingSyncInterval: &neg,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(nil, fileConfig)
+		require.False(t, needsDBUpdate)
+		require.Equal(t, defaultSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, defaultSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+	})
+
+	t.Run("pricing_url with missing env var falls back to literal string", func(t *testing.T) {
+		rawURL := "env.BIFROST_TEST_PRICING_URL_NONEXISTENT_XYZ"
+		prev, existed := os.LookupEnv("BIFROST_TEST_PRICING_URL_NONEXISTENT_XYZ")
+		os.Unsetenv("BIFROST_TEST_PRICING_URL_NONEXISTENT_XYZ")
+		t.Cleanup(func() {
+			if existed {
+				os.Setenv("BIFROST_TEST_PRICING_URL_NONEXISTENT_XYZ", prev)
+			}
+		})
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL: &rawURL,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, _ := ResolveFrameworkPricingConfig(nil, fileConfig)
+		require.Equal(t, rawURL, *normalizedTable.PricingURL)
+		require.Equal(t, rawURL, *normalizedModelCatalog.PricingURL)
+	})
+
+	t.Run("pricing_url with valid env var is resolved", func(t *testing.T) {
+		t.Setenv("BIFROST_TEST_PRICING_URL_VALID", "https://resolved.example.com/pricing.json")
+		rawURL := "env.BIFROST_TEST_PRICING_URL_VALID"
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL: &rawURL,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, _ := ResolveFrameworkPricingConfig(nil, fileConfig)
+		require.Equal(t, "https://resolved.example.com/pricing.json", *normalizedTable.PricingURL)
+		require.Equal(t, "https://resolved.example.com/pricing.json", *normalizedModelCatalog.PricingURL)
+	})
+
+	t.Run("partial/embedded env string is treated as literal (no substitution)", func(t *testing.T) {
+		t.Setenv("BIFROST_TEST_PRICING_HOST", "host.example.com")
+		embeddedURL := "https://env.BIFROST_TEST_PRICING_HOST/pricing.json"
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL: &embeddedURL,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, _ := ResolveFrameworkPricingConfig(nil, fileConfig)
+		require.Equal(t, embeddedURL, *normalizedTable.PricingURL)
+		require.Equal(t, embeddedURL, *normalizedModelCatalog.PricingURL)
+	})
+
+	t.Run("returned pointers are never nil regardless of inputs", func(t *testing.T) {
+		inputs := []struct {
+			db   *tables.TableFrameworkConfig
+			file *framework.FrameworkConfig
+		}{
+			{nil, nil},
+			{&tables.TableFrameworkConfig{}, nil},
+			{nil, &framework.FrameworkConfig{}},
+			{&tables.TableFrameworkConfig{}, &framework.FrameworkConfig{}},
+		}
+		for _, tc := range inputs {
+			tableOut, catalogOut, _ := ResolveFrameworkPricingConfig(tc.db, tc.file)
+			require.NotNil(t, tableOut)
+			require.NotNil(t, tableOut.PricingURL)
+			require.NotNil(t, tableOut.PricingSyncInterval)
+			require.NotNil(t, catalogOut)
+			require.NotNil(t, catalogOut.PricingURL)
+			require.NotNil(t, catalogOut.PricingSyncInterval)
+		}
+	})
+
+	t.Run("db corrupted (zero) with valid file interval uses file value and requests db backfill", func(t *testing.T) {
+		corruptedDBSync := int64(0)
+		fileSync := int64(7200)
+
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                  9,
+			PricingURL:          &dbURL,
+			PricingSyncInterval: &corruptedDBSync,
+		}
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingSyncInterval: &fileSync,
+			},
+		}
+
+		tableOut, catalogOut, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, fileConfig)
+		require.True(t, needsDBUpdate)
+		require.Equal(t, int64(7200), *tableOut.PricingSyncInterval)
+		require.Equal(t, int64(7200), *catalogOut.PricingSyncInterval)
+		require.Equal(t, dbURL, *tableOut.PricingURL)
+	})
+}
+
 func TestIsBcryptHash(t *testing.T) {
 	tests := []struct {
 		name     string
