@@ -70,27 +70,18 @@ func NewMistralProvider(config *schemas.ProviderConfig, logger schemas.Logger) *
 
 // GetProviderKey returns the provider identifier for Mistral.
 func (provider *MistralProvider) GetProviderKey() schemas.ModelProvider {
-	return provider.reportedProviderKey()
+	return providerUtils.GetProviderName(schemas.Mistral, provider.customProviderConfig)
 }
 
-func (provider *MistralProvider) baseProviderKey() schemas.ModelProvider {
-	return schemas.Mistral
-}
-
-func (provider *MistralProvider) reportedProviderKey() schemas.ModelProvider {
-	return providerUtils.GetProviderName(provider.baseProviderKey(), provider.customProviderConfig)
-}
-
-// Shared OpenAI-compatible converters key Mistral compatibility off the base provider,
-// while Bifrost still needs the custom alias for provider identity and reporting.
-func (provider *MistralProvider) normalizeChatRequestProvider(request *schemas.BifrostChatRequest) *schemas.BifrostChatRequest {
+// prepareChatRequest preserves alias metadata on the original request while ensuring
+// OpenAI compatibility conversion applies Mistral-specific request shaping.
+func (provider *MistralProvider) prepareChatRequest(request *schemas.BifrostChatRequest) *schemas.BifrostChatRequest {
 	if request == nil {
 		return nil
 	}
-
-	normalizedRequest := *request
-	normalizedRequest.Provider = provider.baseProviderKey()
-	return &normalizedRequest
+	reqCopy := *request
+	reqCopy.Provider = schemas.Mistral
+	return &reqCopy
 }
 
 // listModelsByKey performs a list models request for a single key.
@@ -180,13 +171,18 @@ func (provider *MistralProvider) TextCompletionStream(ctx *schemas.BifrostContex
 
 // ChatCompletion performs a chat completion request to the Mistral API.
 func (provider *MistralProvider) ChatCompletion(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostChatRequest) (*schemas.BifrostChatResponse, *schemas.BifrostError) {
-	request = provider.normalizeChatRequestProvider(request)
+	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ChatCompletionRequest); err != nil {
+		if request != nil {
+			err.ExtraFields.ModelRequested = request.Model
+		}
+		return nil, err
+	}
 
 	return openai.HandleOpenAIChatCompletionRequest(
 		ctx,
 		provider.client,
 		provider.networkConfig.BaseURL+providerUtils.GetPathFromContext(ctx, "/v1/chat/completions"),
-		request,
+		provider.prepareChatRequest(request),
 		key,
 		provider.networkConfig.ExtraHeaders,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
@@ -203,7 +199,12 @@ func (provider *MistralProvider) ChatCompletion(ctx *schemas.BifrostContext, key
 // Uses Mistral's OpenAI-compatible streaming format.
 // Returns a channel containing BifrostStreamChunk objects representing the stream or an error if the request fails.
 func (provider *MistralProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
-	request = provider.normalizeChatRequestProvider(request)
+	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ChatCompletionStreamRequest); err != nil {
+		if request != nil {
+			err.ExtraFields.ModelRequested = request.Model
+		}
+		return nil, err
+	}
 
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
@@ -214,7 +215,7 @@ func (provider *MistralProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 		ctx,
 		provider.client,
 		provider.networkConfig.BaseURL+"/v1/chat/completions",
-		request,
+		provider.prepareChatRequest(request),
 		authHeader,
 		provider.networkConfig.ExtraHeaders,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
@@ -232,6 +233,13 @@ func (provider *MistralProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 
 // Responses performs a responses request to the Mistral API.
 func (provider *MistralProvider) Responses(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostResponsesRequest) (*schemas.BifrostResponsesResponse, *schemas.BifrostError) {
+	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ResponsesRequest); err != nil {
+		if request != nil {
+			err.ExtraFields.ModelRequested = request.Model
+		}
+		return nil, err
+	}
+
 	chatResponse, err := provider.ChatCompletion(ctx, key, request.ToChatRequest())
 	if err != nil {
 		return nil, err
@@ -247,6 +255,13 @@ func (provider *MistralProvider) Responses(ctx *schemas.BifrostContext, key sche
 
 // ResponsesStream performs a streaming responses request to the Mistral API.
 func (provider *MistralProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ResponsesStreamRequest); err != nil {
+		if request != nil {
+			err.ExtraFields.ModelRequested = request.Model
+		}
+		return nil, err
+	}
+
 	ctx.SetValue(schemas.BifrostContextKeyIsResponsesToChatCompletionFallback, true)
 	return provider.ChatCompletionStream(
 		ctx,
@@ -259,6 +274,13 @@ func (provider *MistralProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 // Embedding generates embeddings for the given input text(s) using the Mistral API.
 // Supports Mistral's embedding models and returns a BifrostResponse containing the embedding(s).
 func (provider *MistralProvider) Embedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
+	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.EmbeddingRequest); err != nil {
+		if request != nil {
+			err.ExtraFields.ModelRequested = request.Model
+		}
+		return nil, err
+	}
+
 	// Use the shared embedding request handler
 	return openai.HandleOpenAIEmbeddingRequest(
 		ctx,
@@ -288,6 +310,13 @@ func (provider *MistralProvider) Rerank(ctx *schemas.BifrostContext, key schemas
 // OCR performs an OCR request to the Mistral API.
 // It sends a JSON request to Mistral's OCR endpoint and returns the extracted content.
 func (provider *MistralProvider) OCR(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostOCRRequest) (*schemas.BifrostOCRResponse, *schemas.BifrostError) {
+	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.OCRRequest); err != nil {
+		if request != nil {
+			err.ExtraFields.ModelRequested = request.Model
+		}
+		return nil, err
+	}
+
 	providerName := provider.GetProviderKey()
 
 	// Convert Bifrost request to Mistral format

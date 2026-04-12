@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/maxim
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.4.18
-	github.com/capsohq/bifrost/framework v1.2.37
+	github.com/capsohq/bifrost/core v1.4.19
+	github.com/capsohq/bifrost/framework v1.2.38
 	github.com/maximhq/maxim-go v0.2.1
 )
 
@@ -77,7 +77,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.7.6 // indirect
+	github.com/jackc/pgx/v5 v5.9.1 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
