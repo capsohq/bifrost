@@ -542,12 +542,11 @@ func (p *LoggerPlugin) applyStreamingOutputToEntry(entry *logstore.Log, streamRe
 		}
 		latF := float64(streamResponse.Data.Latency)
 		entry.Latency = &latF
-		return
+	} else {
+		entry.Status = "success"
+		latF := float64(streamResponse.Data.Latency)
+		entry.Latency = &latF
 	}
-
-	entry.Status = "success"
-	latF := float64(streamResponse.Data.Latency)
-	entry.Latency = &latF
 
 	// Update model if provided
 	if streamResponse.Data.Model != "" {

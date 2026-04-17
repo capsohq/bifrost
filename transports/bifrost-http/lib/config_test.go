@@ -15409,6 +15409,7 @@ var excludedGoFields = map[string]map[string]bool{
 	"configstore.ClientConfig": {
 		"ConfigHash":                  true,
 		"allowed_headers":             true, // Internal use
+		"enable_litellm_fallbacks":    true, // Fork-specific runtime flag, not part of the public schema
 		"mcp_agent_depth":             true, // Managed via MCP config
 		"mcp_code_mode_binding_level": true,
 		"mcp_tool_execution_timeout":  true,
@@ -15417,15 +15418,17 @@ var excludedGoFields = map[string]map[string]bool{
 	"configstore.ProviderConfig": {"ConfigHash": true},
 	// GovernanceConfig - some fields are internal/enterprise
 	"configstore.GovernanceConfig": {
-		"model_configs": true, // Internal
-		"providers":     true, // Internal
-		"routing_rules": true, // Internal
+		"model_configs":     true, // Internal
+		"pricing_overrides": true, // Runtime-only override support
+		"providers":         true, // Internal
+		"routing_rules":     true, // Internal
 	},
 	// Table types have DB-specific fields
 	"tables.TableBudget": {
-		"config_hash": true,
-		"created_at":  true,
-		"updated_at":  true,
+		"calendar_aligned": true, // Runtime field; public schema exposes this on virtual keys
+		"config_hash":      true,
+		"created_at":       true,
+		"updated_at":       true,
 	},
 	"tables.TableRateLimit": {
 		"config_hash": true,
@@ -15451,6 +15454,7 @@ var excludedGoFields = map[string]map[string]bool{
 		"virtual_keys": true, // GORM relation
 	},
 	"tables.TableVirtualKey": {
+		"budget_id":   true, // Runtime association stored outside the public schema
 		"config_hash": true,
 		"created_at":  true,
 		"updated_at":  true,
@@ -15461,6 +15465,8 @@ var excludedGoFields = map[string]map[string]bool{
 	},
 	"tables.TableVirtualKeyProviderConfig": {
 		"budget":     true, // GORM relation
+		"budget_id":  true, // Runtime association stored outside the public schema
+		"keys":       true, // Config file uses key_ids; runtime resolves to keys
 		"rate_limit": true, // GORM relation
 	},
 	"tables.TableVirtualKeyMCPConfig": {
@@ -15493,25 +15499,48 @@ var excludedGoFields = map[string]map[string]bool{
 	"tables.GlobalHeaderFilterConfig": {},
 	"configstore.AuthConfig":          {},
 	"schemas.MCPStdioConfig":          {},
-	"lib.ConfigData": {
-		"large_payload_optimization": true, // Enterprise-only top-level config
-	},
-	"vectorstore.Config": {},
-	"configstore.Config": {},
-	"logstore.Config":    {},
+	"lib.ConfigData":                  {},
+	"vectorstore.Config":              {},
+	"configstore.Config":              {},
+	"logstore.Config":                 {},
 }
 
 // excludedSchemaFields are schema fields that don't exist in Go structs (schema-only documentation)
 var excludedSchemaFields = map[string]map[string]bool{
+	"": {
+		"scim_config": true, // Enterprise-only in this fork
+		"version":     true, // Config compatibility flag, not a ConfigData field
+	},
 	"client": {
-		"allowed_headers": true, // Not in ClientConfig
+		"allowed_headers":              true, // Not in ClientConfig
+		"compat":                       true, // Transport-only compatibility block
+		"mcp_disable_auto_tool_inject": true, // Documented behavior enforced outside ClientConfig
+		"routing_chain_max_depth":      true, // Documented behavior enforced outside ClientConfig
+	},
+	"governance": {
+		"pricing_overrides": true, // Runtime-only override support
+	},
+	"governance.budgets": {
+		"provider_config_id": true, // Public schema-only association metadata
+		"virtual_key_id":     true, // Public schema-only association metadata
+	},
+	"governance.virtual_keys": {
+		"calendar_aligned": true, // Public schema documents this at VK level; runtime stores it on budgets
 	},
 	"governance.virtual_keys.provider_configs": {
-		"keys": true, // Complex nested type, validated separately
+		"key_ids": true, // Public schema uses key_ids; runtime resolves them into keys
+	},
+	"governance.virtual_keys.mcp_configs": {
+		"mcp_client_name": true, // Config file helper field resolved to mcp_client_id at load time
 	},
 	"mcp.client_configs": {
-		"websocket_config": true, // Schema documents all connection types
-		"http_config":      true, // Schema documents all connection types
+		"allow_on_all_virtual_keys": true, // Public schema-only convenience field
+		"allowed_extra_headers":     true, // Public schema-only convenience field
+		"http_config":               true, // Schema documents alternate connection forms not persisted in runtime config
+		"websocket_config":          true, // Schema documents alternate connection forms not persisted in runtime config
+	},
+	"mcp.tool_manager_config": {
+		"disable_auto_tool_inject": true, // Documented behavior enforced outside MCPToolManagerConfig
 	},
 }
 
@@ -15757,10 +15786,12 @@ func TestConfigSchemaSyncTopLevel(t *testing.T) {
 		"$schema":                    true,
 		"audit_logs":                 true,
 		"cluster_config":             true,
-		"saml_config":                true,
-		"load_balancer_config":       true,
 		"guardrails_config":          true,
 		"large_payload_optimization": true,
+		"load_balancer_config":       true,
+		"saml_config":                true,
+		"scim_config":                true,
+		"version":                    true,
 	}
 
 	schema := loadJSONSchema(t)

@@ -123,17 +123,24 @@ func (req *OpenAIChatRequest) filterOpenAISpecificParametersPreserveReasoning() 
 func (req *OpenAIChatRequest) filterOpenAISpecificParametersInternal(normalizeReasoning bool) {
 	// Handle reasoning parameter: OpenAI uses effort-based reasoning
 	// Priority: effort (native) > max_tokens (estimated)
-	if normalizeReasoning && req.ChatParameters.Reasoning != nil {
+	if req.ChatParameters.Reasoning != nil {
+		reasoningCopy := *req.ChatParameters.Reasoning
+		req.ChatParameters.Reasoning = &reasoningCopy
 		if req.ChatParameters.Reasoning.Effort != nil {
-			// Native field is provided, use it (and clear max_tokens)
-			effort := *req.ChatParameters.Reasoning.Effort
-			// Convert "minimal" to "low" for non-OpenAI providers
-			if effort == "minimal" {
-				req.ChatParameters.Reasoning.Effort = schemas.Ptr("low")
+			if normalizeReasoning {
+				// Native field is provided, use it (and clear max_tokens)
+				effort := *req.ChatParameters.Reasoning.Effort
+				// Convert "minimal" to "low"; cap "xhigh"/"max" to "high" — OpenAI tops out at high.
+				switch effort {
+				case "minimal":
+					req.ChatParameters.Reasoning.Effort = schemas.Ptr("low")
+				case "xhigh", "max":
+					req.ChatParameters.Reasoning.Effort = schemas.Ptr("high")
+				}
 			}
 			// Clear max_tokens since OpenAI doesn't use it
 			req.ChatParameters.Reasoning.MaxTokens = nil
-		} else if req.ChatParameters.Reasoning.MaxTokens != nil {
+		} else if normalizeReasoning && req.ChatParameters.Reasoning.MaxTokens != nil {
 			// Estimate effort from max_tokens
 			maxTokens := *req.ChatParameters.Reasoning.MaxTokens
 			maxCompletionTokens := utils.GetMaxOutputTokensOrDefault(req.Model, DefaultCompletionMaxTokens)
