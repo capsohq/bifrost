@@ -854,7 +854,11 @@ func (m *MockConfigStore) DeleteModelPrices(ctx context.Context, tx ...*gorm.DB)
 }
 
 // Model parameters
-func (m *MockConfigStore) GetModelParameters(ctx context.Context, model string) (*tables.TableModelParameters, error) {
+func (m *MockConfigStore) GetModelParameters(ctx context.Context) ([]tables.TableModelParameters, error) {
+	return nil, nil
+}
+
+func (m *MockConfigStore) GetModelParametersByModel(ctx context.Context, model string) (*tables.TableModelParameters, error) {
 	return nil, nil
 }
 
@@ -1117,6 +1121,146 @@ func (m *MockConfigStore) RenamePromptSession(ctx context.Context, id uint, name
 	return nil
 }
 func (m *MockConfigStore) DeletePromptSession(ctx context.Context, id uint) error { return nil }
+
+// Additional ConfigStore methods required by newer interface revisions.
+func (m *MockConfigStore) GetProviderKeys(ctx context.Context, provider schemas.ModelProvider) ([]schemas.Key, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetProviderKey(ctx context.Context, provider schemas.ModelProvider, keyID string) (*schemas.Key, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreateProviderKey(ctx context.Context, provider schemas.ModelProvider, key schemas.Key, tx ...*gorm.DB) error {
+	return nil
+}
+func (m *MockConfigStore) UpdateProviderKey(ctx context.Context, provider schemas.ModelProvider, keyID string, key schemas.Key, tx ...*gorm.DB) error {
+	return nil
+}
+func (m *MockConfigStore) DeleteProviderKey(ctx context.Context, provider schemas.ModelProvider, keyID string, tx ...*gorm.DB) error {
+	return nil
+}
+func (m *MockConfigStore) UpdateMCPClientDiscoveredTools(ctx context.Context, id string, tools map[string]schemas.ChatTool, annotations map[string]string) error {
+	return nil
+}
+func (m *MockConfigStore) GetVirtualKeyQuotaByValue(ctx context.Context, value string) (*tables.TableVirtualKey, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetVirtualKeyMCPConfigsByMCPClientID(ctx context.Context, mcpClientID uint) ([]tables.TableVirtualKeyMCPConfig, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetVirtualKeyMCPConfigsByMCPClientIDs(ctx context.Context, mcpClientIDs []uint) ([]tables.TableVirtualKeyMCPConfig, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetVirtualKeyMCPConfigsByMCPClientStringIDs(ctx context.Context, mcpClientIDs []string) ([]tables.TableVirtualKeyMCPConfig, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetPricingOverrides(ctx context.Context, filters configstore.PricingOverrideFilters) ([]tables.TablePricingOverride, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetPricingOverridesPaginated(ctx context.Context, params configstore.PricingOverridesQueryParams) ([]tables.TablePricingOverride, int64, error) {
+	return nil, 0, nil
+}
+func (m *MockConfigStore) GetPricingOverrideByID(ctx context.Context, id string) (*tables.TablePricingOverride, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreatePricingOverride(ctx context.Context, override *tables.TablePricingOverride, tx ...*gorm.DB) error {
+	return nil
+}
+func (m *MockConfigStore) UpdatePricingOverride(ctx context.Context, override *tables.TablePricingOverride, tx ...*gorm.DB) error {
+	return nil
+}
+func (m *MockConfigStore) DeletePricingOverride(ctx context.Context, id string, tx ...*gorm.DB) error {
+	return nil
+}
+func (m *MockConfigStore) GetOauthUserSessionByID(ctx context.Context, id string) (*tables.TableOauthUserSession, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetOauthUserSessionByState(ctx context.Context, state string) (*tables.TableOauthUserSession, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) ClaimOauthUserSessionByState(ctx context.Context, state string) (*tables.TableOauthUserSession, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetOauthUserSessionBySessionToken(ctx context.Context, sessionToken string) (*tables.TableOauthUserSession, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreateOauthUserSession(ctx context.Context, session *tables.TableOauthUserSession) error {
+	return nil
+}
+func (m *MockConfigStore) UpdateOauthUserSession(ctx context.Context, session *tables.TableOauthUserSession) error {
+	return nil
+}
+func (m *MockConfigStore) GetOauthUserTokenByIdentity(ctx context.Context, virtualKeyID, userID, sessionToken, mcpClientID string) (*tables.TableOauthUserToken, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetOauthUserTokenBySessionToken(ctx context.Context, sessionToken string) (*tables.TableOauthUserToken, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreateOauthUserToken(ctx context.Context, token *tables.TableOauthUserToken) error {
+	return nil
+}
+func (m *MockConfigStore) UpdateOauthUserToken(ctx context.Context, token *tables.TableOauthUserToken) error {
+	return nil
+}
+func (m *MockConfigStore) DeleteOauthUserToken(ctx context.Context, id string) error { return nil }
+func (m *MockConfigStore) DeleteOauthUserTokensByMCPClient(ctx context.Context, id string) error {
+	return nil
+}
+func (m *MockConfigStore) GetPerUserOAuthClientByClientID(ctx context.Context, clientID string) (*tables.TablePerUserOAuthClient, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreatePerUserOAuthClient(ctx context.Context, client *tables.TablePerUserOAuthClient) error {
+	return nil
+}
+func (m *MockConfigStore) GetPerUserOAuthSessionByAccessToken(ctx context.Context, accessToken string) (*tables.TablePerUserOAuthSession, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) GetPerUserOAuthSessionByID(ctx context.Context, id string) (*tables.TablePerUserOAuthSession, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreatePerUserOAuthSession(ctx context.Context, session *tables.TablePerUserOAuthSession) error {
+	return nil
+}
+func (m *MockConfigStore) UpdatePerUserOAuthSession(ctx context.Context, session *tables.TablePerUserOAuthSession) error {
+	return nil
+}
+func (m *MockConfigStore) DeletePerUserOAuthSession(ctx context.Context, id string) error { return nil }
+func (m *MockConfigStore) GetPerUserOAuthCodeByCode(ctx context.Context, code string) (*tables.TablePerUserOAuthCode, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) ClaimPerUserOAuthCode(ctx context.Context, code string) (*tables.TablePerUserOAuthCode, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreatePerUserOAuthCode(ctx context.Context, code *tables.TablePerUserOAuthCode) error {
+	return nil
+}
+func (m *MockConfigStore) UpdatePerUserOAuthCode(ctx context.Context, code *tables.TablePerUserOAuthCode) error {
+	return nil
+}
+func (m *MockConfigStore) GetPerUserOAuthPendingFlow(ctx context.Context, id string) (*tables.TablePerUserOAuthPendingFlow, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) CreatePerUserOAuthPendingFlow(ctx context.Context, flow *tables.TablePerUserOAuthPendingFlow) error {
+	return nil
+}
+func (m *MockConfigStore) UpdatePerUserOAuthPendingFlow(ctx context.Context, flow *tables.TablePerUserOAuthPendingFlow) error {
+	return nil
+}
+func (m *MockConfigStore) DeletePerUserOAuthPendingFlow(ctx context.Context, id string) error { return nil }
+func (m *MockConfigStore) ConsumePerUserOAuthPendingFlow(ctx context.Context, id string) (int64, error) {
+	return 0, nil
+}
+func (m *MockConfigStore) FinalizePerUserOAuthConsent(ctx context.Context, flowID string, session *tables.TablePerUserOAuthSession, code *tables.TablePerUserOAuthCode) (int64, error) {
+	return 0, nil
+}
+func (m *MockConfigStore) GetOauthUserTokensByGatewaySessionID(ctx context.Context, gatewaySessionID string) ([]tables.TableOauthUserToken, error) {
+	return nil, nil
+}
+func (m *MockConfigStore) TransferOauthUserTokensFromGatewaySession(ctx context.Context, gatewaySessionID, realSessionToken, virtualKeyID, userID string) error {
+	return nil
+}
+func (m *MockConfigStore) GetAllPromptVersions(ctx context.Context) ([]tables.TablePromptVersion, error) {
+	return nil, nil
+}
 
 // Helper functions for tests
 
@@ -12302,7 +12446,6 @@ func TestGenerateClientConfigHash(t *testing.T) {
 		AllowDirectKeys:        true,
 		AllowedOrigins:         []string{"http://localhost:3000"},
 		MaxRequestBodySizeMB:   100,
-		EnableLiteLLMFallbacks: false,
 	}
 
 	hash1, err := cc1.GenerateClientConfigHash()
@@ -12397,14 +12540,6 @@ func TestGenerateClientConfigHash(t *testing.T) {
 	hash12, _ := cc12.GenerateClientConfigHash()
 	if hash1 == hash12 {
 		t.Error("Different MaxRequestBodySizeMB should produce different hash")
-	}
-
-	// Different EnableLiteLLMFallbacks should produce different hash
-	cc13 := cc1
-	cc13.EnableLiteLLMFallbacks = true
-	hash13, _ := cc13.GenerateClientConfigHash()
-	if hash1 == hash13 {
-		t.Error("Different EnableLiteLLMFallbacks should produce different hash")
 	}
 
 	// PrometheusLabels order should not matter (sorted)
@@ -13350,7 +13485,6 @@ func TestGenerateClientConfigHash_RuntimeVsMigrationParity(t *testing.T) {
 			EnforceAuthOnInference: false,
 			AllowDirectKeys:        true,
 			MaxRequestBodySizeMB:   100,
-			EnableLiteLLMFallbacks: false,
 		}
 
 		// Generate hash from config
@@ -13364,7 +13498,6 @@ func TestGenerateClientConfigHash_RuntimeVsMigrationParity(t *testing.T) {
 			EnforceAuthOnInference: ccToSave.EnforceAuthOnInference,
 			AllowDirectKeys:        ccToSave.AllowDirectKeys,
 			MaxRequestBodySizeMB:   ccToSave.MaxRequestBodySizeMB,
-			EnableLiteLLMFallbacks: ccToSave.EnableLiteLLMFallbacks,
 		}
 		hashBeforeSave, _ := clientConfig.GenerateClientConfigHash()
 
@@ -13383,7 +13516,6 @@ func TestGenerateClientConfigHash_RuntimeVsMigrationParity(t *testing.T) {
 			EnforceAuthOnInference: ccFromDB.EnforceAuthOnInference,
 			AllowDirectKeys:        ccFromDB.AllowDirectKeys,
 			MaxRequestBodySizeMB:   ccFromDB.MaxRequestBodySizeMB,
-			EnableLiteLLMFallbacks: ccFromDB.EnableLiteLLMFallbacks,
 		}
 		hashAfterLoad, _ := clientConfigFromDB.GenerateClientConfigHash()
 
@@ -15445,16 +15577,18 @@ var excludedGoFields = map[string]map[string]bool{
 		"virtual_keys": true, // GORM relation
 	},
 	"tables.TableTeam": {
-		"config_hash":  true,
-		"created_at":   true,
-		"updated_at":   true,
-		"budget":       true, // GORM relation
-		"rate_limit":   true, // GORM relation
-		"customer":     true, // GORM relation
-		"virtual_keys": true, // GORM relation
+		"config_hash":       true,
+		"created_at":        true,
+		"updated_at":        true,
+		"budget":            true, // GORM relation
+		"rate_limit":        true, // GORM relation
+		"customer":          true, // GORM relation
+		"virtual_keys":      true, // GORM relation
+		"virtual_key_count": true, // Runtime-only aggregate
 	},
 	"tables.TableVirtualKey": {
 		"budget_id":   true, // Runtime association stored outside the public schema
+		"budgets":     true, // Runtime relation backing legacy budget_id compatibility
 		"config_hash": true,
 		"created_at":  true,
 		"updated_at":  true,
@@ -15464,10 +15598,12 @@ var excludedGoFields = map[string]map[string]bool{
 		"customer":    true, // GORM relation
 	},
 	"tables.TableVirtualKeyProviderConfig": {
-		"budget":     true, // GORM relation
-		"budget_id":  true, // Runtime association stored outside the public schema
-		"keys":       true, // Config file uses key_ids; runtime resolves to keys
-		"rate_limit": true, // GORM relation
+		"allow_all_keys": true, // Runtime convenience backing wildcard key access
+		"budget":         true, // GORM relation
+		"budget_id":      true, // Runtime association stored outside the public schema
+		"budgets":        true, // Runtime relation backing legacy budget_id compatibility
+		"keys":           true, // Config file uses key_ids; runtime resolves to keys
+		"rate_limit":     true, // GORM relation
 	},
 	"tables.TableVirtualKeyMCPConfig": {
 		"mcp_client": true, // GORM relation
@@ -16888,8 +17024,7 @@ func assertDefaultClientConfigValues(t *testing.T, cc configstore.ClientConfig) 
 	require.Equal(t, 100, cc.MaxRequestBodySizeMB, "MaxRequestBodySizeMB should default to 100")
 	require.Equal(t, 10, cc.MCPAgentDepth, "MCPAgentDepth should default to 10")
 	require.Equal(t, 30, cc.MCPToolExecutionTimeout, "MCPToolExecutionTimeout should default to 30")
-	require.Equal(t, false, cc.EnableLiteLLMFallbacks, "EnableLiteLLMFallbacks should default to false")
-	require.Equal(t, false, cc.HideDeletedVirtualKeysInFilters, "HideDeletedVirtualKeysInFilters should default to false")
+		require.Equal(t, false, cc.HideDeletedVirtualKeysInFilters, "HideDeletedVirtualKeysInFilters should default to false")
 }
 
 // TestLoadConfig_NoConfigFile_FreshStart tests LoadConfig with no config.json and no existing DB

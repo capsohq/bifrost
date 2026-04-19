@@ -75,9 +75,9 @@ func TestSemanticCacheBasicFlow(t *testing.T) {
 				},
 			},
 			ExtraFields: schemas.BifrostResponseExtraFields{
-				Provider:       schemas.OpenAI,
-				ModelRequested: "gpt-4o-mini",
-				RequestType:    schemas.ChatCompletionRequest,
+				Provider:               schemas.OpenAI,
+				OriginalModelRequested: "gpt-4o-mini",
+				RequestType:            schemas.ChatCompletionRequest,
 			},
 		},
 	}
@@ -213,9 +213,9 @@ func TestSemanticCacheStrictFiltering(t *testing.T) {
 				},
 			},
 			ExtraFields: schemas.BifrostResponseExtraFields{
-				Provider:       schemas.OpenAI,
-				ModelRequested: "gpt-4o-mini",
-				RequestType:    schemas.ChatCompletionRequest,
+				Provider:               schemas.OpenAI,
+				OriginalModelRequested: "gpt-4o-mini",
+				RequestType:            schemas.ChatCompletionRequest,
 			},
 		},
 	}
@@ -375,10 +375,10 @@ func TestSemanticCacheStreamingFlow(t *testing.T) {
 					},
 				},
 				ExtraFields: schemas.BifrostResponseExtraFields{
-					Provider:       schemas.OpenAI,
-					ModelRequested: "gpt-4o-mini",
-					RequestType:    schemas.ChatCompletionStreamRequest,
-					ChunkIndex:     i,
+					Provider:               schemas.OpenAI,
+					OriginalModelRequested: "gpt-4o-mini",
+					RequestType:            schemas.ChatCompletionStreamRequest,
+					ChunkIndex:             i,
 				},
 			},
 		}
@@ -524,9 +524,9 @@ func TestSemanticCache_CustomTTLHandling(t *testing.T) {
 				},
 			},
 			ExtraFields: schemas.BifrostResponseExtraFields{
-				Provider:       schemas.OpenAI,
-				ModelRequested: "gpt-4o-mini",
-				RequestType:    schemas.ChatCompletionRequest,
+				Provider:               schemas.OpenAI,
+				OriginalModelRequested: "gpt-4o-mini",
+				RequestType:            schemas.ChatCompletionRequest,
 			},
 		},
 	}
@@ -635,9 +635,9 @@ func TestSemanticCache_ProviderModelCachingFlags(t *testing.T) {
 				},
 			},
 			ExtraFields: schemas.BifrostResponseExtraFields{
-				Provider:       schemas.OpenAI,
-				ModelRequested: "gpt-4o-mini",
-				RequestType:    schemas.ChatCompletionRequest,
+				Provider:               schemas.OpenAI,
+				OriginalModelRequested: "gpt-4o-mini",
+				RequestType:            schemas.ChatCompletionRequest,
 			},
 		},
 	}

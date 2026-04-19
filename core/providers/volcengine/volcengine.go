@@ -523,7 +523,7 @@ func isTextOnlyMultiModalInputs(inputs []schemas.MultiModalEmbeddingInput) bool 
 	return true
 }
 
-func resolveAndValidateVolcengineInstructions(providerKey schemas.ModelProvider, request *schemas.BifrostEmbeddingRequest) (*string, bool, *schemas.BifrostError) {
+func resolveAndValidateVolcengineInstructions(request *schemas.BifrostEmbeddingRequest) (*string, bool, *schemas.BifrostError) {
 	var params *schemas.EmbeddingParameters
 	if request != nil {
 		params = request.Params
@@ -536,7 +536,7 @@ func resolveAndValidateVolcengineInstructions(providerKey schemas.ModelProvider,
 
 	config, err := parseVolcengineInstructionsConfig(params)
 	if err != nil {
-		return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, providerKey)
+		return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err)
 	}
 
 	shouldValidateTemplate := false
@@ -547,7 +547,7 @@ func resolveAndValidateVolcengineInstructions(providerKey schemas.ModelProvider,
 	if (instructions == nil || strings.TrimSpace(*instructions) == "") && config != nil {
 		generated, genErr := buildVolcengineInstructionsFromConfig(config)
 		if genErr != nil {
-			return nil, false, providerUtils.NewBifrostOperationError(genErr.Error(), genErr, providerKey)
+			return nil, false, providerUtils.NewBifrostOperationError(genErr.Error(), genErr)
 		}
 		instructions = &generated
 		shouldValidateTemplate = true
@@ -560,25 +560,24 @@ func resolveAndValidateVolcengineInstructions(providerKey schemas.ModelProvider,
 		return nil, false, providerUtils.NewBifrostOperationError(
 			fmt.Sprintf("instructions are supported only for doubao/skylark-embedding-vision-%d and later models", volcengineVisionVersionInstructionsSupported),
 			nil,
-			providerKey,
 		)
 	}
 	if hasModelVersion && modelVersion >= volcengineVisionVersionInstructionsSupported && !hasInstructions {
-		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao/skylark-embedding-vision-251215 and later models", nil, providerKey)
+		return nil, false, providerUtils.NewBifrostOperationError("instructions are required for doubao/skylark-embedding-vision-251215 and later models", nil)
 	}
 	if hasInstructions && isDisallowedDefaultInstruction(*instructions) {
-		return nil, false, providerUtils.NewBifrostOperationError("instructions must be customized for your business scenario; default instruction is not allowed", nil, providerKey)
+		return nil, false, providerUtils.NewBifrostOperationError("instructions must be customized for your business scenario; default instruction is not allowed", nil)
 	}
 	if hasInstructions && shouldValidateTemplate {
 		if err := validateVolcengineInstructionTemplate(*instructions); err != nil {
-			return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err, providerKey)
+			return nil, false, providerUtils.NewBifrostOperationError(err.Error(), err)
 		}
 	}
 
 	return instructions, shouldValidateTemplate, nil
 }
 
-func validateVolcengineSparseEmbeddingConstraints(providerKey schemas.ModelProvider, request *schemas.BifrostEmbeddingRequest, sparseEmbedding map[string]interface{}) *schemas.BifrostError {
+func validateVolcengineSparseEmbeddingConstraints(request *schemas.BifrostEmbeddingRequest, sparseEmbedding map[string]interface{}) *schemas.BifrostError {
 	if !isSparseEmbeddingEnabled(sparseEmbedding) {
 		return nil
 	}
@@ -588,12 +587,11 @@ func validateVolcengineSparseEmbeddingConstraints(providerKey schemas.ModelProvi
 		return providerUtils.NewBifrostOperationError(
 			fmt.Sprintf("sparse_embedding is supported only for doubao/skylark-embedding-vision-%d and later models", volcengineVisionVersionSparseSupported),
 			nil,
-			providerKey,
 		)
 	}
 
 	if request.Input == nil || !isTextOnlyMultiModalInputs(request.Input.MultiModalInputs) {
-		return providerUtils.NewBifrostOperationError("sparse_embedding supports text-only multimodal input", nil, providerKey)
+		return providerUtils.NewBifrostOperationError("sparse_embedding supports text-only multimodal input", nil)
 	}
 
 	return nil
@@ -601,10 +599,10 @@ func validateVolcengineSparseEmbeddingConstraints(providerKey schemas.ModelProvi
 
 func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
 	if request == nil || request.Input == nil {
-		return nil, providerUtils.NewBifrostOperationError("invalid request: multimodal embedding input is required", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("invalid request: multimodal embedding input is required", nil)
 	}
 
-	resolvedInstructions, _, bifrostErr := resolveAndValidateVolcengineInstructions(provider.GetProviderKey(), request)
+	resolvedInstructions, _, bifrostErr := resolveAndValidateVolcengineInstructions(request)
 	if bifrostErr != nil {
 		return nil, bifrostErr
 	}
@@ -636,7 +634,7 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		}
 	}
 	if len(nativeReq.Input) == 0 {
-		return nil, providerUtils.NewBifrostOperationError("volcengine multimodal embedding requires multimodal input or a single text input", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("volcengine multimodal embedding requires multimodal input or a single text input", nil)
 	}
 	if request.Params != nil {
 		nativeReq.Instructions = resolvedInstructions
@@ -644,13 +642,13 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		nativeReq.Dimensions = request.Params.Dimensions
 		nativeReq.SparseEmbedding = request.Params.SparseEmbedding
 	}
-	if bifrostErr := validateVolcengineSparseEmbeddingConstraints(provider.GetProviderKey(), request, nativeReq.SparseEmbedding); bifrostErr != nil {
+	if bifrostErr := validateVolcengineSparseEmbeddingConstraints(request, nativeReq.SparseEmbedding); bifrostErr != nil {
 		return nil, bifrostErr
 	}
 
 	jsonData, err := schemas.Marshal(nativeReq)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to marshal multimodal embedding request", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to marshal multimodal embedding request", err)
 	}
 	req.SetBody(jsonData)
 
@@ -662,17 +660,17 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 
 	if resp.StatusCode() != fasthttp.StatusOK {
 		provider.logger.Debug(fmt.Sprintf("error from volcengine multimodal embedding: %s", string(resp.Body())))
-		return nil, openai.ParseOpenAIError(resp, schemas.EmbeddingRequest, provider.GetProviderKey(), request.Model)
+		return nil, openai.ParseOpenAIError(resp)
 	}
 
 	body, err := providerUtils.CheckAndDecodeBody(resp)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 	}
 
 	var nativeResp volcengineMultiModalEmbeddingResponse
 	if err := schemas.Unmarshal(body, &nativeResp); err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 	}
 
 	// Convert to standard bifrost embedding response
@@ -698,10 +696,10 @@ func (provider *VolcengineProvider) multiModalEmbedding(ctx *schemas.BifrostCont
 		Model:  nativeResp.Model,
 		Object: responseObject,
 		ExtraFields: schemas.BifrostResponseExtraFields{
-			Provider:       provider.GetProviderKey(),
-			ModelRequested: request.Model,
-			RequestType:    schemas.EmbeddingRequest,
-			Latency:        latency.Milliseconds(),
+			Provider:               provider.GetProviderKey(),
+			OriginalModelRequested: request.Model,
+			RequestType:            schemas.EmbeddingRequest,
+			Latency:                latency.Milliseconds(),
 		},
 	}
 
@@ -852,12 +850,12 @@ func (provider *VolcengineProvider) VideoDownload(ctx *schemas.BifrostContext, k
 		return nil, bifrostErr
 	}
 	if resp.StatusCode() != fasthttp.StatusOK {
-		return nil, openai.ParseOpenAIError(resp, schemas.VideoDownloadRequest, provider.GetProviderKey(), "")
+		return nil, openai.ParseOpenAIError(resp)
 	}
 
 	body, err := providerUtils.CheckAndDecodeBody(resp)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 	}
 
 	contentType := string(resp.Header.ContentType())
@@ -915,24 +913,24 @@ func (provider *VolcengineProvider) VideoRemix(_ *schemas.BifrostContext, _ sche
 
 func (provider *VolcengineProvider) FileUpload(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostFileUploadRequest) (*schemas.BifrostFileUploadResponse, *schemas.BifrostError) {
 	if len(request.File) == 0 {
-		return nil, providerUtils.NewBifrostOperationError("file content is required", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("file content is required", nil)
 	}
 	if request.Purpose == "" {
-		return nil, providerUtils.NewBifrostOperationError("purpose is required", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("purpose is required", nil)
 	}
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
 	if err := writer.WriteField("purpose", string(request.Purpose)); err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to write purpose field", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to write purpose field", err)
 	}
 	if request.ExpiresAfter != nil {
 		if err := writer.WriteField("expires_after[anchor]", request.ExpiresAfter.Anchor); err != nil {
-			return nil, providerUtils.NewBifrostOperationError("failed to write expires_after[anchor] field", err, provider.GetProviderKey())
+			return nil, providerUtils.NewBifrostOperationError("failed to write expires_after[anchor] field", err)
 		}
 		if err := writer.WriteField("expires_after[seconds]", fmt.Sprintf("%d", request.ExpiresAfter.Seconds)); err != nil {
-			return nil, providerUtils.NewBifrostOperationError("failed to write expires_after[seconds] field", err, provider.GetProviderKey())
+			return nil, providerUtils.NewBifrostOperationError("failed to write expires_after[seconds] field", err)
 		}
 	}
 
@@ -942,13 +940,13 @@ func (provider *VolcengineProvider) FileUpload(ctx *schemas.BifrostContext, key 
 	}
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to create form file", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to create form file", err)
 	}
 	if _, err := part.Write(request.File); err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to write file content", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to write file content", err)
 	}
 	if err := writer.Close(); err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to close multipart writer", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to close multipart writer", err)
 	}
 
 	req := fasthttp.AcquireRequest()
@@ -971,12 +969,12 @@ func (provider *VolcengineProvider) FileUpload(ctx *schemas.BifrostContext, key 
 		return nil, bifrostErr
 	}
 	if resp.StatusCode() != fasthttp.StatusOK {
-		return nil, openai.ParseOpenAIError(resp, schemas.FileUploadRequest, provider.GetProviderKey(), "")
+		return nil, openai.ParseOpenAIError(resp)
 	}
 
 	responseBody, err := providerUtils.CheckAndDecodeBody(resp)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 	}
 
 	var parsed openai.OpenAIFileResponse
@@ -992,7 +990,6 @@ func (provider *VolcengineProvider) FileUpload(ctx *schemas.BifrostContext, key 
 	}
 
 	return parsed.ToBifrostFileUploadResponse(
-		provider.GetProviderKey(),
 		latency,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
 		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
@@ -1003,12 +1000,12 @@ func (provider *VolcengineProvider) FileUpload(ctx *schemas.BifrostContext, key 
 
 func (provider *VolcengineProvider) FileList(ctx *schemas.BifrostContext, keys []schemas.Key, request *schemas.BifrostFileListRequest) (*schemas.BifrostFileListResponse, *schemas.BifrostError) {
 	if len(keys) == 0 {
-		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil)
 	}
 
 	helper, err := providerUtils.NewSerialListHelper(keys, request.After, provider.logger)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError("invalid pagination cursor", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("invalid pagination cursor", err)
 	}
 
 	key, nativeCursor, ok := helper.GetCurrentKey()
@@ -1061,12 +1058,12 @@ func (provider *VolcengineProvider) FileList(ctx *schemas.BifrostContext, keys [
 		return nil, bifrostErr
 	}
 	if resp.StatusCode() != fasthttp.StatusOK {
-		return nil, openai.ParseOpenAIError(resp, schemas.FileListRequest, provider.GetProviderKey(), "")
+		return nil, openai.ParseOpenAIError(resp)
 	}
 
 	responseBody, err := providerUtils.CheckAndDecodeBody(resp)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 	}
 
 	var parsed openai.OpenAIFileListResponse
@@ -1117,10 +1114,10 @@ func (provider *VolcengineProvider) FileList(ctx *schemas.BifrostContext, keys [
 
 func (provider *VolcengineProvider) FileRetrieve(ctx *schemas.BifrostContext, keys []schemas.Key, request *schemas.BifrostFileRetrieveRequest) (*schemas.BifrostFileRetrieveResponse, *schemas.BifrostError) {
 	if request.FileID == "" {
-		return nil, providerUtils.NewBifrostOperationError("file_id is required", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("file_id is required", nil)
 	}
 	if len(keys) == 0 {
-		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil)
 	}
 
 	sendBackRawRequest := providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest)
@@ -1148,7 +1145,7 @@ func (provider *VolcengineProvider) FileRetrieve(ctx *schemas.BifrostContext, ke
 			continue
 		}
 		if resp.StatusCode() != fasthttp.StatusOK {
-			lastErr = openai.ParseOpenAIError(resp, schemas.FileRetrieveRequest, provider.GetProviderKey(), "")
+			lastErr = openai.ParseOpenAIError(resp)
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -1158,7 +1155,7 @@ func (provider *VolcengineProvider) FileRetrieve(ctx *schemas.BifrostContext, ke
 		if err != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
-			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 			continue
 		}
 
@@ -1182,10 +1179,10 @@ func (provider *VolcengineProvider) FileRetrieve(ctx *schemas.BifrostContext, ke
 
 func (provider *VolcengineProvider) FileDelete(ctx *schemas.BifrostContext, keys []schemas.Key, request *schemas.BifrostFileDeleteRequest) (*schemas.BifrostFileDeleteResponse, *schemas.BifrostError) {
 	if request.FileID == "" {
-		return nil, providerUtils.NewBifrostOperationError("file_id is required", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("file_id is required", nil)
 	}
 	if len(keys) == 0 {
-		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil)
 	}
 
 	sendBackRawRequest := providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest)
@@ -1213,7 +1210,7 @@ func (provider *VolcengineProvider) FileDelete(ctx *schemas.BifrostContext, keys
 			continue
 		}
 		if resp.StatusCode() != fasthttp.StatusOK {
-			lastErr = openai.ParseOpenAIError(resp, schemas.FileDeleteRequest, provider.GetProviderKey(), "")
+			lastErr = openai.ParseOpenAIError(resp)
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -1223,7 +1220,7 @@ func (provider *VolcengineProvider) FileDelete(ctx *schemas.BifrostContext, keys
 		if err != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
-			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 			continue
 		}
 
@@ -1263,10 +1260,10 @@ func (provider *VolcengineProvider) FileDelete(ctx *schemas.BifrostContext, keys
 
 func (provider *VolcengineProvider) FileContent(ctx *schemas.BifrostContext, keys []schemas.Key, request *schemas.BifrostFileContentRequest) (*schemas.BifrostFileContentResponse, *schemas.BifrostError) {
 	if request.FileID == "" {
-		return nil, providerUtils.NewBifrostOperationError("file_id is required", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("file_id is required", nil)
 	}
 	if len(keys) == 0 {
-		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil)
 	}
 
 	var lastErr *schemas.BifrostError
@@ -1290,7 +1287,7 @@ func (provider *VolcengineProvider) FileContent(ctx *schemas.BifrostContext, key
 			continue
 		}
 		if resp.StatusCode() != fasthttp.StatusOK {
-			lastErr = openai.ParseOpenAIError(resp, schemas.FileContentRequest, provider.GetProviderKey(), "")
+			lastErr = openai.ParseOpenAIError(resp)
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
 			continue
@@ -1300,7 +1297,7 @@ func (provider *VolcengineProvider) FileContent(ctx *schemas.BifrostContext, key
 		if err != nil {
 			fasthttp.ReleaseRequest(req)
 			fasthttp.ReleaseResponse(resp)
-			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+			lastErr = providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 			continue
 		}
 

@@ -83,7 +83,7 @@ func getVertexRerankOptions(projectID string, params *schemas.RerankParameters) 
 }
 
 // ToVertexRankRequest converts a Bifrost rerank request to Discovery Engine rank API format.
-func ToVertexRankRequest(bifrostReq *schemas.BifrostRerankRequest, modelDeployment string, options *vertexRerankOptions) (*VertexRankRequest, error) {
+func ToVertexRankRequest(bifrostReq *schemas.BifrostRerankRequest, options *vertexRerankOptions) (*VertexRankRequest, error) {
 	if bifrostReq == nil {
 		return nil, fmt.Errorf("bifrost rerank request is nil")
 	}
@@ -132,9 +132,11 @@ func ToVertexRankRequest(bifrostReq *schemas.BifrostRerankRequest, modelDeployme
 		rankRequest.TopN = &topN
 	}
 
-	if trimmedModel := strings.TrimSpace(modelDeployment); trimmedModel != "" {
-		rankRequest.Model = &trimmedModel
+	model := strings.TrimSpace(bifrostReq.Model)
+	if model == "" {
+		model = vertexDefaultRankingModel
 	}
+	rankRequest.Model = &model
 
 	ignoreRecordDetailsInResponse := options.IgnoreRecordDetailsInResponse
 	rankRequest.IgnoreRecordDetailsInResponse = &ignoreRecordDetailsInResponse

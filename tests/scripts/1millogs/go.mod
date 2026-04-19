@@ -1,6 +1,6 @@
 module github.com/capsohq/bifrost/tests/scripts/1millogs
 
-go 1.26.2
+go 1.26.1
 
 require (
 	github.com/capsohq/bifrost/core v1.4.19

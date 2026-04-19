@@ -158,6 +158,16 @@ func (m *ToolsManager) SetCodeMode(codeMode CodeMode) {
 	m.codeMode = codeMode
 }
 
+// SetPluginPipeline updates the plugin pipeline provider/release callbacks used by
+// tool execution and refreshes the active code mode dependencies.
+func (m *ToolsManager) SetPluginPipeline(provider func() PluginPipeline, release func(PluginPipeline)) {
+	m.pluginPipelineProvider = provider
+	m.releasePluginPipeline = release
+	if m.codeMode != nil {
+		m.codeMode.SetDependencies(m.GetCodeModeDependencies())
+	}
+}
+
 // GetCodeMode returns the current CodeMode implementation.
 func (m *ToolsManager) GetCodeMode() CodeMode {
 	return m.codeMode

@@ -409,7 +409,7 @@ result = {"echo": echo, "temp": temp}`,
 		t.Run(tc.name, func(t *testing.T) {
 			// Create context with client filtering
 			baseCtx := context.Background()
-			baseCtx = context.WithValue(baseCtx, mcp.MCPContextKeyIncludeClients, tc.includeClients)
+			baseCtx = context.WithValue(baseCtx, schemas.MCPContextKeyIncludeClients, tc.includeClients)
 			ctx := schemas.NewBifrostContext(baseCtx, schemas.NoDeadline)
 
 			// Verify filtering is applied at tool listing level
@@ -524,7 +524,7 @@ result = {"echo": echo, "calc": calc}`,
 		t.Run(tc.name, func(t *testing.T) {
 			// Create context with tool filtering
 			baseCtx := context.Background()
-			baseCtx = context.WithValue(baseCtx, mcp.MCPContextKeyIncludeTools, tc.includeTools)
+			baseCtx = context.WithValue(baseCtx, schemas.MCPContextKeyIncludeTools, tc.includeTools)
 			ctx := schemas.NewBifrostContext(baseCtx, schemas.NoDeadline)
 
 			// Verify filtering is applied
@@ -622,10 +622,10 @@ result = {"echo": echo, "temp": temp}`,
 			// Create context with both client and tool filtering
 			baseCtx := context.Background()
 			if tc.includeClients != nil {
-				baseCtx = context.WithValue(baseCtx, mcp.MCPContextKeyIncludeClients, tc.includeClients)
+				baseCtx = context.WithValue(baseCtx, schemas.MCPContextKeyIncludeClients, tc.includeClients)
 			}
 			if tc.includeTools != nil {
-				baseCtx = context.WithValue(baseCtx, mcp.MCPContextKeyIncludeTools, tc.includeTools)
+				baseCtx = context.WithValue(baseCtx, schemas.MCPContextKeyIncludeTools, tc.includeTools)
 			}
 			ctx := schemas.NewBifrostContext(baseCtx, schemas.NoDeadline)
 
@@ -1692,7 +1692,7 @@ result = {"count": 3}`,
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			baseCtx := context.Background()
-			baseCtx = context.WithValue(baseCtx, mcp.MCPContextKeyIncludeClients, tc.includeClients)
+			baseCtx = context.WithValue(baseCtx, schemas.MCPContextKeyIncludeClients, tc.includeClients)
 			ctx := schemas.NewBifrostContext(baseCtx, schemas.NoDeadline)
 
 			toolCall := CreateExecuteToolCodeCall(fmt.Sprintf("call-%s", tc.name), tc.code)

@@ -23,14 +23,14 @@ func TestHTTPTransportPreHook_VirtualKeyReplicateRefinesNestedModel(t *testing.T
 		Data: []schemas.Model{
 			{ID: "replicate/openai/gpt-5-nano"},
 		},
-	}, nil, nil)
+	}, nil)
 
 	virtualKey := buildVirtualKeyWithProviders(
 		"vk1",
 		"sk-bf-test",
 		"replicate-only",
 		[]configstoreTables.TableVirtualKeyProviderConfig{
-			buildProviderConfig("replicate", nil),
+			buildProviderConfig("replicate", []string{"*"}),
 		},
 	)
 	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{

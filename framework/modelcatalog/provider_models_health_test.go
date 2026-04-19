@@ -24,8 +24,14 @@ func TestProviderModelSnapshotHealthReportHealthy(t *testing.T) {
 
 	mc.RecordProviderModelDiscoveryResult(provider, false, modelData, nil)
 	mc.RecordProviderModelDiscoveryResult(provider, true, modelData, nil)
-	mc.UpsertModelDataForProvider(provider, modelData, nil, nil)
+	mc.UpsertModelDataForProvider(provider, modelData, nil)
 	mc.UpsertUnfilteredModelDataForProvider(provider, modelData)
+	mc.mu.Lock()
+	mc.providerModelSnapshots[provider] = []string{"glm-5", "glm-4.7"}
+	mc.providerModelSources[provider] = ProviderModelSourceLiveDiscovery
+	mc.unfilteredProviderModelSources[provider] = ProviderModelSourceLiveDiscovery
+	mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
+	mc.mu.Unlock()
 
 	report := mc.GetProviderModelSnapshotHealthReport()
 	item, ok := getProviderSnapshotHealth(report.Providers, provider)

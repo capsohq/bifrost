@@ -74,7 +74,7 @@ func parseMinimaxAnthropicError(resp *fasthttp.Response, requestType schemas.Req
 		bifrostErr.Error.Message = errorResp.Error.Message
 	}
 	bifrostErr.ExtraFields.Provider = providerName
-	bifrostErr.ExtraFields.ModelRequested = model
+	bifrostErr.ExtraFields.OriginalModelRequested = model
 	bifrostErr.ExtraFields.RequestType = requestType
 	return bifrostErr
 }
@@ -95,13 +95,13 @@ func (provider *MinimaxProvider) extractTextFromChatResponse(chatResp *schemas.B
 		Usage:   chatResp.Usage,
 		Choices: make([]schemas.BifrostResponseChoice, 0, len(chatResp.Choices)),
 		ExtraFields: schemas.BifrostResponseExtraFields{
-			RequestType:    requestType,
-			Provider:       provider.GetProviderKey(),
-			ModelRequested: chatResp.ExtraFields.ModelRequested,
-			ChunkIndex:     chatResp.ExtraFields.ChunkIndex,
-			Latency:        chatResp.ExtraFields.Latency,
-			RawRequest:     chatResp.ExtraFields.RawRequest,
-			RawResponse:    chatResp.ExtraFields.RawResponse,
+			RequestType:            requestType,
+			Provider:               provider.GetProviderKey(),
+			OriginalModelRequested: chatResp.ExtraFields.OriginalModelRequested,
+			ChunkIndex:             chatResp.ExtraFields.ChunkIndex,
+			Latency:                chatResp.ExtraFields.Latency,
+			RawRequest:             chatResp.ExtraFields.RawRequest,
+			RawResponse:            chatResp.ExtraFields.RawResponse,
 		},
 	}
 
@@ -167,12 +167,12 @@ func (provider *MinimaxProvider) ListModels(ctx *schemas.BifrostContext, keys []
 func (provider *MinimaxProvider) TextCompletion(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (*schemas.BifrostTextCompletionResponse, *schemas.BifrostError) {
 	chatReq := request.ToBifrostChatRequest()
 	if chatReq == nil {
-		return nil, providerUtils.NewBifrostOperationError("invalid text completion request", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("invalid text completion request", nil)
 	}
 	chatReq.Provider = provider.GetProviderKey()
 	anthropicReq, err := anthropic.ToAnthropicChatRequest(ctx, chatReq)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to convert request for minimax text generation", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to convert request for minimax text generation", err)
 	}
 	anthropicReq.Stream = nil
 
@@ -182,7 +182,6 @@ func (provider *MinimaxProvider) TextCompletion(ctx *schemas.BifrostContext, key
 		func() (providerUtils.RequestBodyWithExtraParams, error) {
 			return anthropicReq, nil
 		},
-		provider.GetProviderKey(),
 	)
 	if bifrostErr != nil {
 		return nil, bifrostErr
@@ -232,7 +231,7 @@ func (provider *MinimaxProvider) TextCompletion(ctx *schemas.BifrostContext, key
 
 	body, err := providerUtils.CheckAndDecodeBody(resp)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
 	}
 
 	anthropicResp := &anthropic.AnthropicMessageResponse{}
@@ -243,7 +242,7 @@ func (provider *MinimaxProvider) TextCompletion(ctx *schemas.BifrostContext, key
 
 	chatResp := anthropicResp.ToBifrostChatResponse(ctx)
 	chatResp.ExtraFields.Provider = provider.GetProviderKey()
-	chatResp.ExtraFields.ModelRequested = request.Model
+	chatResp.ExtraFields.OriginalModelRequested = request.Model
 	chatResp.ExtraFields.Latency = latency.Milliseconds()
 	if sendBackRawRequest {
 		chatResp.ExtraFields.RawRequest = rawRequest
@@ -260,12 +259,12 @@ func (provider *MinimaxProvider) TextCompletion(ctx *schemas.BifrostContext, key
 func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	chatReq := request.ToBifrostChatRequest()
 	if chatReq == nil {
-		return nil, providerUtils.NewBifrostOperationError("invalid text completion request", nil, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("invalid text completion request", nil)
 	}
 	chatReq.Provider = provider.GetProviderKey()
 	anthropicReq, err := anthropic.ToAnthropicChatRequest(ctx, chatReq)
 	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to convert request for minimax text generation", err, provider.GetProviderKey())
+		return nil, providerUtils.NewBifrostOperationError("failed to convert request for minimax text generation", err)
 	}
 	anthropicReq.Stream = schemas.Ptr(true)
 
@@ -275,7 +274,6 @@ func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContex
 		func() (providerUtils.RequestBodyWithExtraParams, error) {
 			return anthropicReq, nil
 		},
-		provider.GetProviderKey(),
 	)
 	if bifrostErr != nil {
 		return nil, bifrostErr
@@ -312,11 +310,6 @@ func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContex
 		postHookRunner,
 		nil,
 		provider.logger,
-		&providerUtils.RequestMetadata{
-			Provider:    provider.GetProviderKey(),
-			Model:       request.Model,
-			RequestType: schemas.TextCompletionStreamRequest,
-		},
 	)
 	if streamErr != nil {
 		return nil, streamErr
@@ -407,7 +400,7 @@ func (provider *MinimaxProvider) Responses(ctx *schemas.BifrostContext, key sche
 	response := chatResponse.ToBifrostResponsesResponse()
 	response.ExtraFields.RequestType = schemas.ResponsesRequest
 	response.ExtraFields.Provider = provider.GetProviderKey()
-	response.ExtraFields.ModelRequested = request.Model
+	response.ExtraFields.OriginalModelRequested = request.Model
 
 	return response, nil
 }

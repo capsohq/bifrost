@@ -181,7 +181,7 @@ func (provider *GLMProvider) Responses(ctx *schemas.BifrostContext, key schemas.
 	response := chatResponse.ToBifrostResponsesResponse()
 	response.ExtraFields.RequestType = schemas.ResponsesRequest
 	response.ExtraFields.Provider = provider.GetProviderKey()
-	response.ExtraFields.ModelRequested = request.Model
+	response.ExtraFields.OriginalModelRequested = request.Model
 
 	return response, nil
 }

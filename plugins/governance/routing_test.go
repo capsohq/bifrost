@@ -10,10 +10,13 @@ import (
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore"
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	frameworkrouting "github.com/capsohq/bifrost/framework/routing"
 	"github.com/google/cel-go/cel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var defaultRoutingChainDepth = bifrost.Ptr(DefaultRoutingChainMaxDepth)
 
 // TestBuildScopeChain_GlobalOnly tests scope chain with no VirtualKey
 func TestBuildScopeChain_GlobalOnly(t *testing.T) {
@@ -194,7 +197,7 @@ func TestEvaluateRoutingRules_NilContext(t *testing.T) {
 	store, err := NewLocalGovernanceStore(context.Background(), NewMockLogger(), nil, &configstore.GovernanceConfig{}, nil)
 	require.NoError(t, err)
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	_, err = engine.EvaluateRoutingRules(schemas.NewBifrostContext(context.Background(), time.Now()), nil)
@@ -207,7 +210,7 @@ func TestEvaluateRoutingRules_NoRulesMatch(t *testing.T) {
 	store, err := NewLocalGovernanceStore(context.Background(), NewMockLogger(), nil, &configstore.GovernanceConfig{}, nil)
 	require.NoError(t, err)
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	ctx := &RoutingContext{
@@ -228,7 +231,7 @@ func TestEvaluateRoutingRules_GlobalRuleMatches(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	// Create a global routing rule
@@ -279,7 +282,7 @@ func TestEvaluateRoutingRules_MultiTargetDeterministicWithPinnedKey(t *testing.T
 	store, err := NewLocalGovernanceStore(context.Background(), NewMockLogger(), nil, &configstore.GovernanceConfig{}, nil)
 	require.NoError(t, err)
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
@@ -348,7 +351,7 @@ func TestEvaluateRoutingRules_ScopePrecedence(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	// Create global rule
@@ -412,7 +415,7 @@ func TestEvaluateRoutingRules_PriorityOrdering(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	// Low precedence rule (evaluated second): higher priority number
@@ -485,7 +488,7 @@ func TestResolveRoutingWithFallback_RuleMatches(t *testing.T) {
 		QueryParams: map[string]string{},
 	}
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	decision, err := resolveRoutingWithFallback(bgCtx, ctx, engine)
@@ -508,7 +511,7 @@ func TestResolveRoutingWithFallback_NoMatch(t *testing.T) {
 		QueryParams: map[string]string{},
 	}
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	decision, err := resolveRoutingWithFallback(schemas.NewBifrostContext(context.Background(), time.Now()), ctx, engine)
@@ -527,7 +530,7 @@ func TestEvaluateRoutingRules_DisabledRulesIgnored(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	// Create disabled rule
@@ -579,7 +582,7 @@ func TestEvaluateRoutingRules_ComplexExpression(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	rule := &configstoreTables.TableRoutingRule{
@@ -623,7 +626,7 @@ func TestEvaluateRoutingRules_NilVirtualKey(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	rule := &configstoreTables.TableRoutingRule{
@@ -659,7 +662,7 @@ func TestEvaluateRoutingRules_MissingHeaderGracefully(t *testing.T) {
 	require.NoError(t, err)
 	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now())
 
-	engine, err := NewRoutingEngine(store, NewMockLogger())
+	engine, err := NewRoutingEngine(store, NewMockLogger(), defaultRoutingChainDepth)
 	require.NoError(t, err)
 
 	// Create a rule that checks for a header that may not be present
@@ -926,7 +929,7 @@ func TestValidateCELExpression_Valid(t *testing.T) {
 	}
 
 	for _, expr := range tests {
-		err := validateCELExpression(expr)
+		err := frameworkrouting.ValidateCELExpression(expr)
 		assert.NoError(t, err, "expression should be valid: %s", expr)
 	}
 }
@@ -940,7 +943,7 @@ func TestValidateCELExpression_Invalid(t *testing.T) {
 	}
 
 	for _, expr := range tests {
-		err := validateCELExpression(expr)
+		err := frameworkrouting.ValidateCELExpression(expr)
 		assert.Error(t, err, "expression should be invalid: %s", expr)
 	}
 }
@@ -1500,7 +1503,7 @@ func TestNormalizeMapKeysInCEL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeMapKeysInCEL(tt.input)
+			result := frameworkrouting.NormalizeMapKeysInCEL(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

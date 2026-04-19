@@ -204,7 +204,7 @@
             "icon": "bolt",
             "pages": [
               "features/drop-in-replacement",
-              "features/fallbacks",
+              "features/retries-and-fallbacks",
               "features/litellm-compat",
               "features/keys-management",
               "features/async-inference",
@@ -396,11 +396,7 @@
           {
             "group": "Platform specific guides",
             "icon": "swatchbook",
-            "pages": [
-              "deployment-guides/k8s",
-              "deployment-guides/ecs",
-              "deployment-guides/fly"
-            ]
+            "pages": ["deployment-guides/k8s", "deployment-guides/ecs", "deployment-guides/fly"]
           },
           {
             "group": "Config as Code",
@@ -420,6 +416,20 @@
                   "deployment-guides/helm/guardrails",
                   "deployment-guides/helm/cluster",
                   "deployment-guides/helm/troubleshooting"
+                ]
+              },
+              {
+                "group": "config.json",
+                "icon": "file-code",
+                "pages": [
+                  "deployment-guides/config-json",
+                  "deployment-guides/config-json/schema-reference",
+                  "deployment-guides/config-json/client",
+                  "deployment-guides/config-json/providers",
+                  "deployment-guides/config-json/storage",
+                  "deployment-guides/config-json/plugins",
+                  "deployment-guides/config-json/governance",
+                  "deployment-guides/config-json/guardrails"
                 ]
               }
             ]
@@ -690,6 +700,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/features/fallbacks",
+      "destination": "/features/retries-and-fallbacks"
+    },
     {
       "source": "/quickstart/gateway/cli-agents",
       "destination": "/cli-agents/overview"

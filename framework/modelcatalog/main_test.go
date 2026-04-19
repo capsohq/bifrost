@@ -22,7 +22,6 @@ func newTestCatalog(modelPool map[schemas.ModelProvider][]string, baseModelIndex
 		unfilteredModelPool:                make(map[schemas.ModelProvider][]string),
 		baseModelIndex:                     baseModelIndex,
 		pricingData:                        make(map[string]configstoreTables.TableModelPricing),
-		compiledOverrides:                  make(map[schemas.ModelProvider][]compiledProviderPricingOverride),
 		providerModelSnapshots:             make(map[schemas.ModelProvider][]string),
 		providerModelSources:               make(map[schemas.ModelProvider]ProviderModelSource),
 		unfilteredProviderModelSources:     make(map[schemas.ModelProvider]ProviderModelSource),

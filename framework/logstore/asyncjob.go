@@ -86,7 +86,10 @@ func (e *AsyncJobExecutor) SubmitJob(bifrostCtx *schemas.BifrostContext, resultT
 		resultTTL = DefaultAsyncJobResultTTL
 	}
 
-	virtualKeyValue := getVirtualKeyFromContext(bifrostCtx)
+	var virtualKeyValue *string
+	if bifrostCtx != nil {
+		virtualKeyValue = getVirtualKeyFromContext(bifrostCtx)
+	}
 
 	var virtualKeyID *string
 	if virtualKeyValue != nil {
@@ -112,7 +115,12 @@ func (e *AsyncJobExecutor) SubmitJob(bifrostCtx *schemas.BifrostContext, resultT
 		return nil, fmt.Errorf("failed to create async job: %w", err)
 	}
 
-	go e.executeJob(job.ID, job.ResultTTL, operation, bifrostCtx.GetUserValues())
+	contextValues := map[any]any{}
+	if bifrostCtx != nil {
+		contextValues = bifrostCtx.GetUserValues()
+	}
+
+	go e.executeJob(job.ID, job.ResultTTL, operation, contextValues)
 
 	return job, nil
 }
@@ -126,6 +134,7 @@ func (e *AsyncJobExecutor) executeJob(jobID string, resultTTL int, operation Asy
 		ctx.SetValue(k, v)
 	}
 
+	// Clear trace context inherited from the original HTTP request.
 	ctx.ClearValue(schemas.BifrostContextKeyTraceID)
 	ctx.ClearValue(schemas.BifrostContextKeyParentSpanID)
 	ctx.ClearValue(schemas.BifrostContextKeySpanID)

@@ -85,7 +85,7 @@ func TestToAnthropicChatRequest_CachingDeterminism(t *testing.T) {
 			Model:    "claude-sonnet-4-20250514",
 			Input: []schemas.ChatMessage{{
 				Role:    schemas.ChatMessageRoleUser,
-				Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("test")},
+				Content: &schemas.ChatMessageContent{ContentStr: new("test")},
 			}},
 			Params: &schemas.ChatParameters{
 				Tools: []schemas.ChatTool{{
@@ -334,6 +334,89 @@ func TestToAnthropicChatRequest_ToolInputKeyOrderPreservation(t *testing.T) {
 	}
 	if !(cmdIdx2 < descIdx2) {
 		t.Errorf("block 2: key order not preserved, expected command < description in: %s", s2)
+	}
+}
+
+func TestToBifrostChatResponse_MultipleTextBlocksWithThinking(t *testing.T) {
+	thinkingText := "Let me reason step by step about this problem."
+	textBlock1 := "The answer is 42."
+	textBlock2 := "Here is why that is the case."
+	signature := "sig_abc123"
+
+	response := &AnthropicMessageResponse{
+		ID:    "msg_test123",
+		Type:  "message",
+		Role:  "assistant",
+		Model: "claude-opus-4-6-20250514",
+		Content: []AnthropicContentBlock{
+			{
+				Type:      AnthropicContentBlockTypeThinking,
+				Thinking:  &thinkingText,
+				Signature: &signature,
+			},
+			{
+				Type: AnthropicContentBlockTypeText,
+				Text: &textBlock1,
+			},
+			{
+				Type: AnthropicContentBlockTypeText,
+				Text: &textBlock2,
+			},
+		},
+		StopReason: "end_turn",
+		Usage: &AnthropicUsage{
+			InputTokens:  100,
+			OutputTokens: 50,
+		},
+	}
+
+	ctx, cancel := schemas.NewBifrostContextWithCancel(nil)
+	defer cancel()
+	result := response.ToBifrostChatResponse(ctx)
+
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	// Multiple text blocks remain as content blocks; only a single text block collapses to ContentStr.
+	choice := result.Choices[0]
+	msg := choice.ChatNonStreamResponseChoice.Message
+	if msg.Content.ContentStr != nil {
+		t.Error("expected ContentStr to be nil when multiple text blocks are preserved")
+	}
+	if len(msg.Content.ContentBlocks) != 2 {
+		t.Fatalf("expected 2 content blocks, got %d", len(msg.Content.ContentBlocks))
+	}
+	if msg.Content.ContentBlocks[0].Type != schemas.ChatContentBlockTypeText || msg.Content.ContentBlocks[0].Text == nil || *msg.Content.ContentBlocks[0].Text != textBlock1 {
+		t.Fatalf("expected first text block %q, got %#v", textBlock1, msg.Content.ContentBlocks[0])
+	}
+	if msg.Content.ContentBlocks[1].Type != schemas.ChatContentBlockTypeText || msg.Content.ContentBlocks[1].Text == nil || *msg.Content.ContentBlocks[1].Text != textBlock2 {
+		t.Fatalf("expected second text block %q, got %#v", textBlock2, msg.Content.ContentBlocks[1])
+	}
+
+	// Reasoning field should still have thinking text
+	if msg.ChatAssistantMessage == nil {
+		t.Fatal("expected ChatAssistantMessage to be non-nil")
+	}
+	if msg.ChatAssistantMessage.Reasoning == nil {
+		t.Fatal("expected Reasoning to be non-nil")
+	}
+
+	// ReasoningDetails keep a single thinking entry with both text and signature.
+	rd := msg.ChatAssistantMessage.ReasoningDetails
+	if len(rd) != 1 {
+		t.Fatalf("expected 1 reasoning detail entry, got %d", len(rd))
+	}
+
+	// First entry: thinking with signature and text preserved.
+	if rd[0].Type != schemas.BifrostReasoningDetailsTypeText {
+		t.Errorf("expected first reasoning detail type %s, got %s", schemas.BifrostReasoningDetailsTypeText, rd[0].Type)
+	}
+	if rd[0].Signature == nil || *rd[0].Signature != signature {
+		t.Error("expected signature to be preserved")
+	}
+	if rd[0].Text == nil || *rd[0].Text != thinkingText {
+		t.Fatalf("expected thinking text %q, got %#v", thinkingText, rd[0].Text)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 const (
 	DefaultPricingSyncInterval        = 24 * time.Hour
+	DefaultSyncInterval               = DefaultPricingSyncInterval
 	MinimumPricingSyncIntervalSec     = int64(3600)
 	ConfigLastPricingSyncKey          = "LastModelPricingSync"
 	ConfigLastParamsSyncKey           = "LastModelParametersSync"
