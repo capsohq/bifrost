@@ -2262,6 +2262,13 @@
                 "auth_credentials": {
                   "type": "string",
                   "description": "Authentication credentials (can use env. prefix)"
+                },
+                "deployments": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Model to deployment mappings"
                 }
               },
               "required": ["project_id", "region"],
