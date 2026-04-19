@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/maxim
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.4.19
-	github.com/capsohq/bifrost/framework v1.2.38
+	github.com/capsohq/bifrost/core v1.4.20
+	github.com/capsohq/bifrost/framework v1.2.39
 	github.com/maximhq/maxim-go v0.2.1
 )
 
