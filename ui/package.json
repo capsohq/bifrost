@@ -81,6 +81,8 @@
 		"@tailwindcss/vite": "4.2.2",
 		"@tanstack/router-devtools": "1.166.11",
 		"@tanstack/router-plugin": "1.167.12",
+		"@emnapi/core": "1.9.1",
+		"@emnapi/runtime": "1.9.1",
 		"@types/lodash.isequal": "4.5.8",
 		"@types/node": "20",
 		"@types/react": "19.2.7",
@@ -99,9 +101,5 @@
 		"tar": "7.5.3",
 		"dompurify": "3.4.0",
 		"follow-redirects": "1.16.0"
-	},
-	"optionalDependencies": {
-		"@emnapi/core": "1.9.1",
-		"@emnapi/runtime": "1.9.1"
 	}
 }
