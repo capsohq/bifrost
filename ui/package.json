@@ -99,5 +99,9 @@
 		"tar": "7.5.3",
 		"dompurify": "3.4.0",
 		"follow-redirects": "1.16.0"
+	},
+	"optionalDependencies": {
+		"@emnapi/core": "1.9.1",
+		"@emnapi/runtime": "1.9.1"
 	}
 }
