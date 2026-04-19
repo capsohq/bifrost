@@ -12,10 +12,8 @@
   # Copy UI source code
   COPY ui/ ./
 
-  # Build UI (skip the copy-build step)
-  RUN npx next build
-  RUN node scripts/fix-paths.js
-  # Skip the copy-build step since we'll copy the files in the Go build stage
+  # Build UI using the current Vite-based pipeline without copying artifacts back into the repo
+  RUN npm run build-enterprise
 
   # --- Go Build Stage: Compile the Go binary using local modules ---
   FROM golang:1.26.2-alpine3.23@sha256:c2a1f7b2095d046ae14b286b18413a05bb82c9bca9b25fe7ff5efef0f0826166 AS builder

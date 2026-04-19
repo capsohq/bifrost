@@ -9,7 +9,7 @@ import {
 } from "@/components/table";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import type { MCPToolLogEntry, Pagination } from "@/lib/types/logs";
+import type { MCPToolLogEntry, MCPToolLogFilters, Pagination } from "@/lib/types/logs";
 import { cn } from "@/lib/utils";
 import type { ColumnOrderState, ColumnPinningState, VisibilityState } from "@tanstack/react-table";
 import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from "@tanstack/react-table";
@@ -21,19 +21,24 @@ interface DataTableProps {
 	data: MCPToolLogEntry[];
 	totalItems: number;
 	loading?: boolean;
+	filters?: MCPToolLogFilters;
 	pagination: Pagination;
+	onFiltersChange?: (filters: MCPToolLogFilters) => void;
 	onPaginationChange: (pagination: Pagination) => void;
 	onRowClick?: (log: MCPToolLogEntry, columnId: string) => void;
 	isSocketConnected: boolean;
 	liveEnabled: boolean;
+	onLiveToggle?: (enabled: boolean) => void;
+	fetchLogs?: (...args: unknown[]) => unknown;
+	fetchStats?: (...args: unknown[]) => unknown;
 	/** Column config — computed by the parent via useColumnConfig */
-	columnEntries: ColumnConfigEntry[];
-	columnOrder: ColumnOrderState;
-	columnVisibility: VisibilityState;
-	columnPinning: ColumnPinningState;
-	onToggleColumnVisibility: (id: string) => void;
-	onTogglePin: (id: string, side: "left" | "right") => void;
-	onReorderColumns: (entries: ColumnConfigEntry[]) => void;
+	columnEntries?: ColumnConfigEntry[];
+	columnOrder?: ColumnOrderState;
+	columnVisibility?: VisibilityState;
+	columnPinning?: ColumnPinningState;
+	onToggleColumnVisibility?: (id: string) => void;
+	onTogglePin?: (id: string, side: "left" | "right") => void;
+	onReorderColumns?: (entries: ColumnConfigEntry[]) => void;
 }
 
 export function MCPLogsDataTable({
@@ -41,18 +46,23 @@ export function MCPLogsDataTable({
 	data,
 	totalItems,
 	loading = false,
+	filters: _filters,
 	pagination,
+	onFiltersChange: _onFiltersChange,
 	onPaginationChange,
 	onRowClick,
 	isSocketConnected,
 	liveEnabled,
-	columnEntries,
-	columnOrder,
-	columnVisibility,
-	columnPinning,
-	onToggleColumnVisibility,
-	onTogglePin,
-	onReorderColumns,
+	onLiveToggle: _onLiveToggle,
+	fetchLogs: _fetchLogs,
+	fetchStats: _fetchStats,
+	columnEntries = [],
+	columnOrder = [],
+	columnVisibility = {},
+	columnPinning = {},
+	onToggleColumnVisibility = () => {},
+	onTogglePin = () => {},
+	onReorderColumns = () => {},
 }: DataTableProps) {
 	const [sorting, setSorting] = useState<SortingState>([{ id: pagination.sort_by, desc: pagination.order === "desc" }]);
 
