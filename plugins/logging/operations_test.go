@@ -225,8 +225,13 @@ func TestUpdateStreamingLogEntryPreservesResponsesInputContentSummary(t *testing
 		},
 	}
 
-	if err := plugin.updateStreamingLogEntry(context.Background(), requestID, "", "", "", "", "", "", 0, nil, "", streamResponse, true, false, false); err != nil {
-		t.Fatalf("updateStreamingLogEntry() error = %v", err)
+	update := &UpdateLogData{
+		Status:         "success",
+		TokenUsage:     streamResponse.Data.TokenUsage,
+		ResponsesOutput: streamResponse.Data.OutputMessages,
+	}
+	if err := plugin.updateLogEntry(context.Background(), requestID, "", "", streamResponse.Data.Latency, "", "", "", "", 0, nil, "", update); err != nil {
+		t.Fatalf("updateLogEntry() error = %v", err)
 	}
 
 	logEntry, err := store.FindByID(context.Background(), requestID)
