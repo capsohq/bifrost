@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/otel
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.4.19
-	github.com/capsohq/bifrost/framework v1.2.38
+	github.com/capsohq/bifrost/core v1.4.20
+	github.com/capsohq/bifrost/framework v1.2.39
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0
