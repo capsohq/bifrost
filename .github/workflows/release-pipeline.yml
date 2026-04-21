@@ -1559,6 +1559,7 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
+            auth.docker.io:443
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
@@ -1566,6 +1567,7 @@ jobs:
             github.com:443
             pkg-containers.githubusercontent.com:443
             proxy.golang.org:443
+            registry-1.docker.io:443
             registry.npmjs.org:443
             storage.googleapis.com:443
 
@@ -1647,6 +1649,7 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
+            auth.docker.io:443
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
@@ -1654,6 +1657,7 @@ jobs:
             github.com:443
             pkg-containers.githubusercontent.com:443
             proxy.golang.org:443
+            registry-1.docker.io:443
             registry.npmjs.org:443
             storage.googleapis.com:443
 
@@ -1825,6 +1829,11 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
+          if [ -z "${DISCORD_WEBHOOK:-}" ]; then
+            echo "DISCORD_WEBHOOK not configured; skipping notification"
+            exit 0
+          fi
+
           # Build status summary
           CORE_STATUS="⏭️ Skipped"
           FRAMEWORK_STATUS="⏭️ Skipped"
