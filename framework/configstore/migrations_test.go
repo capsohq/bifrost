@@ -940,7 +940,7 @@ func setupKeyDBWithLegacyDeploymentColumns(t *testing.T) *gorm.DB {
 			bedrock_role_arn TEXT,
 			bedrock_external_id TEXT,
 			bedrock_role_session_name TEXT,
-			bedrock_batch_s3_config TEXT,
+			bedrock_batch_s3_config_json TEXT,
 			bedrock_deployments_json TEXT,
 			replicate_deployments_json TEXT,
 			replicate_use_deployments_endpoint BOOLEAN,
@@ -1092,6 +1092,41 @@ func TestMigrationDropDeploymentColumnsAndAddAliases_BedrockEncrypted(t *testing
 	assert.Contains(t, aliases, "claude")
 	assert.Equal(t, "dep-claude", aliases["claude"])
 	assert.Equal(t, "dep-instant", aliases["claude-instant"])
+}
+
+func TestMigrationDropDeploymentColumnsAndAddAliases_NewWritesUseAliasesJSON(t *testing.T) {
+	db := setupKeyDBWithLegacyDeploymentColumns(t)
+	ctx := context.Background()
+
+	err := migrationDropDeploymentColumnsAndAddAliases(ctx, db)
+	require.NoError(t, err)
+
+	assert.False(t, db.Migrator().HasColumn(&tables.TableKey{}, "azure_deployments_json"))
+
+	key := &tables.TableKey{
+		Name:       "azure-post-migration-write",
+		ProviderID: 1,
+		Provider:   "azure",
+		KeyID:      "azure-post-migration-write",
+		Value:      *schemas.NewEnvVar("sk-azure-post-migration"),
+		AzureKeyConfig: &schemas.AzureKeyConfig{
+			Deployments: map[string]string{
+				"gpt-4o": "azure-post-migration-deployment",
+			},
+		},
+	}
+
+	require.NoError(t, db.Create(key).Error, "post-migration writes must not target dropped deployment columns")
+
+	var raw map[string]any
+	require.NoError(t, db.Table("config_keys").Where("id = ?", key.ID).Take(&raw).Error)
+	require.NotNil(t, raw["aliases_json"], "aliases_json should store post-migration deployments")
+
+	var found tables.TableKey
+	require.NoError(t, db.Where("id = ?", key.ID).First(&found).Error)
+	assert.Equal(t, schemas.KeyAliases{"gpt-4o": "azure-post-migration-deployment"}, found.Aliases)
+	require.NotNil(t, found.AzureKeyConfig)
+	assert.Equal(t, map[string]string{"gpt-4o": "azure-post-migration-deployment"}, found.AzureKeyConfig.Deployments)
 }
 
 // ============================================================================

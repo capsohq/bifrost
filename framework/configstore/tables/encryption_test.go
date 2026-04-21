@@ -230,6 +230,76 @@ func TestTableKey_BedrockFieldsEncryptDecrypt(t *testing.T) {
 	assert.True(t, found.BedrockKeyConfig.BatchS3Config.Buckets[0].IsDefault)
 }
 
+func TestTableKey_DeprecatedProviderDeploymentsRoundTripViaAliases(t *testing.T) {
+	db := setupTestDB(t)
+
+	assert.False(t, db.Migrator().HasColumn(&TableKey{}, "azure_deployments"))
+	assert.False(t, db.Migrator().HasColumn(&TableKey{}, "vertex_deployments"))
+	assert.False(t, db.Migrator().HasColumn(&TableKey{}, "bedrock_deployments"))
+
+	keys := []*TableKey{
+		{
+			Name:       "azure-deployments-via-aliases",
+			ProviderID: 1,
+			Provider:   "azure",
+			KeyID:      "azure-deployments-via-aliases",
+			Value:      *schemas.NewEnvVar("azure-api-key"),
+			AzureKeyConfig: &schemas.AzureKeyConfig{
+				Deployments: map[string]string{
+					"gpt-4o": "azure-gpt4o-deployment",
+				},
+			},
+		},
+		{
+			Name:       "vertex-deployments-via-aliases",
+			ProviderID: 1,
+			Provider:   "vertex",
+			KeyID:      "vertex-deployments-via-aliases",
+			Value:      *schemas.NewEnvVar("vertex-api-key"),
+			VertexKeyConfig: &schemas.VertexKeyConfig{
+				Deployments: map[string]string{
+					"gemini-1.5-pro": "vertex-gemini-endpoint",
+				},
+			},
+		},
+		{
+			Name:       "bedrock-deployments-via-aliases",
+			ProviderID: 1,
+			Provider:   "bedrock",
+			KeyID:      "bedrock-deployments-via-aliases",
+			Value:      *schemas.NewEnvVar("bedrock-api-key"),
+			BedrockKeyConfig: &schemas.BedrockKeyConfig{
+				Deployments: map[string]string{
+					"claude-3-sonnet": "bedrock-inference-profile",
+				},
+			},
+		},
+	}
+
+	for _, key := range keys {
+		require.NoError(t, db.Create(key).Error)
+		raw := rawRow(t, db, "config_keys", key.ID)
+		require.NotNil(t, raw["aliases_json"], "aliases_json should store deprecated deployment mappings")
+	}
+
+	var azureFound, vertexFound, bedrockFound TableKey
+	require.NoError(t, db.Where("key_id = ?", "azure-deployments-via-aliases").First(&azureFound).Error)
+	require.NoError(t, db.Where("key_id = ?", "vertex-deployments-via-aliases").First(&vertexFound).Error)
+	require.NoError(t, db.Where("key_id = ?", "bedrock-deployments-via-aliases").First(&bedrockFound).Error)
+
+	assert.Equal(t, schemas.KeyAliases{"gpt-4o": "azure-gpt4o-deployment"}, azureFound.Aliases)
+	require.NotNil(t, azureFound.AzureKeyConfig)
+	assert.Equal(t, map[string]string{"gpt-4o": "azure-gpt4o-deployment"}, azureFound.AzureKeyConfig.Deployments)
+
+	assert.Equal(t, schemas.KeyAliases{"gemini-1.5-pro": "vertex-gemini-endpoint"}, vertexFound.Aliases)
+	require.NotNil(t, vertexFound.VertexKeyConfig)
+	assert.Equal(t, map[string]string{"gemini-1.5-pro": "vertex-gemini-endpoint"}, vertexFound.VertexKeyConfig.Deployments)
+
+	assert.Equal(t, schemas.KeyAliases{"claude-3-sonnet": "bedrock-inference-profile"}, bedrockFound.Aliases)
+	require.NotNil(t, bedrockFound.BedrockKeyConfig)
+	assert.Equal(t, map[string]string{"claude-3-sonnet": "bedrock-inference-profile"}, bedrockFound.BedrockKeyConfig.Deployments)
+}
+
 func TestTableKey_EnvVarNotEncrypted(t *testing.T) {
 	db := setupTestDB(t)
 

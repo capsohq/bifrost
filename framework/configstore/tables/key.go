@@ -3,6 +3,7 @@ package tables
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -33,20 +34,20 @@ type TableKey struct {
 	AliasesJSON *string `gorm:"type:text" json:"-"` // JSON serialized schemas.KeyAliases
 
 	// Azure config fields (embedded instead of separate table for simplicity)
-	AzureEndpoint     *schemas.EnvVar `gorm:"type:text" json:"azure_endpoint,omitempty"`
-	AzureAPIVersion   *schemas.EnvVar `gorm:"type:text" json:"azure_api_version,omitempty"`
-	AzureClientID     *schemas.EnvVar `gorm:"type:text" json:"azure_client_id,omitempty"`
-	AzureClientSecret *schemas.EnvVar `gorm:"type:text" json:"azure_client_secret,omitempty"`
-	AzureTenantID     *schemas.EnvVar `gorm:"type:text" json:"azure_tenant_id,omitempty"`
-	AzureScopesJSON   *string         `gorm:"column:azure_scopes;type:text" json:"-"` // JSON serialized []string
-	AzureDeploymentsJSON *string      `gorm:"column:azure_deployments;type:text" json:"-"`
+	AzureEndpoint        *schemas.EnvVar `gorm:"type:text" json:"azure_endpoint,omitempty"`
+	AzureAPIVersion      *schemas.EnvVar `gorm:"type:text" json:"azure_api_version,omitempty"`
+	AzureClientID        *schemas.EnvVar `gorm:"type:text" json:"azure_client_id,omitempty"`
+	AzureClientSecret    *schemas.EnvVar `gorm:"type:text" json:"azure_client_secret,omitempty"`
+	AzureTenantID        *schemas.EnvVar `gorm:"type:text" json:"azure_tenant_id,omitempty"`
+	AzureScopesJSON      *string         `gorm:"column:azure_scopes;type:text" json:"-"` // JSON serialized []string
+	AzureDeploymentsJSON *string         `gorm:"-" json:"-"`                             // Legacy column dropped in favor of aliases_json
 
 	// Vertex config fields (embedded)
 	VertexProjectID       *schemas.EnvVar `gorm:"type:text" json:"vertex_project_id,omitempty"`
 	VertexProjectNumber   *schemas.EnvVar `gorm:"type:text" json:"vertex_project_number,omitempty"`
 	VertexRegion          *schemas.EnvVar `gorm:"type:text" json:"vertex_region,omitempty"`
 	VertexAuthCredentials *schemas.EnvVar `gorm:"type:text" json:"vertex_auth_credentials,omitempty"`
-	VertexDeploymentsJSON *string         `gorm:"column:vertex_deployments;type:text" json:"-"`
+	VertexDeploymentsJSON *string         `gorm:"-" json:"-"` // Legacy column dropped in favor of aliases_json
 
 	// Bedrock config fields (embedded)
 	BedrockAccessKey         *schemas.EnvVar `gorm:"type:text" json:"bedrock_access_key,omitempty"`
@@ -58,7 +59,7 @@ type TableKey struct {
 	BedrockExternalID        *schemas.EnvVar `gorm:"type:text" json:"bedrock_external_id,omitempty"`
 	BedrockRoleSessionName   *schemas.EnvVar `gorm:"type:text" json:"bedrock_role_session_name,omitempty"`
 	BedrockBatchS3ConfigJSON *string         `gorm:"type:text" json:"-"` // JSON serialized schemas.BatchS3Config
-	BedrockDeploymentsJSON   *string         `gorm:"column:bedrock_deployments;type:text" json:"-"`
+	BedrockDeploymentsJSON   *string         `gorm:"-" json:"-"`         // Legacy column dropped in favor of aliases_json
 
 	// VLLM config fields (embedded)
 	VLLMUrl       *schemas.EnvVar `gorm:"type:text" json:"vllm_url,omitempty"`
@@ -96,6 +97,36 @@ type TableKey struct {
 
 // TableName sets the table name for each model
 func (TableKey) TableName() string { return "config_keys" }
+
+func cloneAliases(aliases schemas.KeyAliases) schemas.KeyAliases {
+	if len(aliases) == 0 {
+		return nil
+	}
+	return maps.Clone(aliases)
+}
+
+func effectiveAliasesFromKey(k *TableKey) schemas.KeyAliases {
+	if aliases := cloneAliases(k.Aliases); len(aliases) > 0 {
+		return aliases
+	}
+	switch {
+	case k.AzureKeyConfig != nil && len(k.AzureKeyConfig.Deployments) > 0:
+		return cloneAliases(schemas.KeyAliases(k.AzureKeyConfig.Deployments))
+	case k.VertexKeyConfig != nil && len(k.VertexKeyConfig.Deployments) > 0:
+		return cloneAliases(schemas.KeyAliases(k.VertexKeyConfig.Deployments))
+	case k.BedrockKeyConfig != nil && len(k.BedrockKeyConfig.Deployments) > 0:
+		return cloneAliases(schemas.KeyAliases(k.BedrockKeyConfig.Deployments))
+	default:
+		return nil
+	}
+}
+
+func cloneDeploymentMap(aliases schemas.KeyAliases) map[string]string {
+	if len(aliases) == 0 {
+		return nil
+	}
+	return maps.Clone(map[string]string(aliases))
+}
 
 // BeforeSave is a GORM hook that serializes runtime config structs into JSON columns and
 // encrypts sensitive fields (API key value, Azure endpoint/client ID/secret/tenant ID/API version,
@@ -173,16 +204,6 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		} else {
 			k.AzureScopesJSON = nil
 		}
-		if len(k.AzureKeyConfig.Deployments) > 0 {
-			data, err := json.Marshal(k.AzureKeyConfig.Deployments)
-			if err != nil {
-				return err
-			}
-			s := string(data)
-			k.AzureDeploymentsJSON = &s
-		} else {
-			k.AzureDeploymentsJSON = nil
-		}
 	} else {
 		k.AzureEndpoint = nil
 		k.AzureAPIVersion = nil
@@ -190,8 +211,8 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		k.AzureClientSecret = nil
 		k.AzureTenantID = nil
 		k.AzureScopesJSON = nil
-		k.AzureDeploymentsJSON = nil
 	}
+	k.AzureDeploymentsJSON = nil
 	if k.VertexKeyConfig != nil {
 		if k.VertexKeyConfig.ProjectID.IsSet() {
 			pid := k.VertexKeyConfig.ProjectID
@@ -217,23 +238,13 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		} else {
 			k.VertexAuthCredentials = nil
 		}
-		if len(k.VertexKeyConfig.Deployments) > 0 {
-			data, err := json.Marshal(k.VertexKeyConfig.Deployments)
-			if err != nil {
-				return err
-			}
-			s := string(data)
-			k.VertexDeploymentsJSON = &s
-		} else {
-			k.VertexDeploymentsJSON = nil
-		}
 	} else {
 		k.VertexProjectID = nil
 		k.VertexProjectNumber = nil
 		k.VertexRegion = nil
 		k.VertexAuthCredentials = nil
-		k.VertexDeploymentsJSON = nil
 	}
+	k.VertexDeploymentsJSON = nil
 	if k.BedrockKeyConfig != nil {
 		if k.BedrockKeyConfig.AccessKey.IsSet() {
 			// Copy to avoid encrypting the shared BedrockKeyConfig through the pointer
@@ -296,16 +307,6 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		} else {
 			k.BedrockBatchS3ConfigJSON = nil
 		}
-		if len(k.BedrockKeyConfig.Deployments) > 0 {
-			data, err := json.Marshal(k.BedrockKeyConfig.Deployments)
-			if err != nil {
-				return err
-			}
-			s := string(data)
-			k.BedrockDeploymentsJSON = &s
-		} else {
-			k.BedrockDeploymentsJSON = nil
-		}
 	} else {
 		k.BedrockAccessKey = nil
 		k.BedrockSecretKey = nil
@@ -316,21 +317,24 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		k.BedrockExternalID = nil
 		k.BedrockRoleSessionName = nil
 		k.BedrockBatchS3ConfigJSON = nil
-		k.BedrockDeploymentsJSON = nil
 	}
+	k.BedrockDeploymentsJSON = nil
 
-	if k.Aliases != nil {
-		if err := k.Aliases.Validate(); err != nil {
+	effectiveAliases := effectiveAliasesFromKey(k)
+	if effectiveAliases != nil {
+		if err := effectiveAliases.Validate(); err != nil {
 			return err
 		}
-		data, err := sonic.Marshal(k.Aliases)
+		data, err := sonic.Marshal(effectiveAliases)
 		if err != nil {
 			return err
 		}
 		s := string(data)
 		k.AliasesJSON = &s
+		k.Aliases = effectiveAliases
 	} else {
 		k.AliasesJSON = nil
+		k.Aliases = nil
 	}
 
 	if k.VLLMKeyConfig != nil {
@@ -549,6 +553,17 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 			return err
 		}
 	}
+	// Reconstruct Aliases before provider-specific configs so deprecated Deployments
+	// fields can be repopulated from the unified aliases store.
+	if k.AliasesJSON != nil && *k.AliasesJSON != "" {
+		var aliases schemas.KeyAliases
+		if err := sonic.Unmarshal([]byte(*k.AliasesJSON), &aliases); err != nil {
+			return err
+		}
+		k.Aliases = aliases
+	} else {
+		k.Aliases = nil
+	}
 	if k.Enabled == nil {
 		enabled := true // DB default
 		k.Enabled = &enabled
@@ -558,16 +573,10 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 		k.UseForBatchAPI = &useForBatchAPI
 	}
 	// Reconstruct Azure config if fields are present
-	if k.AzureEndpoint != nil || k.AzureAPIVersion != nil || k.AzureClientID != nil || k.AzureClientSecret != nil || k.AzureTenantID != nil || (k.AzureScopesJSON != nil && *k.AzureScopesJSON != "") || (k.AzureDeploymentsJSON != nil && *k.AzureDeploymentsJSON != "") {
+	if k.AzureEndpoint != nil || k.AzureAPIVersion != nil || k.AzureClientID != nil || k.AzureClientSecret != nil || k.AzureTenantID != nil || (k.AzureScopesJSON != nil && *k.AzureScopesJSON != "") || (k.Provider == string(schemas.Azure) && len(k.Aliases) > 0) {
 		var scopes []string
 		if k.AzureScopesJSON != nil && *k.AzureScopesJSON != "" {
 			if err := json.Unmarshal([]byte(*k.AzureScopesJSON), &scopes); err != nil {
-				return err
-			}
-		}
-		var deployments map[string]string
-		if k.AzureDeploymentsJSON != nil && *k.AzureDeploymentsJSON != "" {
-			if err := json.Unmarshal([]byte(*k.AzureDeploymentsJSON), &deployments); err != nil {
 				return err
 			}
 		}
@@ -578,7 +587,7 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 			ClientSecret: k.AzureClientSecret,
 			TenantID:     k.AzureTenantID,
 			Scopes:       scopes,
-			Deployments:  deployments,
+			Deployments:  cloneDeploymentMap(k.Aliases),
 		}
 
 		if k.AzureEndpoint != nil {
@@ -588,7 +597,7 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 		k.AzureKeyConfig = azureConfig
 	}
 	// Reconstruct Vertex config if fields are present
-	if k.VertexProjectID != nil || k.VertexProjectNumber != nil || k.VertexRegion != nil || k.VertexAuthCredentials != nil || (k.VertexDeploymentsJSON != nil && *k.VertexDeploymentsJSON != "") {
+	if k.VertexProjectID != nil || k.VertexProjectNumber != nil || k.VertexRegion != nil || k.VertexAuthCredentials != nil || (k.Provider == string(schemas.Vertex) && len(k.Aliases) > 0) {
 		config := &schemas.VertexKeyConfig{}
 
 		if k.VertexProjectID != nil {
@@ -605,15 +614,11 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 		if k.VertexAuthCredentials != nil {
 			config.AuthCredentials = *k.VertexAuthCredentials
 		}
-		if k.VertexDeploymentsJSON != nil && *k.VertexDeploymentsJSON != "" {
-			if err := json.Unmarshal([]byte(*k.VertexDeploymentsJSON), &config.Deployments); err != nil {
-				return err
-			}
-		}
+		config.Deployments = cloneDeploymentMap(k.Aliases)
 		k.VertexKeyConfig = config
 	}
 	// Reconstruct Bedrock config if fields are present
-	if k.BedrockAccessKey != nil || k.BedrockSecretKey != nil || k.BedrockSessionToken != nil || k.BedrockRegion != nil || k.BedrockARN != nil || k.BedrockRoleARN != nil || k.BedrockExternalID != nil || k.BedrockRoleSessionName != nil || (k.BedrockBatchS3ConfigJSON != nil && *k.BedrockBatchS3ConfigJSON != "") || (k.BedrockDeploymentsJSON != nil && *k.BedrockDeploymentsJSON != "") {
+	if k.BedrockAccessKey != nil || k.BedrockSecretKey != nil || k.BedrockSessionToken != nil || k.BedrockRegion != nil || k.BedrockARN != nil || k.BedrockRoleARN != nil || k.BedrockExternalID != nil || k.BedrockRoleSessionName != nil || (k.BedrockBatchS3ConfigJSON != nil && *k.BedrockBatchS3ConfigJSON != "") || (k.Provider == string(schemas.Bedrock) && len(k.Aliases) > 0) {
 		bedrockConfig := &schemas.BedrockKeyConfig{}
 
 		if k.BedrockAccessKey != nil {
@@ -638,23 +643,9 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 			}
 			bedrockConfig.BatchS3Config = &batchS3Config
 		}
-		if k.BedrockDeploymentsJSON != nil && *k.BedrockDeploymentsJSON != "" {
-			if err := json.Unmarshal([]byte(*k.BedrockDeploymentsJSON), &bedrockConfig.Deployments); err != nil {
-				return err
-			}
-		}
+		bedrockConfig.Deployments = cloneDeploymentMap(k.Aliases)
 
 		k.BedrockKeyConfig = bedrockConfig
-	}
-	// Reconstruct Aliases
-	if k.AliasesJSON != nil && *k.AliasesJSON != "" {
-		var aliases schemas.KeyAliases
-		if err := sonic.Unmarshal([]byte(*k.AliasesJSON), &aliases); err != nil {
-			return err
-		}
-		k.Aliases = aliases
-	} else {
-		k.Aliases = nil
 	}
 	// Reconstruct VLLM config if fields are present
 	if k.VLLMUrl != nil || (k.VLLMModelName != nil && *k.VLLMModelName != "") {
