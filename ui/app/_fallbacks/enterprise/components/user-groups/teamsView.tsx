@@ -61,7 +61,7 @@ export function TeamsView() {
 	useEffect(() => {
 		if (!teamsData || offset < teamsTotal) return;
 		setOffset(teamsTotal === 0 ? 0 : Math.floor((teamsTotal - 1) / PAGE_SIZE) * PAGE_SIZE);
-	}, [teamsTotal, offset]);
+	}, [teamsData, teamsTotal, offset]);
 
 	const isLoading = vkLoading || customersLoading || teamsLoading;
 
