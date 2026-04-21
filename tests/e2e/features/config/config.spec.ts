@@ -39,8 +39,9 @@ test.describe('Config Settings', () => {
 
     test('should navigate to pricing config', async ({ configSettingsPage }) => {
       await configSettingsPage.goto('pricing-config')
-      await expect(configSettingsPage.saveBtn).toBeVisible()
       await expect(configSettingsPage.pricingConfigView).toBeVisible()
+      await expect(configSettingsPage.pricingDatasheetUrlInput).toBeVisible()
+      await expect(configSettingsPage.pricingSaveBtn).toBeVisible()
     })
 
     test('should navigate to MCP settings', async ({ configSettingsPage }) => {
