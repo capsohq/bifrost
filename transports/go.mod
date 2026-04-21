@@ -6,12 +6,6 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
 	github.com/bytedance/sonic v1.15.0
-	github.com/fasthttp/router v1.5.4
-	github.com/fasthttp/websocket v1.5.12
-	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f
-	github.com/google/uuid v1.6.0
-	github.com/klauspost/compress v1.18.2
-	github.com/mark3labs/mcp-go v0.43.2
 	github.com/capsohq/bifrost/core v1.5.3
 	github.com/capsohq/bifrost/framework v1.3.3
 	github.com/capsohq/bifrost/plugins/compat v0.1.2
@@ -22,6 +16,12 @@ require (
 	github.com/capsohq/bifrost/plugins/prompts v1.0.3
 	github.com/capsohq/bifrost/plugins/semanticcache v1.5.3
 	github.com/capsohq/bifrost/plugins/telemetry v1.5.3
+	github.com/fasthttp/router v1.5.4
+	github.com/fasthttp/websocket v1.5.12
+	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f
+	github.com/google/uuid v1.6.0
+	github.com/klauspost/compress v1.18.2
+	github.com/mark3labs/mcp-go v0.43.2
 	github.com/pion/rtcp v1.2.16
 	github.com/pion/webrtc/v4 v4.2.9
 	github.com/prometheus/client_golang v1.23.2
@@ -76,6 +76,7 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/capsohq/bifrost/plugins/mocker v1.5.3 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
@@ -131,7 +132,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
-	github.com/capsohq/bifrost/plugins/mocker v1.5.3 // indirect
 	github.com/maximhq/maxim-go v0.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
@@ -208,6 +208,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
+
 replace (
 	github.com/capsohq/bifrost/core => ../core
 	github.com/capsohq/bifrost/framework => ../framework
