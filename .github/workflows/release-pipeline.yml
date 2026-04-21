@@ -1492,9 +1492,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     env:
-      REGISTRY: docker.io
-      ACCOUNT: maximhq
+      REGISTRY: ghcr.io
+      ACCOUNT: ${{ github.repository_owner }}
       IMAGE_NAME: bifrost
     steps:
       - name: Harden Runner
@@ -1502,14 +1503,13 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
-            auth.docker.io:443
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
+            ghcr.io:443
             github.com:443
-            production.cloudflare.docker.com:443
+            pkg-containers.githubusercontent.com:443
             proxy.golang.org:443
-            registry-1.docker.io:443
             registry.npmjs.org:443
             storage.googleapis.com:443
 
@@ -1531,11 +1531,12 @@ jobs:
       - name: Setup Docker Buidx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Determine Docker tags
         id: tags
@@ -1579,9 +1580,10 @@ jobs:
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
+      packages: write
     env:
-      REGISTRY: docker.io
-      ACCOUNT: maximhq
+      REGISTRY: ghcr.io
+      ACCOUNT: ${{ github.repository_owner }}
       IMAGE_NAME: bifrost
     steps:
       - name: Harden Runner
@@ -1589,14 +1591,13 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
-            auth.docker.io:443
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
+            ghcr.io:443
             github.com:443
-            production.cloudflare.docker.com:443
+            pkg-containers.githubusercontent.com:443
             proxy.golang.org:443
-            registry-1.docker.io:443
             registry.npmjs.org:443
             storage.googleapis.com:443
 
@@ -1618,11 +1619,12 @@ jobs:
       - name: Setup Docker Buidx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Determine Docker tags
         id: tags
@@ -1648,9 +1650,12 @@ jobs:
     needs: [check-skip, detect-changes, docker-build-amd64, docker-build-arm64]
     if: "always() && needs.check-skip.outputs.should-skip != 'true' && needs.docker-build-amd64.result == 'success' && needs.docker-build-arm64.result == 'success'"
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     env:
-      REGISTRY: docker.io
-      ACCOUNT: maximhq
+      REGISTRY: ghcr.io
+      ACCOUNT: ${{ github.repository_owner }}
       IMAGE_NAME: bifrost
     steps:
       - name: Harden Runner
@@ -1658,19 +1663,19 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
-            auth.docker.io:443
+            ghcr.io:443
             github.com:443
-            production.cloudflare.docker.com:443
-            registry-1.docker.io:443
+            pkg-containers.githubusercontent.com:443
 
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Create and push multi-arch manifest
         run: |

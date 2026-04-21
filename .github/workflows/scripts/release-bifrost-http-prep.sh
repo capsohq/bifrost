@@ -43,9 +43,14 @@ declare -A PLUGIN_VERSIONS
 for plugin_dir in plugins/*/; do
   if [ -d "$plugin_dir" ]; then
     plugin_name=$(basename "$plugin_dir")
-    PLUGIN_VERSION="v$(tr -d '\n\r' < "${plugin_dir}version")"
-    PLUGIN_VERSIONS["$plugin_name"]="$PLUGIN_VERSION"
-    echo "   📦 $plugin_name: $PLUGIN_VERSION (from version file)"
+    version_file="${plugin_dir}version"
+    if [ -f "$version_file" ]; then
+      PLUGIN_VERSION="v$(tr -d '\n\r' < "$version_file")"
+      PLUGIN_VERSIONS["$plugin_name"]="$PLUGIN_VERSION"
+      echo "   📦 $plugin_name: $PLUGIN_VERSION (from version file)"
+    else
+      echo "   ⚠️  $plugin_name: no version file, will fall back to transports/go.mod if referenced"
+    fi
   fi
 done
 

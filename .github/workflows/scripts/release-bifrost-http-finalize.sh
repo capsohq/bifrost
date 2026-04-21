@@ -28,8 +28,13 @@ PLUGINS_USED=()
 for plugin_dir in plugins/*/; do
   if [ -d "$plugin_dir" ]; then
     plugin_name=$(basename "$plugin_dir")
-    PLUGIN_VERSION="v$(tr -d '\n\r' < "${plugin_dir}version")"
-    PLUGIN_VERSIONS["$plugin_name"]="$PLUGIN_VERSION"
+    version_file="${plugin_dir}version"
+    if [ -f "$version_file" ]; then
+      PLUGIN_VERSION="v$(tr -d '\n\r' < "$version_file")"
+      PLUGIN_VERSIONS["$plugin_name"]="$PLUGIN_VERSION"
+    else
+      echo "⚠️  $plugin_name has no version file; falling back to transports/go.mod if referenced"
+    fi
   fi
 done
 
