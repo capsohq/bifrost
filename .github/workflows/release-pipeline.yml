@@ -1342,8 +1342,27 @@ jobs:
       - name: Build executables
         run: bash ./.github/workflows/scripts/build-executables.sh "${{ needs.detect-changes.outputs.transport-version }}" "darwin/amd64 darwin/arm64 linux/amd64 windows/amd64"
 
+      - name: Detect R2 configuration
+        id: r2
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          has_r2_auth=false
+          has_r2_upload=false
+          if [[ -n "${R2_ENDPOINT}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" ]]; then
+            has_r2_auth=true
+          fi
+          if [[ "${has_r2_auth}" == "true" && -n "${R2_BUCKET}" ]]; then
+            has_r2_upload=true
+          fi
+          echo "has_r2_auth=${has_r2_auth}" >> "$GITHUB_OUTPUT"
+          echo "has_r2_upload=${has_r2_upload}" >> "$GITHUB_OUTPUT"
+
       - name: Configure R2
-        if: ${{ secrets.R2_ENDPOINT != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' }}
+        if: steps.r2.outputs.has_r2_auth == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -1351,7 +1370,7 @@ jobs:
         run: bash ./.github/workflows/scripts/configure-r2.sh
 
       - name: Upload to R2
-        if: ${{ secrets.R2_ENDPOINT != '' && secrets.R2_BUCKET != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' }}
+        if: steps.r2.outputs.has_r2_upload == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -1410,8 +1429,27 @@ jobs:
       - name: Build linux/arm64 binary
         run: bash ./.github/workflows/scripts/build-executables.sh "${{ needs.detect-changes.outputs.transport-version }}" "linux/arm64"
 
+      - name: Detect R2 configuration
+        id: r2
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          has_r2_auth=false
+          has_r2_upload=false
+          if [[ -n "${R2_ENDPOINT}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" ]]; then
+            has_r2_auth=true
+          fi
+          if [[ "${has_r2_auth}" == "true" && -n "${R2_BUCKET}" ]]; then
+            has_r2_upload=true
+          fi
+          echo "has_r2_auth=${has_r2_auth}" >> "$GITHUB_OUTPUT"
+          echo "has_r2_upload=${has_r2_upload}" >> "$GITHUB_OUTPUT"
+
       - name: Configure R2
-        if: ${{ secrets.R2_ENDPOINT != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' }}
+        if: steps.r2.outputs.has_r2_auth == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -1419,7 +1457,7 @@ jobs:
         run: bash ./.github/workflows/scripts/configure-r2.sh
 
       - name: Upload to R2
-        if: ${{ secrets.R2_ENDPOINT != '' && secrets.R2_BUCKET != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' }}
+        if: steps.r2.outputs.has_r2_upload == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -1458,8 +1496,21 @@ jobs:
       - name: Pull latest changes
         run: git pull origin ${{ github.ref_name }}
 
+      - name: Detect R2 configuration
+        id: r2
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          has_r2_auth=false
+          if [[ -n "${R2_ENDPOINT}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" ]]; then
+            has_r2_auth=true
+          fi
+          echo "has_r2_auth=${has_r2_auth}" >> "$GITHUB_OUTPUT"
+
       - name: Configure R2
-        if: ${{ secrets.R2_ENDPOINT != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' }}
+        if: steps.r2.outputs.has_r2_auth == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
