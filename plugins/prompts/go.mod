@@ -77,3 +77,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
+replace (
+	github.com/capsohq/bifrost/core => ../../core
+	github.com/capsohq/bifrost/framework => ../../framework
+)

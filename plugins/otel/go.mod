@@ -165,3 +165,7 @@ require (
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 )
+replace (
+	github.com/capsohq/bifrost/core => ../../core
+	github.com/capsohq/bifrost/framework => ../../framework
+)

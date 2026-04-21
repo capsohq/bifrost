@@ -208,3 +208,16 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
+replace (
+	github.com/capsohq/bifrost/core => ../core
+	github.com/capsohq/bifrost/framework => ../framework
+	github.com/capsohq/bifrost/plugins/compat => ../plugins/compat
+	github.com/capsohq/bifrost/plugins/governance => ../plugins/governance
+	github.com/capsohq/bifrost/plugins/logging => ../plugins/logging
+	github.com/capsohq/bifrost/plugins/maxim => ../plugins/maxim
+	github.com/capsohq/bifrost/plugins/mocker => ../plugins/mocker
+	github.com/capsohq/bifrost/plugins/otel => ../plugins/otel
+	github.com/capsohq/bifrost/plugins/prompts => ../plugins/prompts
+	github.com/capsohq/bifrost/plugins/semanticcache => ../plugins/semanticcache
+	github.com/capsohq/bifrost/plugins/telemetry => ../plugins/telemetry
+)
