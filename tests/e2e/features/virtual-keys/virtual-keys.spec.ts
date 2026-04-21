@@ -118,7 +118,7 @@ test.describe('Virtual Keys', () => {
       // Verify budget was saved correctly
       await virtualKeysPage.viewVirtualKey(vkData.name)
       await virtualKeysPage.waitForSheetAnimation()
-      const budgetInput = virtualKeysPage.page.locator('#budgetMaxLimit')
+      const budgetInput = virtualKeysPage.getGlobalBudgetInput()
       await expect(budgetInput).toHaveValue(String(SAMPLE_BUDGETS.small.maxLimit))
       await virtualKeysPage.closeSheet()
     })
@@ -456,7 +456,8 @@ test.describe('Form Validation', () => {
     await virtualKeysPage.nameInput.fill(`Valid Budget Test ${Date.now()}`)
 
     // Fill budget
-    const budgetInput = virtualKeysPage.page.locator('#budgetMaxLimit')
+    await virtualKeysPage.ensureGlobalBudgetLine()
+    const budgetInput = virtualKeysPage.getGlobalBudgetInput()
     await expect(budgetInput).toBeVisible({ timeout: 5000 })
     await budgetInput.fill('100')
 

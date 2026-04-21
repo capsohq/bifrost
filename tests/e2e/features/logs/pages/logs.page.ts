@@ -10,6 +10,7 @@ export class LogsPage extends BasePage {
   readonly logsTable: Locator
   readonly filtersSection: Locator
   readonly filtersButton: Locator
+  readonly showFiltersButton: Locator
   readonly statsCards: Locator
 
   // Filter elements
@@ -35,9 +36,10 @@ export class LogsPage extends BasePage {
 
     // Main elements
     this.logsTable = page.locator('[data-testid="logs-table"]').or(page.locator('table'))
-    // The filters section is the container with search input and filters button
-    this.filtersSection = page.locator('input[placeholder="Search logs"]').locator('..')
-    this.filtersButton = page.getByRole('button', { name: /Filters/i })
+    // Filters now live in a persistent sidebar that can be collapsed into a rail.
+    this.filtersSection = page.locator('input[placeholder="Search logs"]').locator('..').or(page.locator('text=Filters').first())
+    this.showFiltersButton = page.getByRole('button', { name: /Show filters/i })
+    this.filtersButton = page.getByRole('button', { name: /Hide filters/i }).or(page.locator('text=Filters').first())
     this.statsCards = page.locator('[data-testid="stats-cards"]').or(page.locator('text=Total Requests').locator('..').locator('..'))
 
     // Filter elements - filters are inside a popover opened by the Filters button
@@ -47,9 +49,7 @@ export class LogsPage extends BasePage {
     this.modelFilter = page.locator('[data-testid="filter-model"]').or(
       page.locator('button').filter({ hasText: /Model/i })
     )
-    this.statusFilter = page.locator('[data-testid="filter-status"]').or(
-      page.locator('button').filter({ hasText: /Status/i })
-    )
+    this.statusFilter = page.getByTestId('status-filter-toggle').or(page.getByTestId('status-filter-checkbox-success'))
     this.searchInput = page.locator('[data-testid="filter-search"]').or(
       page.getByPlaceholder('Search logs')
     )
@@ -144,12 +144,23 @@ export class LogsPage extends BasePage {
    */
   async filterByStatus(status: 'success' | 'error' | 'pending'): Promise<void> {
     await this.dismissToasts()
-    await this.filtersButton.first().waitFor({ state: 'visible' })
-    await this.filtersButton.first().click()
+    await this.ensureFiltersSidebarExpanded()
+    const statusToggle = this.page.getByTestId('status-filter-toggle')
+    if (!(await this.page.getByTestId(`status-filter-checkbox-${status}`).isVisible().catch(() => false))) {
+      await statusToggle.waitFor({ state: 'visible', timeout: 5000 })
+      await statusToggle.click()
+    }
     const checkbox = this.page.getByTestId(`status-filter-checkbox-${status}`)
     await checkbox.waitFor({ state: 'visible', timeout: 5000 })
     await checkbox.click()
     await waitForNetworkIdle(this.page)
+  }
+
+  private async ensureFiltersSidebarExpanded(): Promise<void> {
+    const showFiltersVisible = await this.showFiltersButton.isVisible().catch(() => false)
+    if (showFiltersVisible) {
+      await this.showFiltersButton.click()
+    }
   }
 
   /**

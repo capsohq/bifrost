@@ -260,12 +260,28 @@ export class VirtualKeysPage extends BasePage {
    * Set budget configuration in the form
    */
   private async setBudget(budget: BudgetConfig): Promise<void> {
-    // Find budget max limit input and fill (fill() clears and sets atomically)
-    const budgetInput = this.page.locator('#budgetMaxLimit')
+    await this.ensureGlobalBudgetLine()
+    const budgetInput = this.getGlobalBudgetInput()
     await budgetInput.fill(String(budget.maxLimit))
 
     // Set reset duration if specified - skip for now as default is fine
     // The reset duration select is complex and default "Monthly" is usually correct
+  }
+
+  getGlobalBudgetInput(): Locator {
+    return this.page.locator('#vkBudget-0')
+  }
+
+  async ensureGlobalBudgetLine(): Promise<void> {
+    const budgetInput = this.getGlobalBudgetInput()
+    if (await budgetInput.count()) {
+      return
+    }
+
+    const addBudgetBtn = this.page.getByTestId('vkBudget-add-btn')
+    await addBudgetBtn.waitFor({ state: 'visible', timeout: 5000 })
+    await addBudgetBtn.click()
+    await budgetInput.waitFor({ state: 'visible', timeout: 5000 })
   }
 
   /**

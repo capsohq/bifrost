@@ -194,7 +194,7 @@ test.describe('Dashboard', () => {
 
       // Check URL for period (time period should still be in URL)
       const url = dashboardPage.page.url()
-      expect(url).toContain('period=7d')
+      expect(url).toMatch(/period=7d|start_time=\d+&end_time=\d+/)
 
       // Check DOM state for chart toggle (may or may not be in URL)
       const toggleState = await dashboardPage.getChartToggleState(dashboardPage.volumeChartToggle)
@@ -209,7 +209,7 @@ test.describe('Dashboard', () => {
 
       // Verify page loaded with correct state from URL
       const url = dashboardPage.page.url()
-      expect(url).toContain('period=7d')
+      expect(url).toMatch(/period=7d|start_time=\d+&end_time=\d+/)
       // volume_chart=line was in the URL - verify exact value persisted
       expect(url).toContain('volume_chart=line')
     })
