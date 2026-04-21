@@ -107,7 +107,7 @@ export class VirtualKeysPage extends BasePage {
     this.emptyState = page.getByTestId('virtual-keys-empty-state')
 
     // Virtual key sheet elements
-    this.sheet = page.getByTestId('vk-sheet')
+    this.sheet = page.locator('[data-testid="vk-sheet-content"], [data-testid="vk-sheet"]')
     this.nameInput = page.getByTestId('vk-name-input')
     this.descriptionInput = page.getByTestId('vk-description-input')
     this.isActiveToggle = page.getByTestId('vk-is-active-toggle')

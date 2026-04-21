@@ -54,7 +54,7 @@ export const Selectors = {
     
     // Sheet/Form
     sheet: {
-      container: '[data-testid="vk-sheet"]',
+      container: '[data-testid="vk-sheet-content"], [data-testid="vk-sheet"]',
       nameInput: '[data-testid="vk-name-input"]',
       descriptionInput: '[data-testid="vk-description-input"]',
       isActiveToggle: '[data-testid="vk-is-active-toggle"]',

@@ -21,11 +21,7 @@ test.describe('Dashboard', () => {
     })
 
     test('should display date time picker', async ({ dashboardPage }) => {
-      // Date picker should be visible (may be a button with date text)
-      const datePicker = dashboardPage.page.locator('button').filter({ hasText: /Last/i }).or(
-        dashboardPage.page.locator('[data-testid="dashboard-date-picker"]')
-      )
-      await expect(datePicker.first()).toBeVisible()
+      await expect(dashboardPage.dateTimePicker).toBeVisible()
     })
   })
 

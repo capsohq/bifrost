@@ -80,6 +80,22 @@ export class GovernancePage extends BasePage {
     return (await row.count()) > 0
   }
 
+  private getTeamBudgetInput(): Locator {
+    return this.teamDialog.locator('[data-testid^="budget-max-limit-input-"]').first()
+  }
+
+  private async ensureTeamBudgetRow(): Promise<void> {
+    const budgetInput = this.getTeamBudgetInput()
+    if (await budgetInput.count()) {
+      return
+    }
+
+    const addBudgetBtn = this.teamDialog.getByTestId('team-add-budget-btn')
+    await addBudgetBtn.waitFor({ state: 'visible', timeout: 5000 })
+    await addBudgetBtn.click()
+    await this.getTeamBudgetInput().waitFor({ state: 'visible', timeout: 5000 })
+  }
+
   async createTeam(config: TeamConfig): Promise<void> {
     await this.teamsCreateBtn.click()
     await expect(this.teamDialog).toBeVisible({ timeout: 5000 })
@@ -106,7 +122,8 @@ export class GovernancePage extends BasePage {
     }
 
     if (config.budget?.maxLimit !== undefined) {
-      const budgetInput = this.page.getByTestId('budget-max-limit-input')
+      await this.ensureTeamBudgetRow()
+      const budgetInput = this.getTeamBudgetInput()
       await budgetInput.fill(String(config.budget.maxLimit))
     }
 
@@ -196,7 +213,8 @@ export class GovernancePage extends BasePage {
     }
 
     if (updates.budget?.maxLimit !== undefined) {
-      const budgetInput = this.page.getByTestId('budget-max-limit-input')
+      await this.ensureTeamBudgetRow()
+      const budgetInput = this.getTeamBudgetInput()
       await budgetInput.clear()
       await budgetInput.fill(String(updates.budget.maxLimit))
     }

@@ -129,6 +129,16 @@ export class RoutingRulesPage extends BasePage {
     await this.dismissToasts()
   }
 
+  private async waitForToastText(): Promise<string> {
+    const toast = this.page.locator('[data-sonner-toast]:not([data-removed="true"])').first()
+    await expect(toast).toBeVisible({ timeout: 10000 })
+    return (await toast.textContent()) ?? ''
+  }
+
+  private getRetryPriority(attempt: number): number {
+    return 1 + ((Date.now() + attempt * 131 + Math.floor(Math.random() * 97)) % 999)
+  }
+
   /**
    * Check if routing rule exists
    */
@@ -199,11 +209,38 @@ export class RoutingRulesPage extends BasePage {
       }
     }
 
-    // Save
+    // Save. Duplicate priorities can happen in shared CI environments, so retry with a fresh
+    // priority instead of failing the whole test on a non-deterministic collision.
     await this.saveBtn.waitFor({ state: 'visible' })
-    await this.saveBtn.click()
+    let created = false
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await this.saveBtn.click()
+      const toastText = await this.waitForToastText()
+      const normalizedToast = toastText.toLowerCase()
 
-    await this.waitForToastAndAssertSuccess('create routing rule')
+      if (!normalizedToast.includes('error') && !normalizedToast.includes('failed')) {
+        await this.dismissToasts()
+        created = true
+        break
+      }
+
+      if (normalizedToast.includes('priority') && normalizedToast.includes('already exists') && config.priority !== undefined) {
+        const nextPriority = this.getRetryPriority(attempt + 1)
+        await this.dismissToasts()
+        await this.priorityInput.waitFor({ state: 'visible' })
+        await this.priorityInput.clear()
+        await this.priorityInput.fill(String(nextPriority))
+        config.priority = nextPriority
+        continue
+      }
+
+      throw new Error(`Failed to create routing rule: ${toastText}`)
+    }
+
+    if (!created) {
+      throw new Error(`Failed to create routing rule after retrying duplicate priority collisions for "${config.name}"`)
+    }
+
     await expect(this.sheet).not.toBeVisible({ timeout: 10000 })
     await waitForNetworkIdle(this.page)
     // Wait for the new rule to appear in the table (list may refresh async)

@@ -31,7 +31,7 @@ export class DashboardPage extends BasePage {
 
     // Main elements
     this.pageTitle = page.getByRole('heading', { name: /Dashboard/i })
-    this.dateTimePicker = page.locator('[data-testid="dashboard-date-picker"]')
+    this.dateTimePicker = page.locator('[data-testid="dashboard-filter-daterange"], [data-testid="dashboard-date-picker"]')
 
     // Chart cards - using data-testid for robust selectors
     this.logVolumeChart = page.locator('[data-testid="chart-log-volume"]')
@@ -106,7 +106,7 @@ export class DashboardPage extends BasePage {
    * Identified by having the calendar icon so we don't match preset buttons inside the popover.
    */
   getDatePickerTrigger(): Locator {
-    return this.page.locator('button').filter({ has: this.page.locator('svg') }).filter({ hasText: /Last|Pick/i }).first()
+    return this.page.locator('[data-testid="dashboard-filter-daterange"], [data-testid="dashboard-date-picker"]').first()
   }
 
   /**

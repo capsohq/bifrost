@@ -146,16 +146,9 @@ export class LogsPage extends BasePage {
     await this.dismissToasts()
     await this.filtersButton.first().waitFor({ state: 'visible' })
     await this.filtersButton.first().click()
-    await this.page.waitForSelector('[role="listbox"], [data-slot="command-list"]', { timeout: 5000 }).catch(() => {})
-
-    const option = this.page.getByRole('option', { name: new RegExp(status, 'i') })
-    if (await option.count() > 0) {
-      await option.first().click()
-    } else {
-      await this.page.keyboard.press('Escape')
-    }
-
-    await this.page.waitForSelector('[role="listbox"]', { state: 'hidden', timeout: 5000 }).catch(() => {})
+    const checkbox = this.page.getByTestId(`status-filter-checkbox-${status}`)
+    await checkbox.waitFor({ state: 'visible', timeout: 5000 })
+    await checkbox.click()
     await waitForNetworkIdle(this.page)
   }
 
