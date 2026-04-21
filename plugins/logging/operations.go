@@ -43,6 +43,7 @@ func (p *LoggerPlugin) insertInitialLogEntry(
 		ToolsParsed:                 data.Tools,
 		SpeechInputParsed:           data.SpeechInput,
 		TranscriptionInputParsed:    data.TranscriptionInput,
+		OCRInputParsed:              data.OCRInput,
 		ImageGenerationInputParsed:  data.ImageGenerationInput,
 		ImageEditInputParsed:        data.ImageEditInput,
 		ImageVariationInputParsed:   data.ImageVariationInput,
@@ -350,10 +351,6 @@ func (p *LoggerPlugin) applyStreamingOutputToEntry(entry *logstore.Log, streamRe
 		latF := float64(streamResponse.Data.Latency)
 		entry.Latency = &latF
 	}
-
-	entry.Status = "success"
-	latF := float64(streamResponse.Data.Latency)
-	entry.Latency = &latF
 
 	// Update model and alias from resolved/requested model pair.
 	applyModelAlias(entry, streamResponse.RequestedModel, streamResponse.ResolvedModel)

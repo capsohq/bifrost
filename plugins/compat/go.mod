@@ -1,10 +1,10 @@
 module github.com/capsohq/bifrost/plugins/compat
 
-go 1.26.2
+go 1.26.1
 
 require (
-	github.com/capsohq/bifrost/core v1.4.20
-	github.com/capsohq/bifrost/framework v1.2.39
+	github.com/capsohq/bifrost/core v1.5.3
+	github.com/capsohq/bifrost/framework v1.3.3
 )
 
 require (
@@ -157,7 +157,3 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
-
-replace github.com/capsohq/bifrost/core => ../../core
-
-replace github.com/capsohq/bifrost/framework => ../../framework

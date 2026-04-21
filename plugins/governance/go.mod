@@ -1,15 +1,15 @@
 module github.com/capsohq/bifrost/plugins/governance
 
-go 1.26.2
+go 1.26.1
 
 require gorm.io/gorm v1.31.1
 
 require (
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.4.20
-	github.com/capsohq/bifrost/framework v1.2.39
 	github.com/google/cel-go v0.26.1
 	github.com/google/uuid v1.6.0
+	github.com/capsohq/bifrost/core v1.5.3
+	github.com/capsohq/bifrost/framework v1.3.3
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.68.0
 )
@@ -162,7 +162,3 @@ require (
 	gorm.io/driver/postgres v1.6.0 // indirect
 	gorm.io/driver/sqlite v1.6.0 // indirect
 )
-
-replace github.com/capsohq/bifrost/core => ../../core
-
-replace github.com/capsohq/bifrost/framework => ../../framework

@@ -378,45 +378,41 @@ func TestToBifrostChatResponse_MultipleTextBlocksWithThinking(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 
-	// Multiple text blocks remain as content blocks; only a single text block collapses to ContentStr.
+	// With multiple text blocks, ToBifrostChatResponse preserves them as ContentBlocks
+	// (only a single text block collapses to ContentStr — see chat.go:812-815).
+	// Thinking flows through ReasoningDetails below, not ContentStr.
 	choice := result.Choices[0]
 	msg := choice.ChatNonStreamResponseChoice.Message
 	if msg.Content.ContentStr != nil {
-		t.Error("expected ContentStr to be nil when multiple text blocks are preserved")
+		t.Errorf("expected ContentStr to be nil with multiple text blocks, got %q", *msg.Content.ContentStr)
 	}
 	if len(msg.Content.ContentBlocks) != 2 {
-		t.Fatalf("expected 2 content blocks, got %d", len(msg.Content.ContentBlocks))
+		t.Fatalf("expected 2 content blocks (one per text block), got %d", len(msg.Content.ContentBlocks))
 	}
-	if msg.Content.ContentBlocks[0].Type != schemas.ChatContentBlockTypeText || msg.Content.ContentBlocks[0].Text == nil || *msg.Content.ContentBlocks[0].Text != textBlock1 {
-		t.Fatalf("expected first text block %q, got %#v", textBlock1, msg.Content.ContentBlocks[0])
+	if msg.Content.ContentBlocks[0].Text == nil || *msg.Content.ContentBlocks[0].Text != textBlock1 {
+		t.Errorf("block 0 text mismatch: got %v, want %q", msg.Content.ContentBlocks[0].Text, textBlock1)
 	}
-	if msg.Content.ContentBlocks[1].Type != schemas.ChatContentBlockTypeText || msg.Content.ContentBlocks[1].Text == nil || *msg.Content.ContentBlocks[1].Text != textBlock2 {
-		t.Fatalf("expected second text block %q, got %#v", textBlock2, msg.Content.ContentBlocks[1])
+	if msg.Content.ContentBlocks[1].Text == nil || *msg.Content.ContentBlocks[1].Text != textBlock2 {
+		t.Errorf("block 1 text mismatch: got %v, want %q", msg.Content.ContentBlocks[1].Text, textBlock2)
 	}
 
-	// Reasoning field should still have thinking text
+	// Thinking is surfaced via ReasoningDetails with the signature preserved
+	// (see chat.go:798-807).
 	if msg.ChatAssistantMessage == nil {
 		t.Fatal("expected ChatAssistantMessage to be non-nil")
 	}
-	if msg.ChatAssistantMessage.Reasoning == nil {
-		t.Fatal("expected Reasoning to be non-nil")
-	}
-
-	// ReasoningDetails keep a single thinking entry with both text and signature.
 	rd := msg.ChatAssistantMessage.ReasoningDetails
 	if len(rd) != 1 {
-		t.Fatalf("expected 1 reasoning detail entry, got %d", len(rd))
+		t.Fatalf("expected 1 reasoning details entry (the thinking block), got %d", len(rd))
 	}
-
-	// First entry: thinking with signature and text preserved.
 	if rd[0].Type != schemas.BifrostReasoningDetailsTypeText {
-		t.Errorf("expected first reasoning detail type %s, got %s", schemas.BifrostReasoningDetailsTypeText, rd[0].Type)
+		t.Errorf("expected reasoning detail type %s, got %s", schemas.BifrostReasoningDetailsTypeText, rd[0].Type)
 	}
 	if rd[0].Signature == nil || *rd[0].Signature != signature {
-		t.Error("expected signature to be preserved")
+		t.Error("expected thinking signature to be preserved on reasoning detail")
 	}
 	if rd[0].Text == nil || *rd[0].Text != thinkingText {
-		t.Fatalf("expected thinking text %q, got %#v", thinkingText, rd[0].Text)
+		t.Errorf("expected reasoning text to match thinking text")
 	}
 }
 

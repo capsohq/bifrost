@@ -52,6 +52,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"errors"
 	"mime"
 	"mime/multipart"
 	"strconv"
@@ -1458,7 +1459,7 @@ func (g *GenericRouter) handleAsyncCreate(
 	// Reject streaming + async
 	if streamingReq, ok := req.(StreamingRequest); ok && streamingReq.IsStreamingRequested() {
 		g.sendError(ctx, bifrostCtx, config.ErrorConverter,
-			newBifrostError(nil, "streaming is not supported for async requests"))
+			newBifrostErrorWithCode(nil, "streaming is not supported for async requests", fasthttp.StatusBadRequest))
 		return
 	}
 
@@ -1538,8 +1539,13 @@ func (g *GenericRouter) handleAsyncRetrieve(
 
 	job, err := executor.RetrieveJob(bifrostCtx, jobID, vkValue, config.GetHTTPRequestType(ctx))
 	if err != nil {
-		g.sendError(ctx, bifrostCtx, config.ErrorConverter,
-			newBifrostError(err, "job not found or expired"))
+		if errors.Is(err, logstore.ErrJobInternal) {
+			g.sendError(ctx, bifrostCtx, config.ErrorConverter,
+				newBifrostErrorWithCode(err, "failed to retrieve async job", fasthttp.StatusInternalServerError))
+		} else {
+			g.sendError(ctx, bifrostCtx, config.ErrorConverter,
+				newBifrostErrorWithCode(err, "job not found or expired", fasthttp.StatusNotFound))
+		}
 		return
 	}
 
@@ -2757,6 +2763,10 @@ func (g *GenericRouter) handlePassthroughStream(
 	provider schemas.ModelProvider,
 	req *schemas.BifrostPassthroughRequest,
 ) {
+	// Deferred trace completion must be explicitly finalized after streaming ends.
+	// Without this, observability injectors (including logging) never flush final state.
+	traceCompleter, _ := ctx.UserValue(schemas.BifrostContextKeyTraceCompleter).(func([]schemas.PluginLogEntry))
+
 	stream, bifrostErr := g.client.PassthroughStream(bifrostCtx, provider, req)
 	if bifrostErr != nil {
 		cancel()
@@ -2819,6 +2829,9 @@ func (g *GenericRouter) handlePassthroughStream(
 
 	go func() {
 		defer func() {
+			if traceCompleter != nil {
+				traceCompleter(nil)
+			}
 			reader.Done()
 			cancel()
 		}()

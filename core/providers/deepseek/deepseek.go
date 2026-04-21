@@ -3,6 +3,7 @@
 package deepseek
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -94,7 +95,7 @@ func (provider *DeepSeekProvider) TextCompletion(ctx *schemas.BifrostContext, ke
 // TextCompletionStream performs a streaming text completion request to DeepSeek's API.
 // It formats the request, sends it to DeepSeek, and processes the response.
 // Returns a channel of BifrostStreamChunk objects or an error if the request fails.
-func (provider *DeepSeekProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -114,6 +115,7 @@ func (provider *DeepSeekProvider) TextCompletionStream(ctx *schemas.BifrostConte
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -139,7 +141,7 @@ func (provider *DeepSeekProvider) ChatCompletion(ctx *schemas.BifrostContext, ke
 // It supports real-time streaming of responses using Server-Sent Events (SSE).
 // Uses DeepSeek's OpenAI-compatible streaming format.
 // Returns a channel containing BifrostStreamChunk objects representing the stream or an error if the request fails.
-func (provider *DeepSeekProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -162,6 +164,7 @@ func (provider *DeepSeekProvider) ChatCompletionStream(ctx *schemas.BifrostConte
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -181,11 +184,12 @@ func (provider *DeepSeekProvider) Responses(ctx *schemas.BifrostContext, key sch
 }
 
 // ResponsesStream performs a streaming responses request to the DeepSeek API.
-func (provider *DeepSeekProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	ctx.SetValue(schemas.BifrostContextKeyIsResponsesToChatCompletionFallback, true)
 	return provider.ChatCompletionStream(
 		ctx,
 		postHookRunner,
+		postHookSpanFinalizer,
 		key,
 		request.ToChatRequest(),
 	)
@@ -202,7 +206,7 @@ func (provider *DeepSeekProvider) Speech(ctx *schemas.BifrostContext, key schema
 }
 
 // SpeechStream is not supported by the DeepSeek provider.
-func (provider *DeepSeekProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
 }
 
@@ -212,7 +216,7 @@ func (provider *DeepSeekProvider) Transcription(ctx *schemas.BifrostContext, key
 }
 
 // TranscriptionStream is not supported by the DeepSeek provider.
-func (provider *DeepSeekProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, provider.GetProviderKey())
 }
 
@@ -232,7 +236,7 @@ func (provider *DeepSeekProvider) ImageGeneration(ctx *schemas.BifrostContext, k
 }
 
 // ImageGenerationStream is not supported by the DeepSeek provider.
-func (provider *DeepSeekProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageGenerationStreamRequest, provider.GetProviderKey())
 }
 
@@ -242,7 +246,7 @@ func (provider *DeepSeekProvider) ImageEdit(ctx *schemas.BifrostContext, key sch
 }
 
 // ImageEditStream is not supported by the DeepSeek provider.
-func (provider *DeepSeekProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageEditStreamRequest, provider.GetProviderKey())
 }
 
@@ -392,6 +396,6 @@ func (provider *DeepSeekProvider) Passthrough(_ *schemas.BifrostContext, _ schem
 }
 
 // PassthroughStream is not supported by the DeepSeek provider.
-func (provider *DeepSeekProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *DeepSeekProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ func(context.Context), _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

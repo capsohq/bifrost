@@ -3,6 +3,7 @@
 package qwen
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -94,7 +95,7 @@ func (provider *QwenProvider) TextCompletion(ctx *schemas.BifrostContext, key sc
 // TextCompletionStream performs a streaming text completion request to Qwen's API.
 // It formats the request, sends it to Qwen, and processes the response.
 // Returns a channel of BifrostStreamChunk objects or an error if the request fails.
-func (provider *QwenProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -114,6 +115,7 @@ func (provider *QwenProvider) TextCompletionStream(ctx *schemas.BifrostContext, 
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -139,7 +141,7 @@ func (provider *QwenProvider) ChatCompletion(ctx *schemas.BifrostContext, key sc
 // It supports real-time streaming of responses using Server-Sent Events (SSE).
 // Uses Qwen's OpenAI-compatible streaming format.
 // Returns a channel containing BifrostStreamChunk objects representing the stream or an error if the request fails.
-func (provider *QwenProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -162,6 +164,7 @@ func (provider *QwenProvider) ChatCompletionStream(ctx *schemas.BifrostContext, 
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -181,11 +184,12 @@ func (provider *QwenProvider) Responses(ctx *schemas.BifrostContext, key schemas
 }
 
 // ResponsesStream performs a streaming responses request to the Qwen API.
-func (provider *QwenProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	ctx.SetValue(schemas.BifrostContextKeyIsResponsesToChatCompletionFallback, true)
 	return provider.ChatCompletionStream(
 		ctx,
 		postHookRunner,
+		postHookSpanFinalizer,
 		key,
 		request.ToChatRequest(),
 	)
@@ -202,7 +206,7 @@ func (provider *QwenProvider) Speech(ctx *schemas.BifrostContext, key schemas.Ke
 }
 
 // SpeechStream is not supported by the Qwen provider.
-func (provider *QwenProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
 }
 
@@ -212,7 +216,7 @@ func (provider *QwenProvider) Transcription(ctx *schemas.BifrostContext, key sch
 }
 
 // TranscriptionStream is not supported by the Qwen provider.
-func (provider *QwenProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, provider.GetProviderKey())
 }
 
@@ -232,7 +236,7 @@ func (provider *QwenProvider) ImageGeneration(ctx *schemas.BifrostContext, key s
 }
 
 // ImageGenerationStream is not supported by the Qwen provider.
-func (provider *QwenProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageGenerationStreamRequest, provider.GetProviderKey())
 }
 
@@ -242,7 +246,7 @@ func (provider *QwenProvider) ImageEdit(ctx *schemas.BifrostContext, key schemas
 }
 
 // ImageEditStream is not supported by the Qwen provider.
-func (provider *QwenProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageEditStreamRequest, provider.GetProviderKey())
 }
 
@@ -392,6 +396,6 @@ func (provider *QwenProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.K
 }
 
 // PassthroughStream is not supported by the Qwen provider.
-func (provider *QwenProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *QwenProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ func(context.Context), _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

@@ -45,6 +45,8 @@ var vertexLocationsPathRe = regexp.MustCompile(`/locations/[^/]+`)
 
 var vertexProjectsPathRe = regexp.MustCompile(`/projects/[^/]+`)
 
+const maxStreamPassthroughCaptureBytes = 1024 * 1024
+
 // vertexBodyProjectsRe matches projects/{project} in body JSON values,
 // where the path may appear as "projects/X (after a JSON quote) or /projects/X (mid-path).
 var vertexBodyProjectsRe = regexp.MustCompile(`(["/])projects/[^/"]+`)
@@ -74,7 +76,8 @@ func removeVertexClient(authCredentials string) {
 // VertexProvider implements the Provider interface for Google's Vertex AI API.
 type VertexProvider struct {
 	logger              schemas.Logger        // Logger for provider operations
-	client              *fasthttp.Client      // HTTP client for API requests
+	client              *fasthttp.Client      // HTTP client for unary API requests (ReadTimeout bounds overall response)
+	streamingClient     *fasthttp.Client      // HTTP client for streaming API requests (no ReadTimeout; idle governed by NewIdleTimeoutReader)
 	networkConfig       schemas.NetworkConfig // Network configuration including extra headers
 	sendBackRawRequest  bool                  // Whether to include raw request in BifrostResponse
 	sendBackRawResponse bool                  // Whether to include raw response in BifrostResponse
@@ -98,9 +101,11 @@ func NewVertexProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*
 	client = providerUtils.ConfigureProxy(client, config.ProxyConfig, logger)
 	client = providerUtils.ConfigureDialer(client)
 	client = providerUtils.ConfigureTLS(client, config.NetworkConfig, logger)
+	streamingClient := providerUtils.BuildStreamingClient(client)
 	return &VertexProvider{
 		logger:              logger,
 		client:              client,
+		streamingClient:     streamingClient,
 		networkConfig:       config.NetworkConfig,
 		sendBackRawRequest:  config.SendBackRawRequest,
 		sendBackRawResponse: config.SendBackRawResponse,
@@ -356,7 +361,7 @@ func (provider *VertexProvider) TextCompletion(ctx *schemas.BifrostContext, key 
 // TextCompletionStream performs a streaming text completion request to Vertex's API.
 // It formats the request, sends it to Vertex, and processes the response.
 // Returns a channel of BifrostStreamChunk objects or an error if the request fails.
-func (provider *VertexProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TextCompletionStreamRequest, provider.GetProviderKey())
 }
 
@@ -675,7 +680,7 @@ func (provider *VertexProvider) ChatCompletion(ctx *schemas.BifrostContext, key 
 // ChatCompletionStream performs a streaming chat completion request to the Vertex API.
 // It supports both OpenAI-style streaming (for non-Claude models) and Anthropic-style streaming (for Claude models).
 // Returns a channel of BifrostStreamChunk objects for streaming results or an error if the request fails.
-func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	providerName := provider.GetProviderKey()
 	projectID := key.VertexKeyConfig.ProjectID.GetValue()
 	if projectID == "" {
@@ -780,7 +785,7 @@ func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 		// Use shared Anthropic streaming logic
 		return anthropic.HandleAnthropicChatCompletionStreaming(
 			ctx,
-			provider.client,
+			provider.streamingClient,
 			completeURL,
 			jsonData,
 			headers,
@@ -792,6 +797,7 @@ func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 			postHookRunner,
 			nil,
 			provider.logger,
+			postHookSpanFinalizer,
 		)
 	} else if schemas.IsGeminiModel(request.Model) || schemas.IsAllDigitsASCII(request.Model) {
 		// Use Gemini-style streaming for Gemini models
@@ -859,7 +865,7 @@ func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 		// Use shared streaming logic from Gemini
 		return gemini.HandleGeminiChatCompletionStream(
 			ctx,
-			provider.client,
+			provider.streamingClient,
 			completeURL,
 			jsonData,
 			headers,
@@ -871,6 +877,7 @@ func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 			postHookRunner,
 			nil,
 			provider.logger,
+			postHookSpanFinalizer,
 		)
 	} else {
 		var authHeader map[string]string
@@ -917,7 +924,7 @@ func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 		// Use shared OpenAI streaming logic
 		return openai.HandleOpenAIChatCompletionStreaming(
 			ctx,
-			provider.client,
+			provider.streamingClient,
 			completeURL,
 			request,
 			authHeader,
@@ -932,6 +939,7 @@ func (provider *VertexProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 			nil,
 			nil,
 			provider.logger,
+			postHookSpanFinalizer,
 		)
 	}
 }
@@ -1207,7 +1215,7 @@ func (provider *VertexProvider) Responses(ctx *schemas.BifrostContext, key schem
 }
 
 // ResponsesStream performs a streaming responses request to the Vertex API.
-func (provider *VertexProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	if schemas.IsAnthropicModel(request.Model) {
 		region := key.VertexKeyConfig.Region.GetValue()
 		if region == "" {
@@ -1252,7 +1260,7 @@ func (provider *VertexProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 		// Use shared streaming logic from Anthropic
 		return anthropic.HandleAnthropicResponsesStream(
 			ctx,
-			provider.client,
+			provider.streamingClient,
 			url,
 			jsonBody,
 			headers,
@@ -1264,6 +1272,7 @@ func (provider *VertexProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 			postHookRunner,
 			nil,
 			provider.logger,
+			postHookSpanFinalizer,
 		)
 	} else if schemas.IsGeminiModel(request.Model) || schemas.IsAllDigitsASCII(request.Model) {
 		region := key.VertexKeyConfig.Region.GetValue()
@@ -1340,7 +1349,7 @@ func (provider *VertexProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 		// Use shared streaming logic from Gemini
 		return gemini.HandleGeminiResponsesStream(
 			ctx,
-			provider.client,
+			provider.streamingClient,
 			completeURL,
 			jsonData,
 			headers,
@@ -1352,12 +1361,14 @@ func (provider *VertexProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 			postHookRunner,
 			nil,
 			provider.logger,
+			postHookSpanFinalizer,
 		)
 	} else {
 		ctx.SetValue(schemas.BifrostContextKeyIsResponsesToChatCompletionFallback, true)
 		return provider.ChatCompletionStream(
 			ctx,
 			postHookRunner,
+			postHookSpanFinalizer,
 			key,
 			request.ToChatRequest(),
 		)
@@ -1660,7 +1671,7 @@ func (provider *VertexProvider) OCR(ctx *schemas.BifrostContext, key schemas.Key
 }
 
 // SpeechStream is not supported by the Vertex provider.
-func (provider *VertexProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
 }
 
@@ -1670,7 +1681,7 @@ func (provider *VertexProvider) Transcription(ctx *schemas.BifrostContext, key s
 }
 
 // TranscriptionStream is not supported by the Vertex provider.
-func (provider *VertexProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, provider.GetProviderKey())
 }
 
@@ -1900,7 +1911,7 @@ func (provider *VertexProvider) ImageGeneration(ctx *schemas.BifrostContext, key
 }
 
 // ImageGenerationStream is not supported by the Vertex provider.
-func (provider *VertexProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageGenerationStreamRequest, provider.GetProviderKey())
 }
 
@@ -2119,7 +2130,7 @@ func (provider *VertexProvider) ImageEdit(ctx *schemas.BifrostContext, key schem
 }
 
 // ImageEditStream is not supported by the Vertex provider.
-func (provider *VertexProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VertexProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageEditStreamRequest, provider.GetProviderKey())
 }
 
@@ -2943,6 +2954,7 @@ func (provider *VertexProvider) Passthrough(
 func (provider *VertexProvider) PassthroughStream(
 	ctx *schemas.BifrostContext,
 	postHookRunner schemas.PostHookRunner,
+	postHookSpanFinalizer func(context.Context),
 	key schemas.Key,
 	req *schemas.BifrostPassthroughRequest,
 ) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
@@ -2987,8 +2999,6 @@ func (provider *VertexProvider) PassthroughStream(
 	if req.RawQuery != "" {
 		requestURL += "?" + req.RawQuery
 	}
-
-	startTime := time.Now()
 
 	fasthttpReq := fasthttp.AcquireRequest()
 	resp := fasthttp.AcquireResponse()
@@ -3046,7 +3056,7 @@ func (provider *VertexProvider) PassthroughStream(
 		fasthttpReq.SetBody(req.Body)
 	}
 
-	activeClient := providerUtils.PrepareResponseStreaming(ctx, provider.client, resp)
+	activeClient := providerUtils.PrepareResponseStreaming(ctx, provider.streamingClient, resp)
 	if err := activeClient.Do(fasthttpReq, resp); err != nil {
 		providerUtils.ReleaseStreamingResponse(resp)
 		if errors.Is(err, context.Canceled) {
@@ -3099,25 +3109,42 @@ func (provider *VertexProvider) PassthroughStream(
 
 	ch := make(chan *schemas.BifrostStreamChunk, schemas.DefaultStreamBufferSize)
 	go func() {
-		defer providerUtils.EnsureStreamFinalizerCalled(ctx)
+		defer providerUtils.EnsureStreamFinalizerCalled(ctx, postHookSpanFinalizer)
 		defer func() {
 			if ctx.Err() == context.Canceled {
-				providerUtils.HandleStreamCancellation(ctx, postHookRunner, ch, provider.logger)
+				providerUtils.HandleStreamCancellation(ctx, postHookRunner, ch, provider.logger, postHookSpanFinalizer)
 			} else if ctx.Err() == context.DeadlineExceeded {
-				providerUtils.HandleStreamTimeout(ctx, postHookRunner, ch, provider.logger)
+				providerUtils.HandleStreamTimeout(ctx, postHookRunner, ch, provider.logger, postHookSpanFinalizer)
 			}
 			close(ch)
 		}()
 		defer providerUtils.ReleaseStreamingResponse(resp)
 		defer stopIdleTimeout()
 		defer stopCancellation()
+		streamStart := time.Now()
 
+		fullResponseBody := make([]byte, 0, maxStreamPassthroughCaptureBytes)
+		fullResponseBodyTruncated := false
+		terminalDetector := &providerUtils.StreamTerminalDetector{}
 		buf := make([]byte, 4096)
 		for {
 			n, readErr := bodyStream.Read(buf)
 			if n > 0 {
 				chunk := make([]byte, n)
 				copy(chunk, buf[:n])
+				if !fullResponseBodyTruncated {
+					remaining := maxStreamPassthroughCaptureBytes - len(fullResponseBody)
+					if remaining > 0 {
+						if n <= remaining {
+							fullResponseBody = append(fullResponseBody, chunk...)
+						} else {
+							fullResponseBody = append(fullResponseBody, chunk[:remaining]...)
+							fullResponseBodyTruncated = true
+						}
+					} else {
+						fullResponseBodyTruncated = true
+					}
+				}
 				select {
 				case ch <- &schemas.BifrostStreamChunk{
 					BifrostPassthroughResponse: &schemas.BifrostPassthroughResponse{
@@ -3130,21 +3157,45 @@ func (provider *VertexProvider) PassthroughStream(
 				case <-ctx.Done():
 					return
 				}
+
+				// Vertex streamGenerateContent passthrough can emit terminal markers
+				// (finishReason) before the underlying HTTP body is closed.
+				// Finalize as success once this appears to avoid hanging clients.
+				if terminalDetector.ObserveChunk(chunk) {
+					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
+					extraFields.Latency = time.Since(streamStart).Milliseconds()
+					var capturedBody []byte
+					if !fullResponseBodyTruncated {
+						capturedBody = append([]byte(nil), fullResponseBody...)
+					}
+					finalResp := &schemas.BifrostResponse{
+						PassthroughResponse: &schemas.BifrostPassthroughResponse{
+							StatusCode:  statusCode,
+							Headers:     headers,
+							Body:        capturedBody,
+							ExtraFields: extraFields,
+						},
+					}
+					postHookRunner(ctx, finalResp, nil)
+					return
+				}
 			}
 			if readErr == io.EOF {
 				ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-				extraFields.Latency = time.Since(startTime).Milliseconds()
+				extraFields.Latency = time.Since(streamStart).Milliseconds()
+				var capturedBody []byte
+				if !fullResponseBodyTruncated {
+					capturedBody = append([]byte(nil), fullResponseBody...)
+				}
 				finalResp := &schemas.BifrostResponse{
 					PassthroughResponse: &schemas.BifrostPassthroughResponse{
 						StatusCode:  statusCode,
 						Headers:     headers,
+						Body:        capturedBody,
 						ExtraFields: extraFields,
 					},
 				}
 				postHookRunner(ctx, finalResp, nil)
-				if finalizer, ok := ctx.Value(schemas.BifrostContextKeyPostHookSpanFinalizer).(func(context.Context)); ok && finalizer != nil {
-					finalizer(ctx)
-				}
 				return
 			}
 			if readErr != nil {
@@ -3152,8 +3203,8 @@ func (provider *VertexProvider) PassthroughStream(
 					return // let defer handle cancel/timeout
 				}
 				ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-				extraFields.Latency = time.Since(startTime).Milliseconds()
-				providerUtils.ProcessAndSendError(ctx, postHookRunner, readErr, ch, provider.logger)
+				extraFields.Latency = time.Since(streamStart).Milliseconds()
+				providerUtils.ProcessAndSendError(ctx, postHookRunner, readErr, ch, provider.logger, postHookSpanFinalizer)
 				return
 			}
 		}

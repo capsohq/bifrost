@@ -1,16 +1,12 @@
 module github.com/capsohq/bifrost/plugins/prompts
 
-go 1.26.2
+go 1.26.1
 
 require (
-	github.com/capsohq/bifrost/core v1.5.2
-	github.com/capsohq/bifrost/framework v1.3.2
+	github.com/capsohq/bifrost/core v1.5.3
+	github.com/capsohq/bifrost/framework v1.3.3
 	github.com/stretchr/testify v1.11.1
 )
-
-replace github.com/capsohq/bifrost/core => ../../core
-
-replace github.com/capsohq/bifrost/framework => ../../framework
 
 require (
 	cloud.google.com/go v0.123.0 // indirect

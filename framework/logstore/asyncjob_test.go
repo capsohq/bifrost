@@ -30,7 +30,7 @@ type testGovernanceStore struct {
 	virtualKeys map[string]*configstoreTables.TableVirtualKey
 }
 
-func (t *testGovernanceStore) GetVirtualKey(vkValue string) (*configstoreTables.TableVirtualKey, bool) {
+func (t *testGovernanceStore) GetVirtualKey(_ context.Context, vkValue string) (*configstoreTables.TableVirtualKey, bool) {
 	vk, ok := t.virtualKeys[vkValue]
 	return vk, ok
 }

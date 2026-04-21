@@ -11,11 +11,7 @@ import { useColumnConfig } from "@/components/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import {
   getErrorMessage,
@@ -40,31 +36,15 @@ import { dateUtils } from "@/lib/types/logs";
 import { COMPACT_NUMBER_FORMAT } from "@/lib/utils/numbers";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import NumberFlow from "@number-flow/react";
-import {
-  AlertCircle,
-  BarChart,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  Hash,
-  Info,
-} from "lucide-react";
-import {
-  parseAsArrayOf,
-  parseAsBoolean,
-  parseAsInteger,
-  parseAsString,
-  useQueryStates,
-} from "nuqs";
+import { AlertCircle, BarChart, CheckCircle, Clock, DollarSign, Hash, Info } from "lucide-react";
+import { parseAsArrayOf, parseAsBoolean, parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export default function LogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [totalItems, setTotalItems] = useState(0); // changes with filters
   const [stats, setStats] = useState<LogStats | null>(null);
-  const [histogram, setHistogram] = useState<LogsHistogramResponse | null>(
-    null,
-  );
+  const [histogram, setHistogram] = useState<LogsHistogramResponse | null>(null);
   const [initialLoading, setInitialLoading] = useState(true); // on initial load
   const [fetchingLogs, setFetchingLogs] = useState(false); // on pagination/filters change
   const [fetchingStats, setFetchingStats] = useState(false); // on stats fetch
@@ -80,12 +60,8 @@ export default function LogsPage() {
   const [triggerGetHistogram] = useLazyGetLogsHistogramQuery();
   const [deleteLogs] = useDeleteLogsMutation();
 
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null,
-  );
-  const [sessionHighlightedLogId, setSessionHighlightedLogId] = useState<
-    string | null
-  >(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [sessionHighlightedLogId, setSessionHighlightedLogId] = useState<string | null>(null);
   // Stable handler so SessionDetailsSheet's loadSessionPage useCallback doesn't
   // recreate on every parent re-render. Without this, every live WebSocket log
   // tick would re-render LogsPage, hand the sheet a fresh inline arrow, recreate
@@ -102,9 +78,7 @@ export default function LogsPage() {
   const [fetchedLog, setFetchedLog] = useState<LogEntry | null>(null);
 
   // Debouncing for streaming updates (client-side)
-  const streamingUpdateTimeouts = useRef<
-    Map<string, ReturnType<typeof setTimeout>>
-  >(new Map());
+  const streamingUpdateTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Track if user has manually modified the time range
   const userModifiedTimeRange = useRef<boolean>(false);
@@ -157,8 +131,7 @@ export default function LogsPage() {
   // Derive selectedLog: find in current logs array, or fetch by ID from API
   const selectedLogId = urlState.selected_log || null;
   const selectedLogFromData = useMemo(
-    () =>
-      selectedLogId ? (logs.find((l) => l.id === selectedLogId) ?? null) : null,
+    () => (selectedLogId ? (logs.find((l) => l.id === selectedLogId) ?? null) : null),
     [selectedLogId, logs],
   );
 
@@ -194,12 +167,8 @@ export default function LogsPage() {
       }
 
       // Check if current time range matches the initial defaults (within tolerance)
-      const startTimeDiff = Math.abs(
-        urlState.start_time - initialDefaults.current.startTime,
-      );
-      const endTimeDiff = Math.abs(
-        urlState.end_time - initialDefaults.current.endTime,
-      );
+      const startTimeDiff = Math.abs(urlState.start_time - initialDefaults.current.startTime);
+      const endTimeDiff = Math.abs(urlState.end_time - initialDefaults.current.endTime);
       const tolerance = 5; // 5 seconds tolerance for slight timing differences
 
       // Only refresh if current values match the initial defaults
@@ -261,12 +230,12 @@ export default function LogsPage() {
       missing_cost_only: urlState.missing_cost_only,
       metadata_filters: urlState.metadata_filters
         ? (() => {
-            try {
-              return JSON.parse(urlState.metadata_filters);
-            } catch {
-              return undefined;
-            }
-          })()
+          try {
+            return JSON.parse(urlState.metadata_filters);
+          } catch {
+            return undefined;
+          }
+        })()
         : undefined,
     }),
     // Only re-derive filters when filter-related URL params change (not pagination)
@@ -309,10 +278,7 @@ export default function LogsPage() {
   const setFilters = useCallback(
     (newFilters: LogFilters) => {
       // Mark time range as user-modified only if start_time or end_time actually changed
-      if (
-        newFilters.start_time !== filters.start_time ||
-        newFilters.end_time !== filters.end_time
-      ) {
+      if (newFilters.start_time !== filters.start_time || newFilters.end_time !== filters.end_time) {
         userModifiedTimeRange.current = true;
       }
 
@@ -332,16 +298,10 @@ export default function LogsPage() {
         customer_ids: newFilters.customer_ids || [],
         business_unit_ids: newFilters.business_unit_ids || [],
         content_search: newFilters.content_search || "",
-        start_time: newFilters.start_time
-          ? dateUtils.toUnixTimestamp(new Date(newFilters.start_time))
-          : undefined,
-        end_time: newFilters.end_time
-          ? dateUtils.toUnixTimestamp(new Date(newFilters.end_time))
-          : undefined,
+        start_time: newFilters.start_time ? dateUtils.toUnixTimestamp(new Date(newFilters.start_time)) : undefined,
+        end_time: newFilters.end_time ? dateUtils.toUnixTimestamp(new Date(newFilters.end_time)) : undefined,
         missing_cost_only: newFilters.missing_cost_only ?? false,
-        metadata_filters: newFilters.metadata_filters
-          ? JSON.stringify(newFilters.metadata_filters)
-          : "",
+        metadata_filters: newFilters.metadata_filters ? JSON.stringify(newFilters.metadata_filters) : "",
         offset: 0,
       });
     },
@@ -433,220 +393,191 @@ export default function LogsPage() {
     [deleteLogs, urlState.selected_log, setUrlState],
   );
 
-  const handleLogMessage = useCallback(
-    (log: LogEntry, operation: "create" | "update") => {
-      const { logs, filters, pagination, showEmptyState, liveEnabled } =
-        latest.current;
-      // If we were in empty state, exit it since we now have logs
-      if (showEmptyState) {
-        setShowEmptyState(false);
-      }
+  const handleLogMessage = useCallback((log: LogEntry, operation: "create" | "update") => {
+    const { logs, filters, pagination, showEmptyState, liveEnabled } = latest.current;
+    // If we were in empty state, exit it since we now have logs
+    if (showEmptyState) {
+      setShowEmptyState(false);
+    }
 
-      if (operation === "create") {
-        // Handle new log creation
-        // Only prepend the new log if we're on the first page and sorted by timestamp desc
-        if (
-          pagination.offset === 0 &&
-          pagination.sort_by === "timestamp" &&
-          pagination.order === "desc"
-        ) {
-          // Check if the log matches current filters
-          if (!matchesFilters(log, filters, !liveEnabled)) {
-            return;
-          }
-
-          setLogs((prevLogs: LogEntry[]) => {
-            // Check if log already exists (prevent duplicates)
-            if (prevLogs.some((existingLog) => existingLog.id === log.id)) {
-              return prevLogs;
-            }
-
-            // Remove the last log if we're at the page limit
-            const updatedLogs = [log, ...prevLogs];
-            if (updatedLogs.length > pagination.limit) {
-              updatedLogs.pop();
-            }
-            return updatedLogs;
-          });
-
-          // Update fetchedLog if it matches (for real-time detail sheet updates when log is not on current page)
-          setFetchedLog((prev) => {
-            if (prev && prev.id === log.id) {
-              return log;
-            }
-            return prev;
-          });
-
-          setTotalItems((prev: number) => prev + 1);
+    if (operation === "create") {
+      // Handle new log creation
+      // Only prepend the new log if we're on the first page and sorted by timestamp desc
+      if (pagination.offset === 0 && pagination.sort_by === "timestamp" && pagination.order === "desc") {
+        // Check if the log matches current filters
+        if (!matchesFilters(log, filters, !liveEnabled)) {
+          return;
         }
-      } else if (operation === "update") {
-        // Handle log updates with debouncing for streaming
 
-        // Check if the log exists in our current list
-        const logExists = logs.some((existingLog) => existingLog.id === log.id);
-
-        if (!logExists) {
-          // Fallback: if log doesn't exist, treat as create (e.g., user was on different page when created)
-          if (
-            pagination.offset === 0 &&
-            pagination.sort_by === "timestamp" &&
-            pagination.order === "desc"
-          ) {
-            // Check if the log matches current filters
-            if (matchesFilters(log, filters, !liveEnabled)) {
-              setLogs((prevLogs: LogEntry[]) => {
-                // Double-check it doesn't exist (race condition protection)
-                if (prevLogs.some((existingLog) => existingLog.id === log.id)) {
-                  return prevLogs.map((existingLog) =>
-                    existingLog.id === log.id ? log : existingLog,
-                  );
-                }
-
-                // Add as new log
-                const updatedLogs = [log, ...prevLogs];
-                if (updatedLogs.length > pagination.limit) {
-                  updatedLogs.pop();
-                }
-                return updatedLogs;
-              });
-            }
+        setLogs((prevLogs: LogEntry[]) => {
+          // Check if log already exists (prevent duplicates)
+          if (prevLogs.some((existingLog) => existingLog.id === log.id)) {
+            return prevLogs;
           }
-        } else {
-          // Normal update flow for existing logs
-          if (log.stream) {
-            // For streaming logs, debounce updates to avoid UI thrashing
-            const existingTimeout = streamingUpdateTimeouts.current.get(log.id);
-            if (existingTimeout) {
-              clearTimeout(existingTimeout);
-            }
 
-            const timeout = setTimeout(() => {
-              updateExistingLog(log);
-              streamingUpdateTimeouts.current.delete(log.id);
-            }, 100); // 100ms debounce for streaming updates
+          // Remove the last log if we're at the page limit
+          const updatedLogs = [log, ...prevLogs];
+          if (updatedLogs.length > pagination.limit) {
+            updatedLogs.pop();
+          }
+          return updatedLogs;
+        });
 
-            streamingUpdateTimeouts.current.set(log.id, timeout);
-          } else {
-            // For non-streaming updates, update immediately
+        // Update fetchedLog if it matches (for real-time detail sheet updates when log is not on current page)
+        setFetchedLog((prev) => {
+          if (prev && prev.id === log.id) {
+            return log;
+          }
+          return prev;
+        });
+
+        setTotalItems((prev: number) => prev + 1);
+      }
+    } else if (operation === "update") {
+      // Handle log updates with debouncing for streaming
+
+      // Check if the log exists in our current list
+      const logExists = logs.some((existingLog) => existingLog.id === log.id);
+
+      if (!logExists) {
+        // Fallback: if log doesn't exist, treat as create (e.g., user was on different page when created)
+        if (pagination.offset === 0 && pagination.sort_by === "timestamp" && pagination.order === "desc") {
+          // Check if the log matches current filters
+          if (matchesFilters(log, filters, !liveEnabled)) {
+            setLogs((prevLogs: LogEntry[]) => {
+              // Double-check it doesn't exist (race condition protection)
+              if (prevLogs.some((existingLog) => existingLog.id === log.id)) {
+                return prevLogs.map((existingLog) => (existingLog.id === log.id ? log : existingLog));
+              }
+
+              // Add as new log
+              const updatedLogs = [log, ...prevLogs];
+              if (updatedLogs.length > pagination.limit) {
+                updatedLogs.pop();
+              }
+              return updatedLogs;
+            });
+          }
+        }
+      } else {
+        // Normal update flow for existing logs
+        if (log.stream) {
+          // For streaming logs, debounce updates to avoid UI thrashing
+          const existingTimeout = streamingUpdateTimeouts.current.get(log.id);
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+
+          const timeout = setTimeout(() => {
             updateExistingLog(log);
-          }
+            streamingUpdateTimeouts.current.delete(log.id);
+          }, 100); // 100ms debounce for streaming updates
 
-          // Update stats for completed requests
-          if (log.status == "success" || log.status == "error") {
-            setStats((prevStats) => {
-              if (!prevStats) return prevStats;
+          streamingUpdateTimeouts.current.set(log.id, timeout);
+        } else {
+          // For non-streaming updates, update immediately
+          updateExistingLog(log);
+        }
 
-              const newStats = { ...prevStats };
-              newStats.total_requests += 1;
+        // Update stats for completed requests
+        if (log.status == "success" || log.status == "error") {
+          setStats((prevStats) => {
+            if (!prevStats) return prevStats;
 
-              // Update success rate
-              const successCount =
-                (prevStats.success_rate / 100) * prevStats.total_requests;
-              const newSuccessCount =
-                log.status === "success" ? successCount + 1 : successCount;
-              newStats.success_rate =
-                (newSuccessCount / newStats.total_requests) * 100;
+            const newStats = { ...prevStats };
+            newStats.total_requests += 1;
 
-              // Update user-facing success rate (same approximation as success_rate)
+            const successCount = (prevStats.success_rate / 100) * prevStats.total_requests;
+
+            const newSuccessCount = log.status === "success" ? successCount + 1 : successCount;
+            newStats.success_rate = (newSuccessCount / newStats.total_requests) * 100;
+
+            // Update user-facing success rate using only root requests as denominator,
+            // matching the server-side metric which counts fallback_index = 0 rows only.
+            if (log.fallback_index === 0) {
+              const userFacingTotal = prevStats.user_facing_total_requests + 1;
               const userSuccessCount =
-                ((prevStats.user_facing_success_rate ?? 0) / 100) *
-                prevStats.total_requests;
+                (prevStats.user_facing_success_rate / 100) *
+                prevStats.user_facing_total_requests;
               const newUserSuccessCount =
                 log.status === "success"
                   ? userSuccessCount + 1
                   : userSuccessCount;
+              newStats.user_facing_total_requests = userFacingTotal;
               newStats.user_facing_success_rate =
-                (newUserSuccessCount / newStats.total_requests) * 100;
+                (newUserSuccessCount / userFacingTotal) * 100;
+            }
 
-              // Update average latency
-              if (log.latency) {
-                const totalLatency =
-                  prevStats.average_latency * prevStats.total_requests;
-                newStats.average_latency =
-                  (totalLatency + log.latency) / newStats.total_requests;
-              }
+            // Update average latency
+            if (log.latency) {
+              const totalLatency = prevStats.average_latency * prevStats.total_requests;
+              newStats.average_latency = (totalLatency + log.latency) / newStats.total_requests;
+            }
 
-              // Update total tokens
-              if (log.token_usage) {
-                newStats.total_tokens += log.token_usage.total_tokens;
-              }
+            // Update total tokens
+            if (log.token_usage) {
+              newStats.total_tokens += log.token_usage.total_tokens;
+            }
 
-              // Update total cost
-              if (log.cost) {
-                newStats.total_cost += log.cost;
-              }
+            // Update total cost
+            if (log.cost) {
+              newStats.total_cost += log.cost;
+            }
 
-              return newStats;
+            return newStats;
+          });
+
+          // Update histogram for completed requests
+          setHistogram((prevHistogram) => {
+            if (!prevHistogram || typeof prevHistogram.bucket_size_seconds !== "number" || prevHistogram.bucket_size_seconds <= 0) {
+              return prevHistogram;
+            }
+
+            const logTime = new Date(log.timestamp).getTime();
+            const bucketSizeMs = prevHistogram.bucket_size_seconds * 1000;
+            const bucketTime = Math.floor(logTime / bucketSizeMs) * bucketSizeMs;
+
+            const updatedBuckets = [...prevHistogram.buckets];
+            const bucketIndex = updatedBuckets.findIndex((b) => {
+              const bTime = new Date(b.timestamp).getTime();
+              return Math.floor(bTime / bucketSizeMs) * bucketSizeMs === bucketTime;
             });
 
-            // Update histogram for completed requests
-            setHistogram((prevHistogram) => {
-              if (
-                !prevHistogram ||
-                typeof prevHistogram.bucket_size_seconds !== "number" ||
-                prevHistogram.bucket_size_seconds <= 0
-              ) {
-                return prevHistogram;
-              }
-
-              const logTime = new Date(log.timestamp).getTime();
-              const bucketSizeMs = prevHistogram.bucket_size_seconds * 1000;
-              const bucketTime =
-                Math.floor(logTime / bucketSizeMs) * bucketSizeMs;
-
-              const updatedBuckets = [...prevHistogram.buckets];
-              const bucketIndex = updatedBuckets.findIndex((b) => {
-                const bTime = new Date(b.timestamp).getTime();
-                return (
-                  Math.floor(bTime / bucketSizeMs) * bucketSizeMs === bucketTime
-                );
-              });
-
-              if (bucketIndex >= 0) {
-                // Update existing bucket
-                updatedBuckets[bucketIndex] = {
-                  ...updatedBuckets[bucketIndex],
-                  count: updatedBuckets[bucketIndex].count + 1,
-                  success:
-                    updatedBuckets[bucketIndex].success +
-                    (log.status === "success" ? 1 : 0),
-                  error:
-                    updatedBuckets[bucketIndex].error +
-                    (log.status === "error" ? 1 : 0),
-                };
+            if (bucketIndex >= 0) {
+              // Update existing bucket
+              updatedBuckets[bucketIndex] = {
+                ...updatedBuckets[bucketIndex],
+                count: updatedBuckets[bucketIndex].count + 1,
+                success: updatedBuckets[bucketIndex].success + (log.status === "success" ? 1 : 0),
+                error: updatedBuckets[bucketIndex].error + (log.status === "error" ? 1 : 0),
+              };
+            } else {
+              // Create new bucket for this timestamp
+              const newBucket = {
+                timestamp: new Date(bucketTime).toISOString(),
+                count: 1,
+                success: log.status === "success" ? 1 : 0,
+                error: log.status === "error" ? 1 : 0,
+              };
+              // Insert in sorted order
+              const insertIndex = updatedBuckets.findIndex((b) => new Date(b.timestamp).getTime() > bucketTime);
+              if (insertIndex === -1) {
+                updatedBuckets.push(newBucket);
               } else {
-                // Create new bucket for this timestamp
-                const newBucket = {
-                  timestamp: new Date(bucketTime).toISOString(),
-                  count: 1,
-                  success: log.status === "success" ? 1 : 0,
-                  error: log.status === "error" ? 1 : 0,
-                };
-                // Insert in sorted order
-                const insertIndex = updatedBuckets.findIndex(
-                  (b) => new Date(b.timestamp).getTime() > bucketTime,
-                );
-                if (insertIndex === -1) {
-                  updatedBuckets.push(newBucket);
-                } else {
-                  updatedBuckets.splice(insertIndex, 0, newBucket);
-                }
+                updatedBuckets.splice(insertIndex, 0, newBucket);
               }
+            }
 
-              return { ...prevHistogram, buckets: updatedBuckets };
-            });
-          }
+            return { ...prevHistogram, buckets: updatedBuckets };
+          });
         }
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   const updateExistingLog = useCallback((updatedLog: LogEntry) => {
     setLogs((prevLogs: LogEntry[]) => {
-      return prevLogs.map((existingLog) =>
-        existingLog.id === updatedLog.id ? updatedLog : existingLog,
-      );
+      return prevLogs.map((existingLog) => (existingLog.id === updatedLog.id ? updatedLog : existingLog));
     });
 
     // Update fetchedLog if it matches the updated log (for real-time detail sheet updates when log is not on current page)
@@ -677,9 +608,7 @@ export default function LogsPage() {
   // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
-      streamingUpdateTimeouts.current.forEach((timeout) =>
-        clearTimeout(timeout),
-      );
+      streamingUpdateTimeouts.current.forEach((timeout) => clearTimeout(timeout));
       streamingUpdateTimeouts.current.clear();
     };
   }, []);
@@ -707,9 +636,7 @@ export default function LogsPage() {
         setShowEmptyState(result.data ? !result.data.has_logs : true);
       }
     } catch {
-      setError(
-        "Cannot fetch logs. Please check if logs are enabled in your Bifrost config.",
-      );
+      setError("Cannot fetch logs. Please check if logs are enabled in your Bifrost config.");
       setLogs([]);
       setTotalItems(0);
       setShowEmptyState(true);
@@ -815,11 +742,7 @@ export default function LogsPage() {
   };
 
   // Helper function to check if a log matches the current filters
-  const matchesFilters = (
-    log: LogEntry,
-    filters: LogFilters,
-    applyTimeFilters = true,
-  ): boolean => {
+  const matchesFilters = (log: LogEntry, filters: LogFilters, applyTimeFilters = true): boolean => {
     if (filters.user_ids?.length) {
       if (!log.user_id || !filters.user_ids.includes(log.user_id)) return false;
     }
@@ -827,33 +750,18 @@ export default function LogsPage() {
       if (!log.team_id || !filters.team_ids.includes(log.team_id)) return false;
     }
     if (filters.customer_ids?.length) {
-      if (!log.customer_id || !filters.customer_ids.includes(log.customer_id))
-        return false;
+      if (!log.customer_id || !filters.customer_ids.includes(log.customer_id)) return false;
     }
     if (filters.business_unit_ids?.length) {
-      if (
-        !log.business_unit_id ||
-        !filters.business_unit_ids.includes(log.business_unit_id)
-      )
-        return false;
+      if (!log.business_unit_id || !filters.business_unit_ids.includes(log.business_unit_id)) return false;
     }
-    if (
-      filters.missing_cost_only &&
-      typeof log.cost === "number" &&
-      log.cost > 0
-    ) {
+    if (filters.missing_cost_only && typeof log.cost === "number" && log.cost > 0) {
       return false;
     }
-    if (
-      filters.parent_request_id &&
-      log.parent_request_id !== filters.parent_request_id
-    ) {
+    if (filters.parent_request_id && log.parent_request_id !== filters.parent_request_id) {
       return false;
     }
-    if (
-      filters.providers?.length &&
-      !filters.providers.includes(log.provider)
-    ) {
+    if (filters.providers?.length && !filters.providers.includes(log.provider)) {
       return false;
     }
     if (filters.aliases?.length && !filters.aliases.includes(log.alias ?? "")) {
@@ -868,74 +776,42 @@ export default function LogsPage() {
     if (filters.objects?.length && !filters.objects.includes(log.object)) {
       return false;
     }
-    if (
-      filters.selected_key_ids?.length &&
-      log.selected_key_id &&
-      !filters.selected_key_ids.includes(log.selected_key_id)
-    ) {
+    if (filters.selected_key_ids?.length &&
+      (!log.selected_key_id ||
+        !filters.selected_key_ids.includes(log.selected_key_id))) {
       return false;
     }
     if (filters.virtual_key_ids?.length) {
-      if (
-        !log.virtual_key_id ||
-        !filters.virtual_key_ids.includes(log.virtual_key_id)
-      ) {
+      if (!log.virtual_key_id || !filters.virtual_key_ids.includes(log.virtual_key_id)) {
         return false;
       }
     }
     if (filters.routing_rule_ids?.length) {
-      if (
-        !log.routing_rule_id ||
-        !filters.routing_rule_ids.includes(log.routing_rule_id)
-      ) {
+      if (!log.routing_rule_id || !filters.routing_rule_ids.includes(log.routing_rule_id)) {
         return false;
       }
     }
     if (filters.routing_engine_used?.length) {
-      if (
-        !log.routing_engines_used ||
-        !log.routing_engines_used.some((engine) =>
-          filters.routing_engine_used!.includes(engine),
-        )
-      ) {
+      if (!log.routing_engines_used || !log.routing_engines_used.some((engine) => filters.routing_engine_used!.includes(engine))) {
         return false;
       }
     }
-    if (
-      filters.start_time &&
-      new Date(log.timestamp) < new Date(filters.start_time)
-    ) {
+    if (filters.start_time && new Date(log.timestamp) < new Date(filters.start_time)) {
       return false;
     }
-    if (
-      applyTimeFilters &&
-      filters.end_time &&
-      new Date(log.timestamp) > new Date(filters.end_time)
-    ) {
+    if (applyTimeFilters && filters.end_time && new Date(log.timestamp) > new Date(filters.end_time)) {
       return false;
     }
-    if (
-      filters.min_latency &&
-      (!log.latency || log.latency < filters.min_latency)
-    ) {
+    if (filters.min_latency && (!log.latency || log.latency < filters.min_latency)) {
       return false;
     }
-    if (
-      filters.max_latency &&
-      (!log.latency || log.latency > filters.max_latency)
-    ) {
+    if (filters.max_latency && (!log.latency || log.latency > filters.max_latency)) {
       return false;
     }
-    if (
-      filters.min_tokens &&
-      (!log.token_usage || log.token_usage.total_tokens < filters.min_tokens)
-    ) {
+    if (filters.min_tokens && (!log.token_usage || log.token_usage.total_tokens < filters.min_tokens)) {
       return false;
     }
-    if (
-      filters.max_tokens &&
-      (!log.token_usage || log.token_usage.total_tokens > filters.max_tokens)
-    ) {
+    if (filters.max_tokens && (!log.token_usage || log.token_usage.total_tokens > filters.max_tokens)) {
       return false;
     }
     if (filters.metadata_filters) {
@@ -949,9 +825,7 @@ export default function LogsPage() {
     if (filters.content_search) {
       const search = filters.content_search.toLowerCase();
       const content = [
-        ...(log.input_history || []).map((msg: ChatMessage) =>
-          getMessageText(msg.content),
-        ),
+        ...(log.input_history || []).map((msg: ChatMessage) => getMessageText(msg.content)),
         log.output_message ? getMessageText(log.output_message.content) : "",
       ]
         .join(" ")
@@ -968,59 +842,32 @@ export default function LogsPage() {
     () => [
       {
         title: "Total Requests",
-        value: (
-          <NumberFlow
-            value={stats?.total_requests ?? 0}
-            format={COMPACT_NUMBER_FORMAT}
-          />
-        ),
+        value: <NumberFlow value={stats?.total_requests ?? 0} format={COMPACT_NUMBER_FORMAT} />,
         icon: <BarChart className="size-4" />,
       },
       {
         title: "Success Rate",
-        value: (
-          <NumberFlow
-            value={stats?.success_rate ?? 0}
-            format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
-            suffix="%"
-          />
-        ),
+        value: <NumberFlow value={stats?.success_rate ?? 0} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} suffix="%" />,
         icon: <CheckCircle className="size-4" />,
         description:
           "Success rate as perceived by the system. Each fallback counts as a separate attempt. Retries on the same request are counted as one attempt.",
       },
       {
         title: "User Success Rate",
-        value: fetchingStats ? (
-          <Skeleton className="h-8 w-16" />
-        ) : stats ? (
-          `${(stats.user_facing_success_rate ?? 0).toFixed(2)}%`
-        ) : (
-          "-"
-        ),
+        value: <NumberFlow value={stats?.user_facing_success_rate ?? 0} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} suffix="%" />,
         icon: <CheckCircle className="size-4" />,
-        description:
-          "Success rate as perceived by the end user. It includes fallback chains as one request.",
+        description: "Success rate as perceived by the end user. It includes fallback chains as one request.",
       },
       {
         title: "Avg Latency",
         value: (
-          <NumberFlow
-            value={stats?.average_latency ?? 0}
-            format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
-            suffix="ms"
-          />
+          <NumberFlow value={stats?.average_latency ?? 0} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} suffix="ms" />
         ),
         icon: <Clock className="size-4" />,
       },
       {
         title: "Total Tokens",
-        value: (
-          <NumberFlow
-            value={stats?.total_tokens ?? 0}
-            format={COMPACT_NUMBER_FORMAT}
-          />
-        ),
+        value: <NumberFlow value={stats?.total_tokens ?? 0} format={COMPACT_NUMBER_FORMAT} />,
         icon: <Hash className="size-4" />,
       },
       {
@@ -1049,22 +896,10 @@ export default function LogsPage() {
     return Object.keys(filterData.metadata_keys).sort();
   }, [filterData?.metadata_keys]);
 
-  const columns = useMemo(
-    () => createColumns(handleDelete, hasDeleteAccess, metadataKeys),
-    [handleDelete, hasDeleteAccess, metadataKeys],
-  );
+  const columns = useMemo(() => createColumns(handleDelete, hasDeleteAccess, metadataKeys), [handleDelete, hasDeleteAccess, metadataKeys]);
 
   const columnIds = useMemo(
-    () =>
-      columns
-        .map((col) =>
-          "id" in col && col.id
-            ? col.id
-            : "accessorKey" in col
-              ? String(col.accessorKey)
-              : "",
-        )
-        .filter(Boolean),
+    () => columns.map((col) => ("id" in col && col.id ? col.id : "accessorKey" in col ? String(col.accessorKey) : "")).filter(Boolean),
     [columns],
   );
 
@@ -1094,10 +929,7 @@ export default function LogsPage() {
   } = useColumnConfig({ columnIds, paramName: "cols" });
 
   // Navigation for log detail sheet
-  const selectedLogIndex = useMemo(
-    () => (selectedLogId ? logs.findIndex((l) => l.id === selectedLogId) : -1),
-    [selectedLogId, logs],
-  );
+  const selectedLogIndex = useMemo(() => (selectedLogId ? logs.findIndex((l) => l.id === selectedLogId) : -1), [selectedLogId, logs]);
 
   const handleLogNavigate = useCallback(
     (direction: "prev" | "next") => {
@@ -1154,16 +986,7 @@ export default function LogsPage() {
         }
       }
     },
-    [
-      selectedLogId,
-      selectedLogIndex,
-      logs,
-      pagination,
-      totalItems,
-      filters,
-      setUrlState,
-      triggerGetLogs,
-    ],
+    [selectedLogId, selectedLogIndex, logs, pagination, totalItems, filters, setUrlState, triggerGetLogs],
   );
 
   return (
@@ -1201,7 +1024,7 @@ export default function LogsPage() {
                   >
                     <div className="w-full min-w-0">
                       <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                        {card.title}
+                        <span className="truncate">{card.title}</span>
                         {"description" in card && card.description && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1214,15 +1037,11 @@ export default function LogsPage() {
                                 <Info className="size-3 cursor-help" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-72 text-left text-xs text-wrap">
-                              {card.description}
-                            </TooltipContent>
+                            <TooltipContent className="max-w-72 text-left text-xs text-wrap">{card.description}</TooltipContent>
                           </Tooltip>
                         )}
                       </div>
-                      <div className="truncate font-mono text-xl font-medium sm:text-2xl">
-                        {card.value}
-                      </div>
+                      <div className="truncate font-mono text-xl font-medium sm:text-2xl">{card.value}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1284,15 +1103,8 @@ export default function LogsPage() {
             onOpenChange={(open) => !open && setUrlState({ selected_log: "" })}
             handleDelete={handleDelete}
             onNavigate={handleLogNavigate}
-            hasPrev={
-              selectedLogIndex > 0 ||
-              (selectedLogIndex !== -1 && pagination.offset > 0)
-            }
-            hasNext={
-              selectedLogIndex !== -1 &&
-              (selectedLogIndex < logs.length - 1 ||
-                pagination.offset + pagination.limit < totalItems)
-            }
+            hasPrev={selectedLogIndex > 0 || (selectedLogIndex !== -1 && pagination.offset > 0)}
+            hasNext={selectedLogIndex !== -1 && (selectedLogIndex < logs.length - 1 || pagination.offset + pagination.limit < totalItems)}
             onFilterByParentRequestId={handleFilterByParentRequestId}
             onViewSession={(sessionId, logId) => {
               setUrlState({ selected_log: "" }, { history: "replace" });

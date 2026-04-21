@@ -214,6 +214,7 @@ type InitialLogData struct {
 	Params                 any
 	SpeechInput            *schemas.SpeechInput
 	TranscriptionInput     *schemas.TranscriptionInput
+	OCRInput               *schemas.OCRDocument
 	ImageGenerationInput   *schemas.ImageGenerationInput
 	ImageEditInput         *schemas.ImageEditInput
 	ImageVariationInput    *schemas.ImageVariationInput
@@ -489,6 +490,7 @@ func (p *LoggerPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifr
 			initialData.Params = req.RerankRequest.Params
 		case schemas.OCRRequest:
 			initialData.Params = req.OCRRequest.Params
+			initialData.OCRInput = &req.OCRRequest.Document
 		case schemas.SpeechRequest, schemas.SpeechStreamRequest:
 			initialData.Params = req.SpeechRequest.Params
 			initialData.SpeechInput = req.SpeechRequest.Input
@@ -858,6 +860,12 @@ func (p *LoggerPlugin) PostLLMHook(ctx *schemas.BifrostContext, result *schemas.
 		if result != nil && result.PassthroughResponse != nil {
 			if params, ok := entry.ParamsParsed.(*schemas.PassthroughLogParams); ok {
 				params.StatusCode = result.PassthroughResponse.StatusCode
+			}
+			if contentLoggingEnabled && len(result.PassthroughResponse.Body) > 0 {
+				entry.PassthroughResponseBody = string(result.PassthroughResponse.Body)
+				if shouldStoreRaw {
+					entry.RawResponse = string(result.PassthroughResponse.Body)
+				}
 			}
 			// Flip status for passthrough error responses (4xx/5xx from provider)
 			if isPassthroughErrorResponse(result) {

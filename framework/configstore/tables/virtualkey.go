@@ -30,7 +30,7 @@ type TableVirtualKeyProviderConfig struct {
 	Weight        *float64          `json:"weight"`
 	AllowedModels schemas.WhiteList `gorm:"type:text;serializer:json" json:"allowed_models"` // ["*"] allows all models; empty denies all (deny-by-default)
 	AllowAllKeys  bool              `gorm:"default:false" json:"allow_all_keys"`             // True means all keys allowed; false with empty Keys means no keys allowed (deny-by-default)
-	BudgetID      *string           `gorm:"-" json:"budget_id,omitempty"`                     // legacy compatibility field; runtime model uses Budgets
+	BudgetID      *string           `gorm:"-" json:"budget_id,omitempty"`                    // legacy compatibility field; runtime model uses Budgets
 	RateLimitID   *string           `gorm:"type:varchar(255);index" json:"rate_limit_id,omitempty"`
 
 	// Relationships
@@ -187,20 +187,16 @@ func (mc *TableVirtualKeyMCPConfig) UnmarshalJSON(data []byte) error {
 		Alias
 		MCPClientName string `json:"mcp_client_name"` // Config file format: MCP client name
 	}
-
 	var temp TempMCPConfig
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
 	}
-
 	// Copy all standard fields
 	*mc = TableVirtualKeyMCPConfig(temp.Alias)
-
 	// Capture mcp_client_name for later resolution to MCPClientID
 	if temp.MCPClientName != "" {
 		mc.MCPClientName = temp.MCPClientName
 	}
-
 	return nil
 }
 
@@ -215,11 +211,16 @@ type TableVirtualKey struct {
 	MCPConfigs      []TableVirtualKeyMCPConfig      `gorm:"foreignKey:VirtualKeyID;constraint:OnDelete:CASCADE" json:"mcp_configs"`
 
 	// Foreign key relationships (mutually exclusive: either TeamID or CustomerID, not both)
-	TeamID          *string `gorm:"type:varchar(255);index" json:"team_id,omitempty"`
-	CustomerID      *string `gorm:"type:varchar(255);index" json:"customer_id,omitempty"`
-	BudgetID        *string `gorm:"-" json:"budget_id,omitempty"` // legacy compatibility field; runtime model uses Budgets
-	RateLimitID     *string `gorm:"type:varchar(255);index" json:"rate_limit_id,omitempty"`
-	CalendarAligned bool    `gorm:"default:false" json:"calendar_aligned"` // When true, all budgets under this VK reset at clean calendar boundaries
+	TeamID      *string `gorm:"type:varchar(255);index" json:"team_id,omitempty"`
+	CustomerID  *string `gorm:"type:varchar(255);index" json:"customer_id,omitempty"`
+	BudgetID    *string `gorm:"-" json:"budget_id,omitempty"` // legacy compatibility field; runtime model uses Budgets
+	RateLimitID *string `gorm:"type:varchar(255);index" json:"rate_limit_id,omitempty"`
+
+	// Deprecated
+	// Calendar aligned is not the property of virtual key but its property of the budget and ratelimit
+	// So in the migration we will move this to the budget/ratelimit table
+	// And this won't be referred
+	CalendarAligned bool `gorm:"default:false" json:"calendar_aligned"` // When true, all budgets under this VK reset at clean calendar boundaries
 
 	// Relationships
 	Team      *TableTeam      `gorm:"foreignKey:TeamID" json:"team,omitempty"`

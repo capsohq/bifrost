@@ -354,6 +354,11 @@
                 "description": "Current usage in dollars",
                 "default": 0
               },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, reset at clean calendar boundaries (day, week, month, year start)",
+                "default": false
+              },
               "last_reset": {
                 "type": "string",
                 "format": "date-time",
@@ -412,6 +417,11 @@
                 "type": "integer",
                 "description": "Current request usage",
                 "default": 0
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, reset at clean calendar boundaries (day, week, month, year start)",
+                "default": false
               },
               "request_last_reset": {
                 "type": "string",
@@ -532,6 +542,10 @@
               "customer_id": {
                 "type": "string",
                 "description": "Associated customer ID (mutually exclusive with team_id)"
+              },
+              "budget_id": {
+                "type": "string",
+                "description": "Associated budget ID"
               },
               "rate_limit_id": {
                 "type": "string",
@@ -1713,6 +1727,10 @@
           "type": ["number", "null"],
           "description": "Weight for load balancing (null opts out of weighted routing)",
           "default": null
+        },
+        "budget_id": {
+          "type": "string",
+          "description": "Associated budget ID"
         },
         "allowed_models": {
           "type": "array",

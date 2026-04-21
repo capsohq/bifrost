@@ -226,6 +226,46 @@ export interface ImageMessageData {
   output_format?: string;
 }
 
+export interface OCRDocument {
+  type: "document_url" | "image_url";
+  document_url?: string;
+  image_url?: string;
+}
+
+export interface OCRPageImage {
+  id: string;
+  top_left_x: number;
+  top_left_y: number;
+  bottom_right_x: number;
+  bottom_right_y: number;
+  image_base64?: string;
+}
+
+export interface OCRPageDimensions {
+  dpi: number;
+  height: number;
+  width: number;
+}
+
+export interface OCRPage {
+  index: number;
+  markdown: string;
+  images?: OCRPageImage[];
+  dimensions?: OCRPageDimensions;
+}
+
+export interface OCRUsageInfo {
+  pages_processed: number;
+  doc_size_bytes: number;
+}
+
+export interface BifrostOCRResponse {
+  model: string;
+  pages: OCRPage[];
+  usage_info?: OCRUsageInfo;
+  document_annotation?: string;
+}
+
 export interface BifrostImageGenerationOutput {
   id?: string;
   created?: number;
@@ -460,9 +500,9 @@ export interface LogEntry {
   fallback_index: number;
   attempt_trail?: KeyAttemptRecord[]; // Per-attempt key selection history
   selected_key_id?: string | null;
-	selected_prompt_id?: string; // Selected prompt ID (prompts plugin)
-	selected_prompt_name?: string; // Resolved prompt display name (prompts plugin)
-	selected_prompt_version?: string; // Resolved prompt version number as string (prompts plugin)
+  selected_prompt_id?: string; // Selected prompt ID (prompts plugin)
+  selected_prompt_name?: string; // Resolved prompt display name (prompts plugin)
+  selected_prompt_version?: string; // Resolved prompt version number as string (prompts plugin)
   team_name?: string;
   team_id?: string;
   customer_name?: string;
@@ -486,6 +526,8 @@ export interface LogEntry {
   responses_output?: ResponsesMessage[];
   embedding_output?: BifrostEmbedding[];
   rerank_output?: RerankResult[];
+  ocr_input?: OCRDocument;
+  ocr_output?: BifrostOCRResponse;
   image_generation_output?: BifrostImageGenerationOutput;
   video_generation_output?: BifrostVideoGenerationOutput;
   video_retrieve_output?: BifrostVideoGenerationOutput;
@@ -558,6 +600,7 @@ export interface LogStats {
   total_requests: number;
   success_rate: number;
   user_facing_success_rate: number;
+  user_facing_total_requests: number;
   average_latency: number;
   total_tokens: number;
   total_cost: number;

@@ -4,6 +4,7 @@ package volcengine
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -138,7 +139,7 @@ func (provider *VolcengineProvider) TextCompletion(ctx *schemas.BifrostContext, 
 // TextCompletionStream performs a streaming text completion request to Volcengine's API.
 // It formats the request, sends it to Volcengine, and processes the response.
 // Returns a channel of BifrostStreamChunk objects or an error if the request fails.
-func (provider *VolcengineProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -158,6 +159,7 @@ func (provider *VolcengineProvider) TextCompletionStream(ctx *schemas.BifrostCon
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -183,7 +185,7 @@ func (provider *VolcengineProvider) ChatCompletion(ctx *schemas.BifrostContext, 
 // It supports real-time streaming of responses using Server-Sent Events (SSE).
 // Uses Volcengine's OpenAI-compatible streaming format.
 // Returns a channel containing BifrostStreamChunk objects representing the stream or an error if the request fails.
-func (provider *VolcengineProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -206,6 +208,7 @@ func (provider *VolcengineProvider) ChatCompletionStream(ctx *schemas.BifrostCon
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -228,7 +231,7 @@ func (provider *VolcengineProvider) Responses(ctx *schemas.BifrostContext, key s
 }
 
 // ResponsesStream performs a streaming responses request to the Volcengine API.
-func (provider *VolcengineProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -249,6 +252,7 @@ func (provider *VolcengineProvider) ResponsesStream(ctx *schemas.BifrostContext,
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -738,7 +742,7 @@ func (provider *VolcengineProvider) Speech(ctx *schemas.BifrostContext, key sche
 }
 
 // SpeechStream is not supported by the Volcengine provider.
-func (provider *VolcengineProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
 }
 
@@ -748,7 +752,7 @@ func (provider *VolcengineProvider) Transcription(ctx *schemas.BifrostContext, k
 }
 
 // TranscriptionStream is not supported by the Volcengine provider.
-func (provider *VolcengineProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, provider.GetProviderKey())
 }
 
@@ -778,7 +782,7 @@ func (provider *VolcengineProvider) ImageGeneration(ctx *schemas.BifrostContext,
 }
 
 // ImageGenerationStream is not supported by the Volcengine provider.
-func (provider *VolcengineProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageGenerationStreamRequest, provider.GetProviderKey())
 }
 
@@ -788,7 +792,7 @@ func (provider *VolcengineProvider) ImageEdit(ctx *schemas.BifrostContext, key s
 }
 
 // ImageEditStream is not supported by the Volcengine provider.
-func (provider *VolcengineProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageEditStreamRequest, provider.GetProviderKey())
 }
 
@@ -1410,6 +1414,6 @@ func (provider *VolcengineProvider) Passthrough(_ *schemas.BifrostContext, _ sch
 }
 
 // PassthroughStream is not supported by the Volcengine provider.
-func (provider *VolcengineProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *VolcengineProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ func(context.Context), _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

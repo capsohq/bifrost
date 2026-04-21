@@ -33,7 +33,8 @@ import (
 // BedrockProvider implements the Provider interface for AWS Bedrock.
 type BedrockProvider struct {
 	logger               schemas.Logger                // Logger for provider operations
-	client               *http.Client                  // HTTP client for API requests
+	client               *http.Client                  // HTTP client for unary API requests (Client.Timeout bounds overall response)
+	streamingClient      *http.Client                  // HTTP client for streaming API requests (no Timeout; idle governed by NewIdleTimeoutReader)
 	networkConfig        schemas.NetworkConfig         // Network configuration including extra headers
 	customProviderConfig *schemas.CustomProviderConfig // Custom provider config
 	sendBackRawRequest   bool                          // Whether to include raw request in BifrostResponse
@@ -114,6 +115,7 @@ func NewBedrockProvider(config *schemas.ProviderConfig, logger schemas.Logger) (
 	}
 
 	client := &http.Client{Transport: transport, Timeout: requestTimeout}
+	streamingClient := providerUtils.BuildStreamingHTTPClient(client)
 
 	// Pre-warm response pools
 	for i := 0; i < config.ConcurrencyAndBufferSize.Concurrency; i++ {
@@ -123,6 +125,7 @@ func NewBedrockProvider(config *schemas.ProviderConfig, logger schemas.Logger) (
 	return &BedrockProvider{
 		logger:               logger,
 		client:               client,
+		streamingClient:      streamingClient,
 		networkConfig:        config.NetworkConfig,
 		customProviderConfig: config.CustomProviderConfig,
 		sendBackRawRequest:   config.SendBackRawRequest,
@@ -133,22 +136,6 @@ func NewBedrockProvider(config *schemas.ProviderConfig, logger schemas.Logger) (
 // GetProviderKey returns the provider identifier for Bedrock.
 func (provider *BedrockProvider) GetProviderKey() schemas.ModelProvider {
 	return providerUtils.GetProviderName(schemas.Bedrock, provider.customProviderConfig)
-}
-
-// ensureBedrockKeyConfig ensures key.BedrockKeyConfig is non-nil. When the key
-// uses API key authentication (key.Value is set) but has no Bedrock-specific
-// config, a minimal default is created so the request URL can be constructed
-// (region defaults to us-east-1). Returns false only when there is truly no
-// way to authenticate (no API key AND no bedrock config).
-func ensureBedrockKeyConfig(key *schemas.Key) bool {
-	if key.BedrockKeyConfig != nil {
-		return true
-	}
-	if key.Value.GetValue() != "" {
-		key.BedrockKeyConfig = &schemas.BedrockKeyConfig{}
-		return true
-	}
-	return false
 }
 
 // isStreamTransportError reports whether err is a transport-level connection
@@ -456,7 +443,7 @@ func (provider *BedrockProvider) makeStreamingRequest(ctx *schemas.BifrostContex
 	}
 
 	// Make the request
-	resp, respErr := provider.client.Do(req)
+	resp, respErr := provider.streamingClient.Do(req)
 	if respErr != nil {
 		if errors.Is(respErr, context.Canceled) {
 			return nil, &schemas.BifrostError{
@@ -881,7 +868,7 @@ func (provider *BedrockProvider) TextCompletion(ctx *schemas.BifrostContext, key
 // TextCompletionStream performs a streaming text completion request to Bedrock's API.
 // It formats the request, sends it to Bedrock, and processes the response.
 // Returns a channel of BifrostStreamChunk objects or an error if the request fails.
-func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	if err := providerUtils.CheckOperationAllowed(schemas.Bedrock, provider.customProviderConfig, schemas.TextCompletionStreamRequest); err != nil {
 		return nil, err
 	}
@@ -912,12 +899,12 @@ func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContex
 
 	// Start streaming in a goroutine
 	go func() {
-		defer providerUtils.EnsureStreamFinalizerCalled(ctx)
+		defer providerUtils.EnsureStreamFinalizerCalled(ctx, postHookSpanFinalizer)
 		defer func() {
 			if ctx.Err() == context.Canceled {
-				providerUtils.HandleStreamCancellation(ctx, postHookRunner, responseChan, provider.logger)
+				providerUtils.HandleStreamCancellation(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer)
 			} else if ctx.Err() == context.DeadlineExceeded {
-				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger)
+				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer)
 			}
 			close(responseChan)
 		}()
@@ -963,9 +950,9 @@ func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContex
 							Message: schemas.ErrProviderNetworkError,
 							Error:   err,
 						},
-					}, responseChan, provider.logger)
+					}, responseChan, provider.logger, postHookSpanFinalizer)
 				} else {
-					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 				}
 				return
 			}
@@ -996,10 +983,10 @@ func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContex
 								Error: &schemas.ErrorField{
 									Message: fmt.Sprintf("%s stream %s: %s", providerName, excType, errMsg),
 								},
-							}, responseChan, provider.logger)
+							}, responseChan, provider.logger, postHookSpanFinalizer)
 						} else {
 							err := fmt.Errorf("%s stream %s: %s", providerName, excType, errMsg)
-							providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+							providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 						}
 						return
 					}
@@ -1011,7 +998,7 @@ func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContex
 				}
 				if err := sonic.Unmarshal(message.Payload, &chunkPayload); err != nil {
 					provider.logger.Debug("Failed to parse JSON from event buffer: %v, data: %s", err, string(message.Payload))
-					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 					return
 				}
 
@@ -1024,7 +1011,7 @@ func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContex
 					},
 				}
 
-				providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(textResponse, nil, nil, nil, nil, nil), responseChan)
+				providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(textResponse, nil, nil, nil, nil, nil), responseChan, postHookSpanFinalizer)
 			}
 		}
 	}()
@@ -1111,7 +1098,7 @@ func (provider *BedrockProvider) ChatCompletion(ctx *schemas.BifrostContext, key
 // ChatCompletionStream performs a streaming chat completion request to Bedrock's API.
 // It formats the request, sends it to Bedrock, and processes the streaming response.
 // Returns a channel for streaming BifrostStreamChunk objects or an error if the request fails.
-func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	if err := providerUtils.CheckOperationAllowed(schemas.Bedrock, provider.customProviderConfig, schemas.ChatCompletionStreamRequest); err != nil {
 		return nil, err
 	}
@@ -1138,12 +1125,12 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 	providerUtils.SetStreamIdleTimeoutIfEmpty(ctx, provider.networkConfig.StreamIdleTimeoutInSeconds)
 	// Start streaming in a goroutine
 	go func() {
-		defer providerUtils.EnsureStreamFinalizerCalled(ctx)
+		defer providerUtils.EnsureStreamFinalizerCalled(ctx, postHookSpanFinalizer)
 		defer func() {
 			if ctx.Err() == context.Canceled {
-				providerUtils.HandleStreamCancellation(ctx, postHookRunner, responseChan, provider.logger)
+				providerUtils.HandleStreamCancellation(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer)
 			} else if ctx.Err() == context.DeadlineExceeded {
-				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger)
+				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer)
 			}
 			close(responseChan)
 		}()
@@ -1209,9 +1196,9 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 							Message: schemas.ErrProviderNetworkError,
 							Error:   err,
 						},
-					}, responseChan, provider.logger)
+					}, responseChan, provider.logger, postHookSpanFinalizer)
 				} else {
-					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 				}
 				return
 			}
@@ -1239,9 +1226,9 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 								Error: &schemas.ErrorField{
 									Message: err.Error(),
 								},
-							}, responseChan, provider.logger)
+							}, responseChan, provider.logger, postHookSpanFinalizer)
 						} else {
-							providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+							providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 						}
 						return
 					}
@@ -1251,7 +1238,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 				var streamEvent BedrockStreamEvent
 				if err := sonic.Unmarshal(message.Payload, &streamEvent); err != nil {
 					provider.logger.Debug("Failed to parse JSON from event buffer: %v, data: %s", err, string(message.Payload))
-					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 					return
 				}
 
@@ -1341,7 +1328,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 							response.ExtraFields.RawResponse = string(message.Payload)
 						}
 
-						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, response, nil, nil, nil, nil), responseChan)
+						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, response, nil, nil, nil, nil), responseChan, postHookSpanFinalizer)
 						continue
 					}
 				}
@@ -1349,7 +1336,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 				response, bifrostErr, _ := streamEvent.ToBifrostChatCompletionStream(streamState)
 				if bifrostErr != nil {
 					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, bifrostErr, responseChan, provider.logger)
+					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, bifrostErr, responseChan, provider.logger, postHookSpanFinalizer)
 					return
 				}
 				if response != nil {
@@ -1366,7 +1353,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 						response.ExtraFields.RawResponse = string(message.Payload)
 					}
 
-					providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, response, nil, nil, nil, nil), responseChan)
+					providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, response, nil, nil, nil, nil), responseChan, postHookSpanFinalizer)
 				}
 			}
 		}
@@ -1383,7 +1370,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 		}
 		response.ExtraFields.Latency = time.Since(startTime).Milliseconds()
 		ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-		providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, response, nil, nil, nil, nil), responseChan)
+		providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, response, nil, nil, nil, nil), responseChan, postHookSpanFinalizer)
 	}()
 
 	return responseChan, nil
@@ -1460,7 +1447,7 @@ func (provider *BedrockProvider) Responses(ctx *schemas.BifrostContext, key sche
 // ResponsesStream performs a streaming chat completion request to Bedrock's API.
 // It formats the request, sends it to Bedrock, and processes the streaming response.
 // Returns a channel for streaming BifrostResponse objects or an error if the request fails.
-func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	if err := providerUtils.CheckOperationAllowed(schemas.Bedrock, provider.customProviderConfig, schemas.ResponsesStreamRequest); err != nil {
 		return nil, err
 	}
@@ -1489,12 +1476,12 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 
 	// Start streaming in a goroutine
 	go func() {
-		defer providerUtils.EnsureStreamFinalizerCalled(ctx)
+		defer providerUtils.EnsureStreamFinalizerCalled(ctx, postHookSpanFinalizer)
 		defer func() {
 			if ctx.Err() == context.Canceled {
-				providerUtils.HandleStreamCancellation(ctx, postHookRunner, responseChan, provider.logger)
+				providerUtils.HandleStreamCancellation(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer)
 			} else if ctx.Err() == context.DeadlineExceeded {
-				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger)
+				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer)
 			}
 			close(responseChan)
 		}()
@@ -1567,7 +1554,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 							finalResponse.ExtraFields.Latency = time.Since(startTime).Milliseconds()
 						}
 
-						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, finalResponse, nil, nil, nil), responseChan)
+						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, finalResponse, nil, nil, nil), responseChan, postHookSpanFinalizer)
 					}
 					break
 				}
@@ -1582,9 +1569,9 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 							Message: schemas.ErrProviderNetworkError,
 							Error:   err,
 						},
-					}, responseChan, provider.logger)
+					}, responseChan, provider.logger, postHookSpanFinalizer)
 				} else {
-					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 				}
 				return
 			}
@@ -1612,9 +1599,9 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 								Error: &schemas.ErrorField{
 									Message: err.Error(),
 								},
-							}, responseChan, provider.logger)
+							}, responseChan, provider.logger, postHookSpanFinalizer)
 						} else {
-							providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+							providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 						}
 						return
 					}
@@ -1624,7 +1611,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 				var streamEvent BedrockStreamEvent
 				if err := sonic.Unmarshal(message.Payload, &streamEvent); err != nil {
 					provider.logger.Debug("Failed to parse JSON from event buffer: %v, data: %s", err, string(message.Payload))
-					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger)
+					providerUtils.ProcessAndSendError(ctx, postHookRunner, err, responseChan, provider.logger, postHookSpanFinalizer)
 					return
 				}
 
@@ -1691,7 +1678,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 							response.ExtraFields.RawResponse = string(message.Payload)
 						}
 
-						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, response, nil, nil, nil), responseChan)
+						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, response, nil, nil, nil), responseChan, postHookSpanFinalizer)
 						continue
 					}
 				}
@@ -1699,7 +1686,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 				responses, bifrostErr, _ := streamEvent.ToBifrostResponsesStream(chunkIndex, streamState)
 				if bifrostErr != nil {
 					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
-					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, bifrostErr, responseChan, provider.logger)
+					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, bifrostErr, responseChan, provider.logger, postHookSpanFinalizer)
 					return
 				}
 				for _, response := range responses {
@@ -1715,7 +1702,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 							response.ExtraFields.RawResponse = string(message.Payload)
 						}
 
-						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, response, nil, nil, nil), responseChan)
+						providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, response, nil, nil, nil), responseChan, postHookSpanFinalizer)
 					}
 				}
 			}
@@ -1894,7 +1881,7 @@ func (provider *BedrockProvider) OCR(ctx *schemas.BifrostContext, key schemas.Ke
 }
 
 // SpeechStream is not supported by the Bedrock provider.
-func (provider *BedrockProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, schemas.Bedrock)
 }
 
@@ -1904,7 +1891,7 @@ func (provider *BedrockProvider) Transcription(ctx *schemas.BifrostContext, key 
 }
 
 // TranscriptionStream is not supported by the Bedrock provider.
-func (provider *BedrockProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, schemas.Bedrock)
 }
 
@@ -1977,7 +1964,7 @@ func (provider *BedrockProvider) ImageGeneration(ctx *schemas.BifrostContext, ke
 }
 
 // ImageGenerationStream is not supported by the Bedrock provider.
-func (provider *BedrockProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageGenerationStreamRequest, schemas.Bedrock)
 }
 
@@ -2052,7 +2039,7 @@ func (provider *BedrockProvider) ImageEdit(ctx *schemas.BifrostContext, key sche
 }
 
 // ImageEditStream is not supported by the Bedrock provider.
-func (provider *BedrockProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageEditStreamRequest, provider.GetProviderKey())
 }
 
@@ -3605,6 +3592,6 @@ func (provider *BedrockProvider) Passthrough(_ *schemas.BifrostContext, _ schema
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
 }
 
-func (provider *BedrockProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *BedrockProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ func(context.Context), _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }

@@ -3,6 +3,7 @@
 package minimax
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -256,7 +257,7 @@ func (provider *MinimaxProvider) TextCompletion(ctx *schemas.BifrostContext, key
 // TextCompletionStream performs a streaming text completion request to Minimax's API.
 // It formats the request, sends it to Minimax, and processes the response.
 // Returns a channel of BifrostStreamChunk objects or an error if the request fails.
-func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTextCompletionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	chatReq := request.ToBifrostChatRequest()
 	if chatReq == nil {
 		return nil, providerUtils.NewBifrostOperationError("invalid text completion request", nil)
@@ -310,6 +311,7 @@ func (provider *MinimaxProvider) TextCompletionStream(ctx *schemas.BifrostContex
 		postHookRunner,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 	if streamErr != nil {
 		return nil, streamErr
@@ -364,7 +366,7 @@ func (provider *MinimaxProvider) ChatCompletion(ctx *schemas.BifrostContext, key
 // It supports real-time streaming of responses using Server-Sent Events (SSE).
 // Uses Minimax's OpenAI-compatible streaming format.
 // Returns a channel containing BifrostStreamChunk objects representing the stream or an error if the request fails.
-func (provider *MinimaxProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -387,6 +389,7 @@ func (provider *MinimaxProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 		nil,
 		nil,
 		provider.logger,
+		postHookSpanFinalizer,
 	)
 }
 
@@ -406,11 +409,12 @@ func (provider *MinimaxProvider) Responses(ctx *schemas.BifrostContext, key sche
 }
 
 // ResponsesStream performs a streaming responses request to the Minimax API.
-func (provider *MinimaxProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	ctx.SetValue(schemas.BifrostContextKeyIsResponsesToChatCompletionFallback, true)
 	return provider.ChatCompletionStream(
 		ctx,
 		postHookRunner,
+		postHookSpanFinalizer,
 		key,
 		request.ToChatRequest(),
 	)
@@ -427,7 +431,7 @@ func (provider *MinimaxProvider) Speech(ctx *schemas.BifrostContext, key schemas
 }
 
 // SpeechStream is not supported by the Minimax provider.
-func (provider *MinimaxProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
 }
 
@@ -437,7 +441,7 @@ func (provider *MinimaxProvider) Transcription(ctx *schemas.BifrostContext, key 
 }
 
 // TranscriptionStream is not supported by the Minimax provider.
-func (provider *MinimaxProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) TranscriptionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostTranscriptionRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.TranscriptionStreamRequest, provider.GetProviderKey())
 }
 
@@ -468,7 +472,7 @@ func (provider *MinimaxProvider) ImageGeneration(ctx *schemas.BifrostContext, ke
 }
 
 // ImageGenerationStream is not supported by the Minimax provider.
-func (provider *MinimaxProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) ImageGenerationStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageGenerationRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageGenerationStreamRequest, provider.GetProviderKey())
 }
 
@@ -478,7 +482,7 @@ func (provider *MinimaxProvider) ImageEdit(ctx *schemas.BifrostContext, key sche
 }
 
 // ImageEditStream is not supported by the Minimax provider.
-func (provider *MinimaxProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) ImageEditStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostImageEditRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ImageEditStreamRequest, provider.GetProviderKey())
 }
 
@@ -628,6 +632,6 @@ func (provider *MinimaxProvider) Passthrough(_ *schemas.BifrostContext, _ schema
 }
 
 // PassthroughStream is not supported by the Minimax provider.
-func (provider *MinimaxProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+func (provider *MinimaxProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ func(context.Context), _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
 }
