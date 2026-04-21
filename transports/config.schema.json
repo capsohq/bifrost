@@ -2079,13 +2079,6 @@
                   "type": "string",
                   "description": "Role session name for AssumeRole (can use env. prefix)"
                 },
-                "deployments": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "description": "Model to deployment mappings"
-                },
                 "batch_s3_config": {
                   "type": "object",
                   "description": "S3 bucket configuration for Bedrock batch operations",
@@ -2280,13 +2273,6 @@
                 "auth_credentials": {
                   "type": "string",
                   "description": "Authentication credentials (can use env. prefix)"
-                },
-                "deployments": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "description": "Model to deployment mappings"
                 }
               },
               "required": ["project_id", "region"],
