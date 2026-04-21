@@ -40,7 +40,7 @@ test.describe('Config Settings', () => {
     test('should navigate to pricing config', async ({ configSettingsPage }) => {
       await configSettingsPage.goto('pricing-config')
       await expect(configSettingsPage.saveBtn).toBeVisible()
-      await expect(configSettingsPage.page.getByRole('heading', { name: /Pricing/i })).toBeVisible()
+      await expect(configSettingsPage.pricingConfigView).toBeVisible()
     })
 
     test('should navigate to MCP settings', async ({ configSettingsPage }) => {
@@ -522,7 +522,8 @@ test.describe('Config Settings', () => {
     })
 
     test('should display pricing config settings', async ({ configSettingsPage }) => {
-      await expect(configSettingsPage.page.getByRole('heading', { name: /Pricing/i })).toBeVisible()
+      await expect(configSettingsPage.pricingConfigView).toBeVisible()
+      await expect(configSettingsPage.pricingDatasheetUrlInput).toBeVisible()
     })
   })
 
