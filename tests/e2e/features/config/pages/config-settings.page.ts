@@ -16,7 +16,6 @@ export class ConfigSettingsPage extends BasePage {
 
   // Client Settings
   readonly dropExcessRequestsSwitch: Locator
-  readonly enableLiteLLMFallbacksSwitch: Locator
   readonly disableDBPingsSwitch: Locator
   readonly asyncJobResultTtlInput: Locator
 
@@ -52,7 +51,6 @@ export class ConfigSettingsPage extends BasePage {
 
     // Client Settings locators
     this.dropExcessRequestsSwitch = page.locator('#drop-excess-requests')
-    this.enableLiteLLMFallbacksSwitch = page.locator('#enable-litellm-fallbacks')
     this.disableDBPingsSwitch = page.locator('#disable-db-pings-in-health')
     this.asyncJobResultTtlInput = page.getByTestId('client-settings-async-job-result-ttl-input')
 
@@ -251,10 +249,6 @@ export class ConfigSettingsPage extends BasePage {
 
   async toggleDropExcessRequests(): Promise<void> {
     await this.dropExcessRequestsSwitch.click()
-  }
-
-  async toggleLiteLLMFallbacks(): Promise<void> {
-    await this.enableLiteLLMFallbacksSwitch.click()
   }
 
   async toggleDisableDBPings(): Promise<void> {

@@ -155,7 +155,6 @@ test.describe('Config Settings', () => {
     test('should display client settings controls', async ({ configSettingsPage }) => {
       // Check for main controls
       await expect(configSettingsPage.dropExcessRequestsSwitch).toBeVisible()
-      await expect(configSettingsPage.enableLiteLLMFallbacksSwitch).toBeVisible()
       await expect(configSettingsPage.disableDBPingsSwitch).toBeVisible()
     })
 
@@ -190,30 +189,6 @@ test.describe('Config Settings', () => {
 
       const expectedState = !initialState
       await expect(configSettingsPage.dropExcessRequestsSwitch).toHaveAttribute(
-        'data-state',
-        expectedState ? 'checked' : 'unchecked'
-      )
-    })
-
-    test('should toggle LiteLLM fallbacks', async ({ configSettingsPage }) => {
-      const initialState = await configSettingsPage.getSwitchState(configSettingsPage.enableLiteLLMFallbacksSwitch)
-
-      await configSettingsPage.toggleLiteLLMFallbacks()
-
-      const newState = await configSettingsPage.getSwitchState(configSettingsPage.enableLiteLLMFallbacksSwitch)
-      expect(newState).toBe(!initialState)
-    })
-
-    test('should save and persist LiteLLM fallbacks toggle', async ({ configSettingsPage }) => {
-      const initialState = await configSettingsPage.getSwitchState(configSettingsPage.enableLiteLLMFallbacksSwitch)
-
-      await configSettingsPage.toggleLiteLLMFallbacks()
-      await configSettingsPage.saveSettings()
-      await configSettingsPage.goto('client-settings')
-
-      // Wait for persisted state (form is populated async after navigation)
-      const expectedState = !initialState
-      await expect(configSettingsPage.enableLiteLLMFallbacksSwitch).toHaveAttribute(
         'data-state',
         expectedState ? 'checked' : 'unchecked'
       )
