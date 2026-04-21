@@ -75,6 +75,49 @@ type ClientConfig struct {
 	ConfigHash                      string                           `json:"-"`                                    // Config hash for reconciliation (not serialized)
 }
 
+func canonicalKeyAliases(key schemas.Key) schemas.KeyAliases {
+	if len(key.Aliases) > 0 {
+		return maps.Clone(key.Aliases)
+	}
+	switch {
+	case key.AzureKeyConfig != nil && len(key.AzureKeyConfig.Deployments) > 0:
+		return maps.Clone(schemas.KeyAliases(key.AzureKeyConfig.Deployments))
+	case key.VertexKeyConfig != nil && len(key.VertexKeyConfig.Deployments) > 0:
+		return maps.Clone(schemas.KeyAliases(key.VertexKeyConfig.Deployments))
+	case key.BedrockKeyConfig != nil && len(key.BedrockKeyConfig.Deployments) > 0:
+		return maps.Clone(schemas.KeyAliases(key.BedrockKeyConfig.Deployments))
+	default:
+		return nil
+	}
+}
+
+func normalizedAzureKeyConfigForHash(cfg *schemas.AzureKeyConfig) *schemas.AzureKeyConfig {
+	if cfg == nil {
+		return nil
+	}
+	normalized := *cfg
+	normalized.Deployments = nil
+	return &normalized
+}
+
+func normalizedVertexKeyConfigForHash(cfg *schemas.VertexKeyConfig) *schemas.VertexKeyConfig {
+	if cfg == nil {
+		return nil
+	}
+	normalized := *cfg
+	normalized.Deployments = nil
+	return &normalized
+}
+
+func normalizedBedrockKeyConfigForHash(cfg *schemas.BedrockKeyConfig) *schemas.BedrockKeyConfig {
+	if cfg == nil {
+		return nil
+	}
+	normalized := *cfg
+	normalized.Deployments = nil
+	return &normalized
+}
+
 // GenerateClientConfigHash generates a SHA256 hash of the client configuration.
 // This is used to detect changes between config.json and database config.
 func (c *ClientConfig) GenerateClientConfigHash() (string, error) {
@@ -588,32 +631,32 @@ func GenerateKeyHash(key schemas.Key) (string, error) {
 	}
 	hash.Write(data)
 	// Hash AzureKeyConfig
-	if key.AzureKeyConfig != nil {
-		data, err := sonic.Marshal(key.AzureKeyConfig)
+	if azureCfg := normalizedAzureKeyConfigForHash(key.AzureKeyConfig); azureCfg != nil {
+		data, err := sonic.Marshal(azureCfg)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(data)
 	}
 	// Hash VertexKeyConfig
-	if key.VertexKeyConfig != nil {
-		data, err := sonic.Marshal(key.VertexKeyConfig)
+	if vertexCfg := normalizedVertexKeyConfigForHash(key.VertexKeyConfig); vertexCfg != nil {
+		data, err := sonic.Marshal(vertexCfg)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(data)
 	}
 	// Hash BedrockKeyConfig
-	if key.BedrockKeyConfig != nil {
-		data, err := sonic.Marshal(key.BedrockKeyConfig)
+	if bedrockCfg := normalizedBedrockKeyConfigForHash(key.BedrockKeyConfig); bedrockCfg != nil {
+		data, err := sonic.Marshal(bedrockCfg)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(data)
 	}
 	// Hash Aliases
-	if key.Aliases != nil {
-		data, err := sonic.Marshal(key.Aliases)
+	if aliases := canonicalKeyAliases(key); aliases != nil {
+		data, err := sonic.Marshal(aliases)
 		if err != nil {
 			return "", err
 		}

@@ -2493,6 +2493,44 @@ func TestGenerateKeyHash(t *testing.T) {
 		t.Error("Expected different hash for keys with Aliases")
 	}
 
+	// Deprecated provider deployments should normalize to the same hash as aliases.
+	keyWithAzureDeployments := schemas.Key{
+		ID:     "key-1",
+		Name:   "test-key",
+		Value:  *schemas.NewEnvVar("sk-123"),
+		Models: []string{"gpt-4", "gpt-3.5-turbo"},
+		Weight: 1.5,
+		AzureKeyConfig: &schemas.AzureKeyConfig{
+			Endpoint:    *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
+			APIVersion:  schemas.NewEnvVar(apiVersion),
+			Deployments: map[string]string{"gpt-4": "gpt-4-deployment"},
+		},
+	}
+	keyWithAzureAliases := schemas.Key{
+		ID:     "key-1",
+		Name:   "test-key",
+		Value:  *schemas.NewEnvVar("sk-123"),
+		Models: []string{"gpt-4", "gpt-3.5-turbo"},
+		Weight: 1.5,
+		AzureKeyConfig: &schemas.AzureKeyConfig{
+			Endpoint:   *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
+			APIVersion: schemas.NewEnvVar(apiVersion),
+		},
+		Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
+	}
+
+	hashWithAzureDeployments, err := configstore.GenerateKeyHash(keyWithAzureDeployments)
+	if err != nil {
+		t.Fatalf("Failed to generate hash: %v", err)
+	}
+	hashWithAzureAliases, err := configstore.GenerateKeyHash(keyWithAzureAliases)
+	if err != nil {
+		t.Fatalf("Failed to generate hash: %v", err)
+	}
+	if hashWithAzureDeployments != hashWithAzureAliases {
+		t.Error("Expected deprecated Azure deployments to hash the same as top-level aliases")
+	}
+
 	hash6b, err := configstore.GenerateKeyHash(key6b)
 	if err != nil {
 		t.Fatalf("Failed to generate hash: %v", err)

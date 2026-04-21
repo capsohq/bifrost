@@ -29,6 +29,10 @@ func (m *mockHandlerStore) GetHeaderMatcher() *lib.HeaderMatcher {
 	return m.headerMatcher
 }
 
+func (m *mockHandlerStore) GetMCPHeaderCombinedAllowlist() schemas.WhiteList {
+	return nil
+}
+
 func (m *mockHandlerStore) GetAvailableProviders() []schemas.ModelProvider {
 	return m.availableProviders
 }
