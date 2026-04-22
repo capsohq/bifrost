@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/prompts
 go 1.26.1
 
 require (
-	github.com/capsohq/bifrost/core v1.5.3
-	github.com/capsohq/bifrost/framework v1.3.3
+	github.com/capsohq/bifrost/core v1.5.4
+	github.com/capsohq/bifrost/framework v1.3.4
 	github.com/stretchr/testify v1.11.1
 )
 

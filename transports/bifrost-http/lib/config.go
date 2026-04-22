@@ -140,6 +140,7 @@ type ConfigData struct {
 	ConfigStoreConfig        *configstore.Config                   `json:"config_store,omitempty"`
 	LogsStoreConfig          *logstore.Config                      `json:"logs_store,omitempty"`
 	LargePayloadOptimization json.RawMessage                       `json:"large_payload_optimization,omitempty"`
+	AccessProfiles           json.RawMessage                       `json:"access_profiles,omitempty"`
 	Plugins                  []*schemas.PluginConfig               `json:"plugins,omitempty"`
 	WebSocket                *schemas.WebSocketConfig              `json:"websocket,omitempty"`
 }
@@ -161,6 +162,7 @@ func (cd *ConfigData) UnmarshalJSON(data []byte) error {
 		VectorStoreConfig        json.RawMessage                       `json:"vector_store,omitempty"`
 		ConfigStoreConfig        json.RawMessage                       `json:"config_store,omitempty"`
 		LogsStoreConfig          json.RawMessage                       `json:"logs_store,omitempty"`
+		AccessProfiles           json.RawMessage                       `json:"access_profiles,omitempty"`
 		Plugins                  []*schemas.PluginConfig               `json:"plugins,omitempty"`
 		WebSocket                *schemas.WebSocketConfig              `json:"websocket,omitempty"`
 		LargePayloadOptimization json.RawMessage                       `json:"large_payload_optimization,omitempty"`
@@ -180,6 +182,7 @@ func (cd *ConfigData) UnmarshalJSON(data []byte) error {
 	cd.MCP = temp.MCP
 	cd.Governance = temp.Governance
 	cd.LargePayloadOptimization = temp.LargePayloadOptimization
+	cd.AccessProfiles = temp.AccessProfiles
 	cd.Plugins = temp.Plugins
 	cd.WebSocket = temp.WebSocket
 	// Initialize providers map if nil
