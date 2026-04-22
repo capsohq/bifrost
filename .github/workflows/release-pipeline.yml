@@ -17,6 +17,7 @@ concurrency:
   group: release-pipeline
   cancel-in-progress: false
 
+# docker/login-action still declares node20 as of v3.7.0; force JS actions onto Node 24 until upstream moves.
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -738,7 +739,7 @@ jobs:
         run: npm install -g newman newman-reporter-html
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Test Docker image (amd64)
         env:
@@ -847,7 +848,7 @@ jobs:
         run: npm install -g newman newman-reporter-html
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Test Docker image (arm64)
         env:
@@ -1591,7 +1592,7 @@ jobs:
           echo "verified=true" >> $GITHUB_OUTPUT
 
       - name: Setup Docker Buidx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -1609,7 +1610,7 @@ jobs:
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push AMD64 Docker image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           build-args: |
@@ -1682,7 +1683,7 @@ jobs:
           echo "verified=true" >> $GITHUB_OUTPUT
 
       - name: Setup Docker Buidx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -1700,7 +1701,7 @@ jobs:
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push ARM64 Docker image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: ./transports/Dockerfile
