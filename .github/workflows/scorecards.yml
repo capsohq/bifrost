@@ -14,9 +14,6 @@ on:
   push:
     branches: ["main"]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 # Declare default permissions as read only.
 permissions: read-all
 
@@ -84,6 +81,8 @@ jobs:
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
       # format to the repository Actions tab.
       - name: "Upload artifact"
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: SARIF file
