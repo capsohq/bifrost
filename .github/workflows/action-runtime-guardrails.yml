@@ -1,0 +1,33 @@
+name: Action Runtime Guardrails
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/action-runtime-exceptions.json'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - '.github/action-runtime-exceptions.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-action-runtimes:
+    name: Check action runtimes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Show Ruby version
+        run: ruby --version
+
+      - name: Check workflow action runtimes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ruby .github/workflows/scripts/check-action-runtimes.rb

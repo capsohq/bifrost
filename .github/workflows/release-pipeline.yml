@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 # docker/login-action still declares node20 as of v3.7.0; force JS actions onto Node 24 until upstream moves.
+# Temporary exception tracked in .github/action-runtime-exceptions.json.
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
