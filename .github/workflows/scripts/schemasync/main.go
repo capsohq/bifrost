@@ -36,7 +36,7 @@ type entrypoint struct {
 
 var entrypoints = []entrypoint{
 	{
-		pkg:        "github.com/maximhq/bifrost/transports/bifrost-http/lib",
+		pkg:        "github.com/capsohq/bifrost/transports/bifrost-http/lib",
 		typeName:   "ConfigData",
 		schemaPath: "", // root schema node — collectProperties will find .properties
 		moduleDir:  "transports",
@@ -69,24 +69,26 @@ var ignoreSchemaProps = map[string]string{
 
 // ignoreGoFields keys are "schemaPath|fieldName"; value is the reason.
 var ignoreGoFields = map[string]string{
-	"|auth_config": "deprecated; moved to governance.auth_config",
+	"|auth_config":                                          "deprecated; moved to governance.auth_config",
+	"/properties/governance/properties/budgets/items|team_id": "owner inferred by nesting; not user-submittable",
 }
 
 // ignoreGoFieldNames are field names (regardless of parent path) that are
 // DB bookkeeping or runtime-derived — never part of user-submitted config.
 var ignoreGoFieldNames = map[string]string{
-	"created_at":  "DB bookkeeping",
-	"updated_at":  "DB bookkeeping",
-	"config_hash": "internal hash",
-	"status":      "runtime-derived",
-	"state":       "runtime-derived",
+	"created_at":        "DB bookkeeping",
+	"updated_at":        "DB bookkeeping",
+	"config_hash":       "internal hash",
+	"status":            "runtime-derived",
+	"state":             "runtime-derived",
+	"virtual_key_count": "runtime-derived",
 }
 
 // opaqueLeafTypes are named Go types that have custom JSON marshalling and
 // should be treated as leaves. The walker does NOT recurse into their fields,
 // and they are collected for downstream checks (e.g., EnvVar → helm secret).
 var opaqueLeafTypes = map[string]string{
-	"github.com/maximhq/bifrost/core/schemas.EnvVar": "env-aware string; custom JSON",
+	"github.com/capsohq/bifrost/core/schemas.EnvVar": "env-aware string; custom JSON",
 }
 
 // envVarLocation records where an EnvVar-typed field appears in config.json
@@ -666,7 +668,7 @@ func (c *checker) walkType(t types.Type, schemaPath, goPath string) {
 		key := named.Obj().Pkg().Path() + "." + named.Obj().Name()
 		// Treat opaque types (like schemas.EnvVar) as leaves.
 		if _, isOpaque := opaqueLeafTypes[key]; isOpaque {
-			if key == "github.com/maximhq/bifrost/core/schemas.EnvVar" {
+			if key == "github.com/capsohq/bifrost/core/schemas.EnvVar" {
 				c.envVarFields = append(c.envVarFields, envVarLocation{schemaPath, goPath})
 			}
 			return
@@ -771,7 +773,7 @@ func (c *checker) walkField(t types.Type, schemaNode map[string]any, schemaPath,
 	if named, ok := t.(*types.Named); ok {
 		key := named.Obj().Pkg().Path() + "." + named.Obj().Name()
 		if _, isOpaque := opaqueLeafTypes[key]; isOpaque {
-			if key == "github.com/maximhq/bifrost/core/schemas.EnvVar" {
+			if key == "github.com/capsohq/bifrost/core/schemas.EnvVar" {
 				c.envVarFields = append(c.envVarFields, envVarLocation{schemaPath, goPath})
 			}
 			return // do not recurse into opaque types
