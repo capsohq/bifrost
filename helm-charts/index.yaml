@@ -2,11 +2,11 @@ apiVersion: v1
 entries:
   bifrost:
   - apiVersion: v2
-    appVersion: 1.5.0-prerelease5
-    created: "2026-04-22T08:45:40.391037955Z"
+    appVersion: 1.5.0-prerelease4
+    created: "2026-04-23T05:44:45.246698734Z"
     description: A Helm chart for deploying Bifrost - AI Gateway with unified interface
       for multiple providers
-    digest: 3e77fd4b3af332348a50bf981462dc8e91a59c7c1606633bbb81047b756b3626
+    digest: 6f5699a30642137d69a4920144c5ed5df3bd527110c57d546b4949dade1d5a61
     home: https://www.getmaxim.ai/bifrost
     icon: https://www.getbifrost.ai/favicon.png
     keywords:
@@ -23,8 +23,32 @@ entries:
     - https://github.com/capsohq/bifrost
     type: application
     urls:
-    - https://github.com/capsohq/bifrost/releases/download/helm-chart-v2.1.3/bifrost-2.1.3.tgz
-    version: 2.1.3
+    - https://github.com/capsohq/bifrost/releases/download/helm-chart-v2.1.5/bifrost-2.1.5.tgz
+    version: 2.1.5
+  - apiVersion: v2
+    appVersion: 1.5.0-prerelease5
+    created: "2026-04-22T11:41:16.955280155Z"
+    description: A Helm chart for deploying Bifrost - AI Gateway with unified interface
+      for multiple providers
+    digest: 7eba2243d5cb01b32a58ac439a117614ce486ab58d4dce395b77092d52518f31
+    home: https://www.getmaxim.ai/bifrost
+    icon: https://www.getbifrost.ai/favicon.png
+    keywords:
+    - ai
+    - gateway
+    - llm
+    - openai
+    - anthropic
+    maintainers:
+    - email: support@getbifrost.ai
+      name: Bifrost Team
+    name: bifrost
+    sources:
+    - https://github.com/maximhq/bifrost
+    type: application
+    urls:
+    - https://github.com/maximhq/bifrost/releases/download/helm-chart-v2.1.4/bifrost-2.1.4.tgz
+    version: 2.1.4
   - apiVersion: v2
     appVersion: 1.4.11
     created: "2026-04-16T22:24:14.716832354Z"
@@ -793,4 +817,4 @@ entries:
     urls:
     - https://github.com/maximhq/bifrost/releases/download/helm-chart-v1.3.5/bifrost-1.3.5.tgz
     version: 1.3.5
-generated: "2026-04-22T08:45:40.385269763Z"
+generated: "2026-04-23T05:44:45.243600116Z"
