@@ -249,8 +249,8 @@ bifrost:
     #     extra_headers: {}                             # Additional headers to send with requests
     #     default_request_timeout_in_seconds: 300       # Request timeout
     #     max_retries: 3                                # Maximum number of retries
-    #     retry_backoff_initial_ms: 500                 # Initial retry backoff in ms
-    #     retry_backoff_max_ms: 5000                    # Max retry backoff in ms
+    #     retry_backoff_initial: 500                    # Initial retry backoff in ms
+    #     retry_backoff_max: 5000                       # Max retry backoff in ms
     #     stream_idle_timeout_in_seconds: 60            # Max wait for next stream chunk (default: 60)
     #     max_conns_per_host: 5000                      # Max TCP connections per host (default: 5000)
     #     beta_header_overrides:                         # Override Anthropic beta header support (optional)

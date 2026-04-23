@@ -325,7 +325,27 @@ false
 {{- end }}
 {{- end }}
 {{- if .Values.bifrost.providers }}
-{{- $_ := set $config "providers" .Values.bifrost.providers }}
+{{- $providers := deepCopy .Values.bifrost.providers }}
+{{- range $providerName, $providerConfig := $providers }}
+{{- if and $providerConfig (hasKey $providerConfig "network_config") }}
+{{- $networkConfig := get $providerConfig "network_config" }}
+{{- if hasKey $networkConfig "retry_backoff_initial_ms" }}
+{{- if not (hasKey $networkConfig "retry_backoff_initial") }}
+{{- $_ := set $networkConfig "retry_backoff_initial" (get $networkConfig "retry_backoff_initial_ms") }}
+{{- end }}
+{{- $_ := unset $networkConfig "retry_backoff_initial_ms" }}
+{{- end }}
+{{- if hasKey $networkConfig "retry_backoff_max_ms" }}
+{{- if not (hasKey $networkConfig "retry_backoff_max") }}
+{{- $_ := set $networkConfig "retry_backoff_max" (get $networkConfig "retry_backoff_max_ms") }}
+{{- end }}
+{{- $_ := unset $networkConfig "retry_backoff_max_ms" }}
+{{- end }}
+{{- $_ := set $providerConfig "network_config" $networkConfig }}
+{{- $_ := set $providers $providerName $providerConfig }}
+{{- end }}
+{{- end }}
+{{- $_ := set $config "providers" $providers }}
 {{- end }}
 {{- /* Governance */ -}}
 {{- if .Values.bifrost.governance }}
