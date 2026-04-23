@@ -433,6 +433,7 @@
                   "deployment-guides/config-json/storage",
                   "deployment-guides/config-json/plugins",
                   "deployment-guides/config-json/governance",
+                  "deployment-guides/config-json/cluster",
                   "deployment-guides/config-json/guardrails"
                 ]
               }
@@ -455,6 +456,7 @@
             "pages": [
               "deployment-guides/how-to/install-make",
               "deployment-guides/how-to/multinode",
+              "deployment-guides/how-to/nginx-reverse-proxy",
               "deployment-guides/docker-tuning"
             ]
           }
