@@ -44,7 +44,7 @@ import {
   RoutingEngineUsedLabels,
   Status
 } from "@/lib/constants/logs";
-import { LogEntry, ResponsesMessage } from "@/lib/types/logs";
+import { ContentBlock, LogEntry, ResponsesMessage, ResponsesMessageContentBlock } from "@/lib/types/logs";
 import { cn } from "@/lib/utils";
 import { downloadAsJson } from "@/lib/utils/browser-download";
 import { Link } from "@tanstack/react-router";
@@ -487,13 +487,15 @@ export function LogDetailView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => copyRequestBody(log, copyBody)}
-                  data-testid="logdetails-copy-request-body-button"
-                >
-                  <Clipboard className="h-4 w-4" />
-                  Copy request body
-                </DropdownMenuItem>
+                {!isPassthrough && (
+                  <DropdownMenuItem
+                    onClick={() => copyRequestBody(log, copyBody)}
+                    data-testid="logdetails-copy-request-body-button"
+                  >
+                    <Clipboard className="h-4 w-4" />
+                    Copy request body
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => downloadAsJson(log, `log-${log.id ?? "export"}.json`)}
                   data-testid="logdetails-export-log-button"
@@ -1378,14 +1380,16 @@ export function LogDetailView({
               </span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="tools" className="px-3">
-            Tools
-            {log.params?.tools?.length ? (
-              <span className="bg-background text-muted-foreground ml-1.5 rounded-sm border px-2 py-0.5 text-[10px] tabular-nums">
-                {log.params.tools.length}
-              </span>
-            ) : null}
-          </TabsTrigger>
+          {!isPassthrough && (
+            <TabsTrigger value="tools" className="px-3">
+              Tools
+              {log.params?.tools?.length ? (
+                <span className="bg-background text-muted-foreground ml-1.5 rounded-sm border px-2 py-0.5 text-[10px] tabular-nums">
+                  {log.params.tools.length}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="routing" className="px-3">
             Routing
             {log.routing_engine_logs ? (
@@ -1402,9 +1406,11 @@ export function LogDetailView({
               </span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="raw" className="px-3">
-            Raw JSON
-          </TabsTrigger>
+          {!isPassthrough && (
+            <TabsTrigger value="raw" className="px-3">
+              Raw JSON
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="messages" className="space-y-4">
@@ -1446,7 +1452,92 @@ export function LogDetailView({
             />
           )}
 
-          {((log.input_history && log.input_history.length > 0) ||
+          {isPassthrough && passthroughRequestBody && (
+            <CollapsibleBox
+              title="Request Body"
+              onCopy={() => {
+                try {
+                  return JSON.stringify(
+                    JSON.parse(passthroughRequestBody || ""),
+                    null,
+                    2,
+                  );
+                } catch {
+                  return passthroughRequestBody || "";
+                }
+              }}
+            >
+              <CodeEditor
+                className="z-0 w-full"
+                shouldAdjustInitialHeight={true}
+                maxHeight={450}
+                wrap={true}
+                code={(() => {
+                  try {
+                    return JSON.stringify(
+                      JSON.parse(passthroughRequestBody || ""),
+                      null,
+                      2,
+                    );
+                  } catch {
+                    return passthroughRequestBody || "";
+                  }
+                })()}
+                lang="json"
+                readonly={true}
+                options={{
+                  scrollBeyondLastLine: false,
+                  lineNumbers: "off",
+                  alwaysConsumeMouseWheel: false,
+                }}
+              />
+            </CollapsibleBox>
+          )}
+          {isPassthrough &&
+            passthroughResponseBody &&
+            log.status !== "processing" && (
+              <CollapsibleBox
+                title="Response Body"
+                onCopy={() => {
+                  try {
+                    return JSON.stringify(
+                      JSON.parse(passthroughResponseBody || ""),
+                      null,
+                      2,
+                    );
+                  } catch {
+                    return passthroughResponseBody || "";
+                  }
+                }}
+              >
+                <CodeEditor
+                  className="z-0 w-full"
+                  shouldAdjustInitialHeight={true}
+                  maxHeight={450}
+                  wrap={true}
+                  code={(() => {
+                    try {
+                      return JSON.stringify(
+                        JSON.parse(passthroughResponseBody || ""),
+                        null,
+                        2,
+                      );
+                    } catch {
+                      return passthroughResponseBody || "";
+                    }
+                  })()}
+                  lang="json"
+                  readonly={true}
+                  options={{
+                    scrollBeyondLastLine: false,
+                    lineNumbers: "off",
+                    alwaysConsumeMouseWheel: false,
+                  }}
+                />
+              </CollapsibleBox>
+            )}
+
+          {!isPassthrough && ((log.input_history && log.input_history.length > 0) ||
             (log.output_message && !log.error_details?.error.message)) && (
             <div className="bg-card rounded-sm border p-5">
               {log.input_history?.map((message, index) => {
@@ -1490,6 +1581,22 @@ export function LogDetailView({
                         audioFormat={audioFormat}
                       />
                     )}
+                    {text &&
+                      Array.isArray(message.content) &&
+                      (message.content as ContentBlock[])
+                        .filter((b) => b.type === "image_url")
+                        .map((b, i) => {
+                          const src = b.image_url?.url;
+                          if (!src) return null;
+                          return (
+                            <img
+                              key={`${i}-${src}`}
+                              src={src}
+                              alt="Attached image"
+                              className="mt-2 max-w-full rounded border"
+                            />
+                          );
+                        })}
                     {hasToolCalls && text ? (
                       <div className="text-muted-foreground mt-2 text-[11px]">
                         {message.tool_calls!
@@ -1596,6 +1703,12 @@ export function LogDetailView({
                           {msg.type || "—"}
                         </div>
                       )}
+                      {Array.isArray(msg.content) &&
+                        msg.content
+                          .filter((b) => b?.type === "input_image" && b.image_url)
+                          .map((b, i) => (
+                            <img key={`${i}-${b.image_url}`} src={b.image_url} alt="Attached image" className="mt-2 max-w-full rounded border" />
+                          ))}
                     </MessageRow>
                   );
                 })}
@@ -1897,90 +2010,6 @@ export function LogDetailView({
         </TabsContent>
 
         <TabsContent value="raw" className="space-y-3">
-          {isPassthrough && passthroughRequestBody && (
-            <CollapsibleBox
-              title="Request Body"
-              onCopy={() => {
-                try {
-                  return JSON.stringify(
-                    JSON.parse(passthroughRequestBody || ""),
-                    null,
-                    2,
-                  );
-                } catch {
-                  return passthroughRequestBody || "";
-                }
-              }}
-            >
-              <CodeEditor
-                className="z-0 w-full"
-                shouldAdjustInitialHeight={true}
-                maxHeight={450}
-                wrap={true}
-                code={(() => {
-                  try {
-                    return JSON.stringify(
-                      JSON.parse(passthroughRequestBody || ""),
-                      null,
-                      2,
-                    );
-                  } catch {
-                    return passthroughRequestBody || "";
-                  }
-                })()}
-                lang="json"
-                readonly={true}
-                options={{
-                  scrollBeyondLastLine: false,
-                  lineNumbers: "off",
-                  alwaysConsumeMouseWheel: false,
-                }}
-              />
-            </CollapsibleBox>
-          )}
-          {isPassthrough &&
-            passthroughResponseBody &&
-            log.status !== "processing" && (
-              <CollapsibleBox
-                title="Response Body"
-                onCopy={() => {
-                  try {
-                    return JSON.stringify(
-                      JSON.parse(passthroughResponseBody || ""),
-                      null,
-                      2,
-                    );
-                  } catch {
-                    return passthroughResponseBody || "";
-                  }
-                }}
-              >
-                <CodeEditor
-                  className="z-0 w-full"
-                  shouldAdjustInitialHeight={true}
-                  maxHeight={450}
-                  wrap={true}
-                  code={(() => {
-                    try {
-                      return JSON.stringify(
-                        JSON.parse(passthroughResponseBody || ""),
-                        null,
-                        2,
-                      );
-                    } catch {
-                      return passthroughResponseBody || "";
-                    }
-                  })()}
-                  lang="json"
-                  readonly={true}
-                  options={{
-                    scrollBeyondLastLine: false,
-                    lineNumbers: "off",
-                    alwaysConsumeMouseWheel: false,
-                  }}
-                />
-              </CollapsibleBox>
-            )}
           {rawRequest && (
             <>
               <div className="text-muted-foreground text-[12px]">

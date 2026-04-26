@@ -385,11 +385,9 @@ func TestPricingE2E_Step6A_DBOverridesFile(t *testing.T) {
 	require.Equal(t, *tableOut.PricingURL, *catalogOut.PricingURL)
 	require.Equal(t, *tableOut.PricingSyncInterval, *catalogOut.PricingSyncInterval)
 
-	// Override log must show both the file value and the DB value.
-	assert.True(t, log.hasLog("INFO", "pricing_url overridden by DB"),
-		"expected override log for url\n%s", log.dump())
-
-	// Resolution log must report DB as source.
+	// Resolution log must report DB as source. The merged resolver no longer emits
+	// a separate "overridden by DB" line; the authoritative source is encoded in
+	// the final resolved-config log.
 	assert.True(t, log.hasLog("resolved pricing config", "source: db", "sync_interval=3600 seconds"),
 		"expected resolution log with 'source: db'\n%s", log.dump())
 
@@ -668,9 +666,8 @@ func TestPricingE2E_Step8_RestartConsistency_DBWinsOverChangedFile(t *testing.T)
 	require.Equal(t, int64(3600), *tableOut.PricingSyncInterval,
 		"DB interval must override changed file interval after initial setup")
 
-	// Override logs must explain the discrepancy.
-	assert.True(t, log.hasLog("INFO", "pricing_url overridden by DB"),
-		"expected url override log\n%s", log.dump())
+	// The merged resolver records DB precedence in the resolved-config log rather
+	// than a separate override line.
 	assert.True(t, log.hasLog("resolved pricing config", "source: db", "sync_interval=3600 seconds"),
 		"expected resolved config log with DB interval\n%s", log.dump())
 

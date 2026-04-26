@@ -492,7 +492,7 @@ func (provider *MistralProvider) OCR(ctx *schemas.BifrostContext, key schemas.Ke
 
 	// Handle error response
 	if resp.StatusCode() != fasthttp.StatusOK {
-		return nil, ParseMistralErrorWithMetadata(resp, provider.GetProviderKey(), schemas.TranscriptionRequest, request.Model)
+		return nil, ParseMistralErrorWithMetadata(resp, provider.GetProviderKey(), schemas.OCRRequest, request.Model)
 	}
 
 	responseBody, err := providerUtils.CheckAndDecodeBody(resp)
@@ -547,7 +547,6 @@ func (provider *MistralProvider) OCR(ctx *schemas.BifrostContext, key schemas.Ke
 
 	return response, nil
 }
-
 // SpeechStream is not supported by the Mistral provider.
 func (provider *MistralProvider) SpeechStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostSpeechRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechStreamRequest, provider.GetProviderKey())
@@ -800,7 +799,7 @@ func (provider *MistralProvider) TranscriptionStream(ctx *schemas.BifrostContext
 			}
 
 			chunkIndex++
-			provider.processTranscriptionStreamEvent(ctx, postHookRunner, currentEvent, currentData, request.Model, providerName, chunkIndex, startTime, &lastChunkTime, responseChan, postHookSpanFinalizer)
+			provider.processTranscriptionStreamEvent(ctx, postHookRunner, currentEvent, currentData, chunkIndex, startTime, &lastChunkTime, responseChan, postHookSpanFinalizer)
 			// Break on terminal stream indicator (covers both done events and error events
 			// that processTranscriptionStreamEvent signals via context).
 			if ended, _ := ctx.Value(schemas.BifrostContextKeyStreamEndIndicator).(bool); ended {
@@ -818,8 +817,6 @@ func (provider *MistralProvider) processTranscriptionStreamEvent(
 	postHookRunner schemas.PostHookRunner,
 	eventType string,
 	jsonData string,
-	model string,
-	providerName schemas.ModelProvider,
 	chunkIndex int,
 	startTime time.Time,
 	lastChunkTime *time.Time,
@@ -873,8 +870,6 @@ func (provider *MistralProvider) processTranscriptionStreamEvent(
 	if providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse) {
 		response.ExtraFields.RawResponse = jsonData
 	}
-
-	response = provider.decorateTranscriptionStreamResponse(response, model)
 
 	// Check for done event (handle both "transcription.done" and "transcript.text.done")
 	if MistralTranscriptionStreamEventType(eventType) == MistralTranscriptionStreamEventDone || eventType == "transcript.text.done" {

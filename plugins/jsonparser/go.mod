@@ -1,8 +1,8 @@
 module github.com/capsohq/bifrost/plugins/jsonparser
 
-go 1.26.1
+go 1.26.2
 
-require github.com/capsohq/bifrost/core v1.5.4
+require github.com/capsohq/bifrost/core v1.5.5
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
@@ -47,6 +47,7 @@ require (
 	github.com/mark3labs/mcp-go v0.43.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/maximhq/bifrost/core v1.5.5 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
@@ -68,6 +69,5 @@ require (
 	golang.org/x/text v0.35.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-replace (
-	github.com/capsohq/bifrost/core => ../../core
-)
+
+replace github.com/capsohq/bifrost/core => ../../core

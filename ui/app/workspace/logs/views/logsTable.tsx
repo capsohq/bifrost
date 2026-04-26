@@ -177,7 +177,10 @@ export function LogsDataTable({
 						<TableRow className="hover:bg-transparent">
 							<TableCell colSpan={columns.length} className="h-12 text-center">
 								<div className="text-muted-foreground flex items-center justify-center gap-2 text-sm">
-									{polling ? (
+									{loading ? <>
+										<RefreshCw className="h-4 w-4 animate-spin" />
+										Loading logs...
+									</> : polling ? (
 										<>
 											<RefreshCw className="h-4 w-4 animate-spin" />
 											Waiting for new logs...
@@ -227,7 +230,7 @@ export function LogsDataTable({
 									})}
 								</TableRow>
 							))
-						) : (
+						) : loading ? null : (
 							<TableRow>
 								<TableCell colSpan={columns.length} className="h-24 text-center">
 									No results found. Try adjusting your filters and/or time range.

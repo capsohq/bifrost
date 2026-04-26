@@ -1,10 +1,10 @@
 module github.com/capsohq/bifrost/plugins/telemetry
 
-go 1.26.1
+go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.4
-	github.com/capsohq/bifrost/framework v1.3.4
+	github.com/capsohq/bifrost/core v1.5.5
+	github.com/capsohq/bifrost/framework v1.3.5
 	github.com/prometheus/client_golang v1.23.2
 	github.com/valyala/fasthttp v1.68.0
 )
@@ -105,6 +105,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
+	github.com/maximhq/bifrost/core v1.5.5 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
@@ -164,6 +165,7 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
+
 replace (
 	github.com/capsohq/bifrost/core => ../../core
 	github.com/capsohq/bifrost/framework => ../../framework

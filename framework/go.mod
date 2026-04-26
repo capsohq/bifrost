@@ -1,12 +1,12 @@
 module github.com/capsohq/bifrost/framework
 
-go 1.26.1
+go 1.26.2
 
 require (
 	cloud.google.com/go/storage v1.61.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
+	github.com/capsohq/bifrost/core v1.5.5
 	github.com/google/uuid v1.6.0
-	github.com/capsohq/bifrost/core v1.5.4
 	github.com/pinecone-io/go-pinecone/v5 v5.3.0
 	github.com/qdrant/go-client v1.16.2
 	github.com/redis/go-redis/v9 v9.17.2
@@ -71,6 +71,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.1 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/maximhq/bifrost/core v1.5.5 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -159,6 +160,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0
 )
-replace (
-	github.com/capsohq/bifrost/core => ../core
-)
+
+replace github.com/capsohq/bifrost/core => ../core

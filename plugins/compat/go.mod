@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/compat
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.4
-	github.com/capsohq/bifrost/framework v1.3.4
+	github.com/capsohq/bifrost/core v1.5.5
+	github.com/capsohq/bifrost/framework v1.3.5
 )
 
 require (
@@ -102,6 +102,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
+	github.com/maximhq/bifrost/core v1.5.5 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pinecone-io/go-pinecone/v5 v5.3.0 // indirect

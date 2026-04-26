@@ -1,10 +1,10 @@
 module github.com/capsohq/bifrost/plugins/prompts
 
-go 1.26.1
+go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.4
-	github.com/capsohq/bifrost/framework v1.3.4
+	github.com/capsohq/bifrost/core v1.5.5
+	github.com/capsohq/bifrost/framework v1.3.5
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -54,6 +54,7 @@ require (
 	github.com/mark3labs/mcp-go v0.43.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/maximhq/bifrost/core v1.5.5 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
@@ -77,6 +78,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
+
 replace (
 	github.com/capsohq/bifrost/core => ../../core
 	github.com/capsohq/bifrost/framework => ../../framework

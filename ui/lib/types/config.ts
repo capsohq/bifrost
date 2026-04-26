@@ -174,7 +174,7 @@ export interface NetworkConfig {
 	retry_backoff_initial: number; // Duration in milliseconds
 	retry_backoff_max: number; // Duration in milliseconds
 	insecure_skip_verify?: boolean;
-	ca_cert_pem?: string;
+	ca_cert_pem?: EnvVar;
 	stream_idle_timeout_in_seconds?: number;
 	max_conns_per_host?: number;
 	enforce_http2?: boolean;
@@ -193,10 +193,10 @@ export type ProxyType = "none" | "http" | "socks5" | "environment";
 // ProxyConfig matching Go's schemas.ProxyConfig
 export interface ProxyConfig {
 	type: ProxyType;
-	url?: string;
-	username?: string;
-	password?: string;
-	ca_cert_pem?: string;
+	url?: EnvVar;
+	username?: EnvVar;
+	password?: EnvVar;
+	ca_cert_pem?: EnvVar;
 }
 
 // Request types matching Go's schemas.RequestType
@@ -269,8 +269,8 @@ export interface AllowedRequests {
 	image_edit: boolean;
 	image_edit_stream: boolean;
 	image_variation: boolean;
-	ocr: boolean;
-	ocr_stream: boolean;
+	ocr?: boolean;
+	ocr_stream?: boolean;
 	count_tokens: boolean;
 	list_models: boolean;
 	rerank: boolean;
