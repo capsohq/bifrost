@@ -1,0 +1,23 @@
+---
+title: "v1.5.0-prerelease7"
+description: "v1.5.0-prerelease7 changelog - 2026-04-27"
+---
+<Tabs>
+  <Tab title="NPX">
+    ```bash
+    npx -y @maximhq/bifrost --transport-version v1.5.0-prerelease7
+    ```
+  </Tab>
+  <Tab title="Docker">
+    ```bash
+    docker pull ghcr.io/capsohq/bifrost:v1.5.0-prerelease7
+    docker run -p 8080:8080 ghcr.io/capsohq/bifrost:v1.5.0-prerelease7
+    ```
+  </Tab>
+</Tabs>
+
+<Update label="compat" description="0.1.4">
+- feat: drops tools web_search and web_search_preview if model does not support it
+- feat: flattens tool type namespace if provider does not support it
+
+</Update>
