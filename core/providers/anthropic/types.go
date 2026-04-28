@@ -154,22 +154,21 @@ var ProviderFeatures = map[schemas.ModelProvider]ProviderFeatureSupport{
 	// Notably NOT supported: MCP (MCP-excl), Skills/container.skills,
 	// InferenceGeo, FastMode, TaskBudgets, AdvisorTool, StructuredOutputs,
 	// PromptCachingScope (400 "unexpected beta header" per LiteLLM #19984),
-	// ContextEditing (400 "unexpected beta header" per live API error),
 	// ContextManagementField (400 "Extra inputs are not permitted" per live API error
 	//     when the request body carries a context_management object).
 	// Compaction IS supported on Vertex via the compact-2026-01-12 beta header even
 	//     though Anthropic's compaction docs don't list Vertex (verified by live
-	//     testing). The header passes through FilterBetaHeadersForProvider because
-	//     Compaction: true; the body-field stripper at utils.go:460 removes any
-	//     client-side context_management payload (gated by ContextManagementField:
-	//     false) so the request still succeeds. The two flags are intentionally
-	//     independent: one controls header forwarding, the other controls body shape.
+	//     testing). Context-editing is also treated as supported for beta-header
+	//     forwarding, but the raw context_management body field remains gated off
+	//     until Vertex accepts it. The two flags are intentionally independent:
+	//     one controls header forwarding, the other controls body shape.
 	// FilesAPI, WebFetch, CodeExecution, AdvancedToolUse, RedactThinking.
 	schemas.Vertex: {
 		WebSearch:   true, // web search GA on Vertex per A; earlier code restricted to web_search_20250305 — A doesn't qualify
 		ComputerUse: true, Bash: true, Memory: true, TextEditor: true, ToolSearch: true,
 		ContainerBasic:      true,
 		Compaction:          true,
+		ContextEditing:      true,
 		InterleavedThinking: true, // V-platform confirms; fails on non-allowlisted 4-series
 		Context1M:           true,
 		EagerInputStreaming: true, // fine-grained-tool-streaming GA per A

@@ -1048,7 +1048,6 @@ func TestFilterBetaHeadersForProvider(t *testing.T) {
 			AnthropicSkillsBetaHeader,
 			AnthropicFastModeBetaHeader,
 			AnthropicRedactThinkingBetaHeader,
-			AnthropicContextManagementBetaHeader,
 		}
 		for _, h := range unsupported {
 			result := FilterBetaHeadersForProvider([]string{h}, schemas.Vertex)
@@ -1062,6 +1061,7 @@ func TestFilterBetaHeadersForProvider(t *testing.T) {
 		supported := []string{
 			AnthropicComputerUseBetaHeader20251124,
 			AnthropicCompactionBetaHeader,
+			AnthropicContextManagementBetaHeader,
 			AnthropicInterleavedThinkingBetaHeader,
 			AnthropicContext1MBetaHeader,
 			AnthropicEagerInputStreamingBetaHeader,
@@ -1269,8 +1269,8 @@ func TestNetworkConfigBetaOverridesFlow(t *testing.T) {
 	cases := []pCase{
 		{schemas.Anthropic, "interleaved-thinking-2025-05-14", AnthropicInterleavedThinkingBetaHeaderPrefix,
 			"prompt-caching-2024-07-31", "prompt-caching-"},
-		{schemas.Vertex, "context-management-2025-06-27", AnthropicContextManagementBetaHeaderPrefix,
-			"interleaved-thinking-2025-05-14", AnthropicInterleavedThinkingBetaHeaderPrefix},
+		{schemas.Vertex, AnthropicPromptCachingScopeBetaHeader, AnthropicPromptCachingScopeBetaHeaderPrefix,
+			"context-management-2025-06-27", AnthropicContextManagementBetaHeaderPrefix},
 		{schemas.Bedrock, "files-api-2025-04-14", "files-api-",
 			"context-management-2025-06-27", AnthropicContextManagementBetaHeaderPrefix},
 		{schemas.Azure, "fast-mode-2026-02-01", AnthropicFastModeBetaHeaderPrefix,
