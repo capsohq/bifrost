@@ -60,8 +60,7 @@ export class LogsPage extends BasePage {
       page.getByRole('button', { name: /Live updates/i })
     )
 
-    // Table elements - exclude the "Listening for logs" row which is not a data row
-    this.tableRows = this.logsTable.locator('tbody tr').filter({ hasNot: page.locator('text=Listening for logs') }).filter({ hasNot: page.locator('text=Live updates paused') }).filter({ hasNot: page.locator('text=Not connected') }).filter({ hasNot: page.locator('text=No results found') })
+    this.tableRows = page.getByTestId('log-table-row')
     // LLM logs pagination (data-testid added to logsTable.tsx)
     this.paginationControls = page.getByTestId('pagination')
     this.nextPageBtn = page.getByTestId('next-page')
