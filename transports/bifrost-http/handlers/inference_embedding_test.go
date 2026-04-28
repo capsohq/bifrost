@@ -27,7 +27,7 @@ func TestPrepareEmbeddingRequest_MultimodalVolcengineFields(t *testing.T) {
 		}
 	}`)
 
-	req, bifrostReq, err := prepareEmbeddingRequest(ctx)
+	req, bifrostReq, err := prepareEmbeddingRequest(ctx, nil)
 	if err != nil {
 		t.Fatalf("prepareEmbeddingRequest returned error: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestPrepareEmbeddingRequest_ExtractsVolcengineInstructionsConfig(t *testing
 		}
 	}`)
 
-	_, bifrostReq, err := prepareEmbeddingRequest(ctx)
+	_, bifrostReq, err := prepareEmbeddingRequest(ctx, nil)
 	if err != nil {
 		t.Fatalf("prepareEmbeddingRequest returned error: %v", err)
 	}

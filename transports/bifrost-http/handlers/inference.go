@@ -43,18 +43,74 @@ func forwardProviderHeadersFromContext(ctx *fasthttp.RequestCtx, bifrostCtx *sch
 
 // CompletionHandler manages HTTP requests for completion operations
 type CompletionHandler struct {
-	client       *bifrost.Bifrost
-	handlerStore lib.HandlerStore
-	config       *lib.Config
+	client *bifrost.Bifrost
+	config *lib.Config
 }
 
 // NewInferenceHandler creates a new completion handler instance
 func NewInferenceHandler(client *bifrost.Bifrost, config *lib.Config) *CompletionHandler {
 	return &CompletionHandler{
-		client:       client,
-		handlerStore: config,
-		config:       config,
+		client: client,
+		config: config,
 	}
+}
+
+// resolveModelAndProvider parses the model string, validates it, and resolves
+// the provider via model catalog when no provider prefix is present. Stores
+// resolution metadata on the fasthttp context for ConvertToBifrostContext to
+// emit the routing engine log.
+func resolveModelAndProvider(ctx *fasthttp.RequestCtx, config *lib.Config, model string) (schemas.ModelProvider, string, error) {
+	provider, modelName := schemas.ParseModelString(model, "")
+	if modelName == "" {
+		return "", "", fmt.Errorf("model is required")
+	}
+	if provider == "" {
+		providers := config.GetProvidersForModel(modelName)
+		if len(providers) == 0 {
+			return "", "", fmt.Errorf("provider is required in model field (format: provider/model) — no providers found for model %q in model catalog", modelName)
+		}
+		ctx.SetUserValue(lib.FastHTTPUserValueModelCatalogResolution, &lib.ModelCatalogResolution{
+			Model:            modelName,
+			ResolvedProvider: providers[0],
+			AllProviders:     providers,
+		})
+		provider = providers[0]
+	}
+	return provider, modelName, nil
+}
+
+// prepareRequest is the generic entry point for all JSON-body prepare functions.
+// It unmarshals the request body into T, resolves model+provider, parses
+// fallbacks, and extracts extra params. Type-specific validation is left to
+// the caller.
+func prepareRequest[T baseRequest](ctx *fasthttp.RequestCtx, config *lib.Config, knownFields map[string]bool) (*T, *requestBase, error) {
+	req := new(T)
+	if err := sonic.Unmarshal(ctx.PostBody(), req); err != nil {
+		return nil, nil, fmt.Errorf("invalid request format: %v", err)
+	}
+	provider, modelName, err := resolveModelAndProvider(ctx, config, (*req).getModel())
+	if err != nil {
+		return nil, nil, err
+	}
+	fallbacks, err := parseFallbacks((*req).getFallbacks())
+	if err != nil {
+		return nil, nil, err
+	}
+	var extraParams map[string]any
+	if knownFields != nil {
+		ep, epErr := extractExtraParams(ctx.PostBody(), knownFields)
+		if epErr != nil {
+			logger.Warn("Failed to extract extra params: %v", epErr)
+		} else {
+			extraParams = ep
+		}
+	}
+	return req, &requestBase{
+		Provider:    provider,
+		ModelName:   modelName,
+		Fallbacks:   fallbacks,
+		ExtraParams: extraParams,
+	}, nil
 }
 
 // Known fields for CompletionRequest
@@ -282,15 +338,6 @@ var transcriptionParamsKnownFields = map[string]bool{
 	"file_format":     true,
 }
 
-var countTokensParamsKnownFields = map[string]bool{
-	"model":        true,
-	"messages":     true,
-	"fallbacks":    true,
-	"tools":        true,
-	"instructions": true,
-	"text":         true,
-}
-
 var batchCreateParamsKnownFields = map[string]bool{
 	"model":             true,
 	"input_file_id":     true,
@@ -314,6 +361,24 @@ type BifrostParams struct {
 	Fallbacks    []string `json:"fallbacks"`               // Fallback providers and models in "provider/model" format
 	Stream       *bool    `json:"stream"`                  // Whether to stream the response
 	StreamFormat *string  `json:"stream_format,omitempty"` // For speech
+}
+
+func (b BifrostParams) getModel() string       { return b.Model }
+func (b BifrostParams) getFallbacks() []string { return b.Fallbacks }
+
+// baseRequest is satisfied by any type that embeds BifrostParams.
+type baseRequest interface {
+	getModel() string
+	getFallbacks() []string
+}
+
+// requestBase holds the fields common to every JSON-body prepare function
+// so that each type-specific prepareXRequest only handles validation.
+type requestBase struct {
+	Provider    schemas.ModelProvider
+	ModelName   string
+	Fallbacks   []schemas.Fallback
+	ExtraParams map[string]any
 }
 
 type TextRequest struct {
@@ -723,7 +788,7 @@ func (h *CompletionHandler) listModels(ctx *fasthttp.RequestCtx) {
 	provider := string(ctx.QueryArgs().Peek("provider"))
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel() // Ensure cleanup on function exit
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -814,16 +879,8 @@ func (h *CompletionHandler) listModels(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareTextCompletionRequest prepares a BifrostTextCompletionRequest from the HTTP request body
-func prepareTextCompletionRequest(ctx *fasthttp.RequestCtx) (*TextRequest, *schemas.BifrostTextCompletionRequest, error) {
-	var req TextRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareTextCompletionRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*TextRequest, *schemas.BifrostTextCompletionRequest, error) {
+	req, base, err := prepareRequest[TextRequest](ctx, config, textParamsKnownFields)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -833,30 +890,24 @@ func prepareTextCompletionRequest(ctx *fasthttp.RequestCtx) (*TextRequest, *sche
 	if req.TextCompletionParameters == nil {
 		req.TextCompletionParameters = &schemas.TextCompletionParameters{}
 	}
-	extraParams, err := extractExtraParams(ctx.PostBody(), textParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.TextCompletionParameters.ExtraParams = extraParams
-	}
-	bifrostTextReq := &schemas.BifrostTextCompletionRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.TextCompletionParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostTextCompletionRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Input:     req.Prompt,
 		Params:    req.TextCompletionParameters,
-		Fallbacks: fallbacks,
-	}
-	return &req, bifrostTextReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // textCompletion handles POST /v1/completions - Process text completion requests
 func (h *CompletionHandler) textCompletion(ctx *fasthttp.RequestCtx) {
-	req, bifrostTextReq, err := prepareTextCompletionRequest(ctx)
+	req, bifrostTextReq, err := prepareTextCompletionRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -890,84 +941,52 @@ func (h *CompletionHandler) textCompletion(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareChatCompletionRequest prepares a BifrostChatRequest from a ChatRequest
-func prepareChatCompletionRequest(ctx *fasthttp.RequestCtx) (*ChatRequest, *schemas.BifrostChatRequest, error) {
-	req := ChatRequest{
-		ChatParameters: &schemas.ChatParameters{},
-	}
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-
-	// Create BifrostChatRequest directly using segregated structure
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-
-	// Parse fallbacks using helper function
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareChatCompletionRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*ChatRequest, *schemas.BifrostChatRequest, error) {
+	req, base, err := prepareRequest[ChatRequest](ctx, config, chatParamsKnownFields)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse fallbacks: %v", err)
+		return nil, nil, err
 	}
-
 	if len(req.Messages) == 0 {
 		return nil, nil, fmt.Errorf("messages is required for chat completion")
 	}
-
-	// Extract extra params
 	if req.ChatParameters == nil {
 		req.ChatParameters = &schemas.ChatParameters{}
 	}
-
-	extraParams, err := extractExtraParams(ctx.PostBody(), chatParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		// Handle max_tokens -> max_completion_tokens mapping after extracting extra params
-		// If max_completion_tokens is nil and max_tokens is present in extra params, map it
-		// This is to support the legacy max_tokens field, which is still used by some implementations.
-		if req.ChatParameters.MaxCompletionTokens == nil {
-			if maxTokensVal, exists := extraParams["max_tokens"]; exists {
-				// Type check and convert to int
-				// JSON numbers are unmarshaled as float64, so we need to handle that
-				var maxTokens int
+	// Handle max_tokens -> max_completion_tokens mapping.
+	// This supports the legacy max_tokens field still used by some implementations.
+	if base.ExtraParams != nil {
+		if maxTokensVal, exists := base.ExtraParams["max_tokens"]; exists {
+			delete(base.ExtraParams, "max_tokens")
+			if req.ChatParameters.MaxCompletionTokens == nil {
 				if maxTokensFloat, ok := maxTokensVal.(float64); ok {
-					maxTokens = int(maxTokensFloat)
+					maxTokens := int(maxTokensFloat)
 					req.ChatParameters.MaxCompletionTokens = &maxTokens
-					// Remove max_tokens from extra params since we've mapped it
-					delete(extraParams, "max_tokens")
 				} else if maxTokensInt, ok := maxTokensVal.(int); ok {
 					req.ChatParameters.MaxCompletionTokens = &maxTokensInt
-					// Remove max_tokens from extra params since we've mapped it
-					delete(extraParams, "max_tokens")
 				}
 			}
 		}
-		req.ChatParameters.ExtraParams = extraParams
 	}
-
-	// Create segregated BifrostChatRequest
-	bifrostChatReq := &schemas.BifrostChatRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.ChatParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostChatRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Input:     req.Messages,
 		Params:    req.ChatParameters,
-		Fallbacks: fallbacks,
-	}
-
-	return &req, bifrostChatReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // chatCompletion handles POST /v1/chat/completions - Process chat completion requests
 func (h *CompletionHandler) chatCompletion(ctx *fasthttp.RequestCtx) {
-	req, bifrostChatReq, err := prepareChatCompletionRequest(ctx)
+	req, bifrostChatReq, err := prepareChatCompletionRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -996,39 +1015,18 @@ func (h *CompletionHandler) chatCompletion(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareResponsesRequest prepares a BifrostResponsesRequest from a ResponsesRequest
-func prepareResponsesRequest(ctx *fasthttp.RequestCtx) (*ResponsesRequest, *schemas.BifrostResponsesRequest, error) {
-	var req ResponsesRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-
-	// Create BifrostResponsesRequest directly using segregated structure
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-
-	// Parse fallbacks using helper function
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareResponsesRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*ResponsesRequest, *schemas.BifrostResponsesRequest, error) {
+	req, base, err := prepareRequest[ResponsesRequest](ctx, config, responsesParamsKnownFields)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse fallbacks: %v", err)
+		return nil, nil, err
 	}
-
 	if len(req.Input.ResponsesRequestInputArray) == 0 && req.Input.ResponsesRequestInputStr == nil {
 		return nil, nil, fmt.Errorf("input is required for responses")
 	}
-
-	// Extract extra params
 	if req.ResponsesParameters == nil {
 		req.ResponsesParameters = &schemas.ResponsesParameters{}
 	}
-
-	extraParams, err := extractExtraParams(ctx.PostBody(), responsesParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.ResponsesParameters.ExtraParams = extraParams
-	}
+	req.ResponsesParameters.ExtraParams = base.ExtraParams
 
 	input := req.Input.ResponsesRequestInputArray
 	if input == nil {
@@ -1039,29 +1037,25 @@ func prepareResponsesRequest(ctx *fasthttp.RequestCtx) (*ResponsesRequest, *sche
 			},
 		}
 	}
-
-	// Create segregated BifrostResponsesRequest
-	bifrostResponsesReq := &schemas.BifrostResponsesRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	return req, &schemas.BifrostResponsesRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Input:     input,
 		Params:    req.ResponsesParameters,
-		Fallbacks: fallbacks,
-	}
-
-	return &req, bifrostResponsesReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // responses handles POST /v1/responses - Process responses requests
 func (h *CompletionHandler) responses(ctx *fasthttp.RequestCtx) {
-	req, bifrostResponsesReq, err := prepareResponsesRequest(ctx)
+	req, bifrostResponsesReq, err := prepareResponsesRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -1092,16 +1086,8 @@ func (h *CompletionHandler) responses(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareEmbeddingRequest prepares a BifrostEmbeddingRequest from the HTTP request body
-func prepareEmbeddingRequest(ctx *fasthttp.RequestCtx) (*EmbeddingRequest, *schemas.BifrostEmbeddingRequest, error) {
-	var req EmbeddingRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareEmbeddingRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*EmbeddingRequest, *schemas.BifrostEmbeddingRequest, error) {
+	req, base, err := prepareRequest[EmbeddingRequest](ctx, config, embeddingParamsKnownFields)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1111,31 +1097,25 @@ func prepareEmbeddingRequest(ctx *fasthttp.RequestCtx) (*EmbeddingRequest, *sche
 	if req.EmbeddingParameters == nil {
 		req.EmbeddingParameters = &schemas.EmbeddingParameters{}
 	}
-	extraParams, err := extractExtraParams(ctx.PostBody(), embeddingParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.EmbeddingParameters.ExtraParams = extraParams
-	}
-	bifrostEmbeddingReq := &schemas.BifrostEmbeddingRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.EmbeddingParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostEmbeddingRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Input:     req.Input,
 		Params:    req.EmbeddingParameters,
-		Fallbacks: fallbacks,
-	}
-	return &req, bifrostEmbeddingReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // embeddings handles POST /v1/embeddings - Process embeddings requests
 func (h *CompletionHandler) embeddings(ctx *fasthttp.RequestCtx) {
-	_, bifrostEmbeddingReq, err := prepareEmbeddingRequest(ctx)
+	_, bifrostEmbeddingReq, err := prepareEmbeddingRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -1160,28 +1140,14 @@ func (h *CompletionHandler) embeddings(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareRerankRequest prepares a BifrostRerankRequest from the HTTP request body
-func prepareRerankRequest(ctx *fasthttp.RequestCtx) (*RerankRequest, *schemas.BifrostRerankRequest, error) {
-	var req RerankRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-
-	// Parse model
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-
-	// Parse fallbacks
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareRerankRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*RerankRequest, *schemas.BifrostRerankRequest, error) {
+	req, base, err := prepareRequest[RerankRequest](ctx, config, rerankParamsKnownFields)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse fallbacks: %v", err)
+		return nil, nil, err
 	}
-
 	if strings.TrimSpace(req.Query) == "" {
 		return nil, nil, fmt.Errorf("query is required for rerank")
 	}
-
 	if len(req.Documents) == 0 {
 		return nil, nil, fmt.Errorf("documents are required for rerank")
 	}
@@ -1190,45 +1156,33 @@ func prepareRerankRequest(ctx *fasthttp.RequestCtx) (*RerankRequest, *schemas.Bi
 			return nil, nil, fmt.Errorf("document text is required for rerank at index %d", i)
 		}
 	}
-
-	// Extract extra params
 	if req.RerankParameters == nil {
 		req.RerankParameters = &schemas.RerankParameters{}
 	}
 	if req.RerankParameters.TopN != nil && *req.RerankParameters.TopN < 1 {
 		return nil, nil, fmt.Errorf("top_n must be at least 1")
 	}
-
-	extraParams, err := extractExtraParams(ctx.PostBody(), rerankParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.RerankParameters.ExtraParams = extraParams
-	}
-
-	// Create BifrostRerankRequest
-	bifrostRerankReq := &schemas.BifrostRerankRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.RerankParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostRerankRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Query:     req.Query,
 		Documents: req.Documents,
 		Params:    req.RerankParameters,
-		Fallbacks: fallbacks,
-	}
-
-	return &req, bifrostRerankReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // rerank handles POST /v1/rerank - Process rerank requests
 func (h *CompletionHandler) rerank(ctx *fasthttp.RequestCtx) {
-	_, bifrostRerankReq, err := prepareRerankRequest(ctx)
+	_, bifrostRerankReq, err := prepareRerankRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -1254,71 +1208,44 @@ func (h *CompletionHandler) rerank(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareOCRRequest prepares a BifrostOCRRequest from the HTTP request body
-func prepareOCRRequest(ctx *fasthttp.RequestCtx) (*OCRHandlerRequest, *schemas.BifrostOCRRequest, error) {
-	var req OCRHandlerRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-
-	// Parse model
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-
-	// Parse fallbacks
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareOCRRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*OCRHandlerRequest, *schemas.BifrostOCRRequest, error) {
+	req, base, err := prepareRequest[OCRHandlerRequest](ctx, config, ocrParamsKnownFields)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse fallbacks: %v", err)
+		return nil, nil, err
 	}
-
 	if req.Document.Type == "" {
 		return nil, nil, fmt.Errorf("document type is required for ocr")
 	}
-
 	if req.Document.Type == schemas.OCRDocumentTypeDocumentURL && (req.Document.DocumentURL == nil || *req.Document.DocumentURL == "") {
 		return nil, nil, fmt.Errorf("document_url is required when document type is document_url")
 	}
-
 	if req.Document.Type == schemas.OCRDocumentTypeImageURL && (req.Document.ImageURL == nil || *req.Document.ImageURL == "") {
 		return nil, nil, fmt.Errorf("image_url is required when document type is image_url")
 	}
-
-	// Extract extra params
 	if req.OCRParameters == nil {
 		req.OCRParameters = &schemas.OCRParameters{}
 	}
-
-	extraParams, err := extractExtraParams(ctx.PostBody(), ocrParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.OCRParameters.ExtraParams = extraParams
-	}
-
-	// Create BifrostOCRRequest
-	bifrostOCRReq := &schemas.BifrostOCRRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.OCRParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostOCRRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		ID:        req.ID,
 		Document:  req.Document,
 		Params:    req.OCRParameters,
-		Fallbacks: fallbacks,
-	}
-
-	return &req, bifrostOCRReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // ocr handles POST /v1/ocr - Process OCR requests
 func (h *CompletionHandler) ocr(ctx *fasthttp.RequestCtx) {
-	_, bifrostOCRReq, err := prepareOCRRequest(ctx)
+	_, bifrostOCRReq, err := prepareOCRRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -1344,16 +1271,8 @@ func (h *CompletionHandler) ocr(ctx *fasthttp.RequestCtx) {
 }
 
 // prepareSpeechRequest prepares a BifrostSpeechRequest from the HTTP request body
-func prepareSpeechRequest(ctx *fasthttp.RequestCtx) (*SpeechRequest, *schemas.BifrostSpeechRequest, error) {
-	var req SpeechRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
-	}
-	fallbacks, err := parseFallbacks(req.Fallbacks)
+func prepareSpeechRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*SpeechRequest, *schemas.BifrostSpeechRequest, error) {
+	req, base, err := prepareRequest[SpeechRequest](ctx, config, speechParamsKnownFields)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1363,34 +1282,25 @@ func prepareSpeechRequest(ctx *fasthttp.RequestCtx) (*SpeechRequest, *schemas.Bi
 	if req.SpeechParameters == nil || req.VoiceConfig == nil || (req.VoiceConfig.Voice == nil && len(req.VoiceConfig.MultiVoiceConfig) == 0) {
 		return nil, nil, fmt.Errorf("voice is required for speech completion")
 	}
-	if req.SpeechParameters == nil {
-		req.SpeechParameters = &schemas.SpeechParameters{}
-	}
-	extraParams, err := extractExtraParams(ctx.PostBody(), speechParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.SpeechParameters.ExtraParams = extraParams
-	}
-	bifrostSpeechReq := &schemas.BifrostSpeechRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.SpeechParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostSpeechRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Input:     req.SpeechInput,
 		Params:    req.SpeechParameters,
-		Fallbacks: fallbacks,
-	}
-	return &req, bifrostSpeechReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // speech handles POST /v1/audio/speech - Process speech completion requests
 func (h *CompletionHandler) speech(ctx *fasthttp.RequestCtx) {
-	req, bifrostSpeechReq, err := prepareSpeechRequest(ctx)
+	req, bifrostSpeechReq, err := prepareSpeechRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -1447,7 +1357,7 @@ func (h *CompletionHandler) speech(ctx *fasthttp.RequestCtx) {
 
 // prepareTranscriptionRequest prepares a BifrostTranscriptionRequest from a multipart form.
 // Returns the request, whether streaming was requested, and any error.
-func prepareTranscriptionRequest(ctx *fasthttp.RequestCtx) (*schemas.BifrostTranscriptionRequest, bool, error) {
+func prepareTranscriptionRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*schemas.BifrostTranscriptionRequest, bool, error) {
 	form, err := ctx.MultipartForm()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to parse multipart form: %v", err)
@@ -1456,9 +1366,9 @@ func prepareTranscriptionRequest(ctx *fasthttp.RequestCtx) (*schemas.BifrostTran
 	if len(modelValues) == 0 || modelValues[0] == "" {
 		return nil, false, fmt.Errorf("model is required")
 	}
-	provider, modelName := schemas.ParseModelString(modelValues[0], "")
-	if provider == "" || modelName == "" {
-		return nil, false, fmt.Errorf("model should be in provider/model format")
+	provider, modelName, err := resolveModelAndProvider(ctx, config, modelValues[0])
+	if err != nil {
+		return nil, false, err
 	}
 	fileHeaders := form.File["file"]
 	if len(fileHeaders) == 0 {
@@ -1511,13 +1421,13 @@ func prepareTranscriptionRequest(ctx *fasthttp.RequestCtx) (*schemas.BifrostTran
 
 // transcription handles POST /v1/audio/transcriptions - Process transcription requests
 func (h *CompletionHandler) transcription(ctx *fasthttp.RequestCtx) {
-	bifrostTranscriptionReq, stream, err := prepareTranscriptionRequest(ctx)
+	bifrostTranscriptionReq, stream, err := prepareTranscriptionRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -1551,13 +1461,13 @@ func (h *CompletionHandler) transcription(ctx *fasthttp.RequestCtx) {
 
 // countTokens handles POST /v1/responses/input_tokens - Process count tokens requests
 func (h *CompletionHandler) countTokens(ctx *fasthttp.RequestCtx) {
-	_, bifrostResponsesReq, err := prepareResponsesRequest(ctx)
+	_, bifrostResponsesReq, err := prepareResponsesRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -1924,14 +1834,10 @@ func (h *CompletionHandler) validateAudioFile(fileHeader *multipart.FileHeader) 
 }
 
 // prepareImageGenerationRequest prepares a BifrostImageGenerationRequest from the HTTP request body
-func prepareImageGenerationRequest(ctx *fasthttp.RequestCtx) (*ImageGenerationHTTPRequest, *schemas.BifrostImageGenerationRequest, error) {
-	var req ImageGenerationHTTPRequest
-	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
-		return nil, nil, fmt.Errorf("invalid request format: %v", err)
-	}
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
+func prepareImageGenerationRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*ImageGenerationHTTPRequest, *schemas.BifrostImageGenerationRequest, error) {
+	req, base, err := prepareRequest[ImageGenerationHTTPRequest](ctx, config, imageGenerationParamsKnownFields)
+	if err != nil {
+		return nil, nil, err
 	}
 	if req.ImageGenerationInput == nil || req.Prompt == "" {
 		return nil, nil, fmt.Errorf("prompt cannot be empty")
@@ -1939,35 +1845,25 @@ func prepareImageGenerationRequest(ctx *fasthttp.RequestCtx) (*ImageGenerationHT
 	if req.ImageGenerationParameters == nil {
 		req.ImageGenerationParameters = &schemas.ImageGenerationParameters{}
 	}
-	extraParams, err := extractExtraParams(ctx.PostBody(), imageGenerationParamsKnownFields)
-	if err != nil {
-		logger.Warn("Failed to extract extra params: %v", err)
-	} else {
-		req.ImageGenerationParameters.ExtraParams = extraParams
-	}
-	fallbacks, err := parseFallbacks(req.Fallbacks)
-	if err != nil {
-		return nil, nil, err
-	}
-	bifrostReq := &schemas.BifrostImageGenerationRequest{
-		Provider:  schemas.ModelProvider(provider),
-		Model:     modelName,
+	req.ImageGenerationParameters.ExtraParams = base.ExtraParams
+	return req, &schemas.BifrostImageGenerationRequest{
+		Provider:  base.Provider,
+		Model:     base.ModelName,
 		Input:     req.ImageGenerationInput,
 		Params:    req.ImageGenerationParameters,
-		Fallbacks: fallbacks,
-	}
-	return &req, bifrostReq, nil
+		Fallbacks: base.Fallbacks,
+	}, nil
 }
 
 // imageGeneration handles POST /v1/images/generations - Processes image generation requests
 func (h *CompletionHandler) imageGeneration(ctx *fasthttp.RequestCtx) {
-	req, bifrostReq, err := prepareImageGenerationRequest(ctx)
+	req, bifrostReq, err := prepareImageGenerationRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		cancel()
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2012,7 +1908,7 @@ func (h *CompletionHandler) handleStreamingImageGeneration(ctx *fasthttp.Request
 }
 
 // prepareImageEditRequest prepares a BifrostImageEditRequest from a multipart form
-func prepareImageEditRequest(ctx *fasthttp.RequestCtx) (*ImageEditHTTPRequest, *schemas.BifrostImageEditRequest, error) {
+func prepareImageEditRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*ImageEditHTTPRequest, *schemas.BifrostImageEditRequest, error) {
 	var req ImageEditHTTPRequest
 	form, err := ctx.MultipartForm()
 	if err != nil {
@@ -2023,9 +1919,9 @@ func prepareImageEditRequest(ctx *fasthttp.RequestCtx) (*ImageEditHTTPRequest, *
 		return nil, nil, fmt.Errorf("model is required")
 	}
 	req.Model = modelValues[0]
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		return nil, nil, fmt.Errorf("model should be in provider/model format")
+	provider, modelName, err := resolveModelAndProvider(ctx, config, req.Model)
+	if err != nil {
+		return nil, nil, err
 	}
 	var editType string
 	if typeValues := form.Value["type"]; len(typeValues) > 0 && typeValues[0] != "" {
@@ -2169,13 +2065,13 @@ func prepareImageEditRequest(ctx *fasthttp.RequestCtx) (*ImageEditHTTPRequest, *
 
 // imageEdit handles POST /v1/images/edits - Processes image edit requests
 func (h *CompletionHandler) imageEdit(ctx *fasthttp.RequestCtx) {
-	req, bifrostReq, err := prepareImageEditRequest(ctx)
+	req, bifrostReq, err := prepareImageEditRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -2218,7 +2114,7 @@ func (h *CompletionHandler) handleStreamingImageEditRequest(ctx *fasthttp.Reques
 }
 
 // prepareImageVariationRequest prepares a BifrostImageVariationRequest from a multipart form
-func prepareImageVariationRequest(ctx *fasthttp.RequestCtx) (*schemas.BifrostImageVariationRequest, error) {
+func prepareImageVariationRequest(ctx *fasthttp.RequestCtx, config *lib.Config) (*schemas.BifrostImageVariationRequest, error) {
 	rawBody := ctx.Request.Body()
 	form, err := ctx.MultipartForm()
 	if err != nil {
@@ -2228,9 +2124,9 @@ func prepareImageVariationRequest(ctx *fasthttp.RequestCtx) (*schemas.BifrostIma
 	if len(modelValues) == 0 || modelValues[0] == "" {
 		return nil, fmt.Errorf("model is required")
 	}
-	provider, modelName := schemas.ParseModelString(modelValues[0], "")
-	if provider == "" || modelName == "" {
-		return nil, fmt.Errorf("model should be in provider/model format")
+	provider, modelName, err := resolveModelAndProvider(ctx, config, modelValues[0])
+	if err != nil {
+		return nil, err
 	}
 	var imageFiles []*multipart.FileHeader
 	if imageFilesArray := form.File["image[]"]; len(imageFilesArray) > 0 {
@@ -2312,13 +2208,13 @@ func prepareImageVariationRequest(ctx *fasthttp.RequestCtx) (*schemas.BifrostIma
 
 // imageVariation handles POST /v1/images/variations - Processes image variation requests
 func (h *CompletionHandler) imageVariation(ctx *fasthttp.RequestCtx) {
-	bifrostReq, err := prepareImageVariationRequest(ctx)
+	bifrostReq, err := prepareImageVariationRequest(ctx, h.config)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
 		return
@@ -2350,10 +2246,9 @@ func (h *CompletionHandler) videoGeneration(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Create BifrostVideoGenerationRequest directly using segregated structure
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" || modelName == "" {
-		SendError(ctx, fasthttp.StatusBadRequest, "model should be in provider/model format")
+	provider, modelName, err := resolveModelAndProvider(ctx, h.config, req.Model)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -2387,7 +2282,7 @@ func (h *CompletionHandler) videoGeneration(ctx *fasthttp.RequestCtx) {
 		Fallbacks: fallbacks,
 	}
 
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	if bifrostCtx == nil {
 		cancel()
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2441,7 +2336,7 @@ func (h *CompletionHandler) videoRetrieve(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2499,7 +2394,7 @@ func (h *CompletionHandler) videoDownload(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2561,7 +2456,7 @@ func (h *CompletionHandler) videoList(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2612,7 +2507,7 @@ func (h *CompletionHandler) videoDelete(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2689,7 +2584,7 @@ func (h *CompletionHandler) videoRemix(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2720,10 +2615,9 @@ func (h *CompletionHandler) batchCreate(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Parse provider from model string
-	provider, modelName := schemas.ParseModelString(req.Model, "")
-	if provider == "" {
-		SendError(ctx, fasthttp.StatusBadRequest, "model should be in provider/model format or provider must be specified")
+	provider, modelName, err := resolveModelAndProvider(ctx, h.config, req.Model)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -2757,7 +2651,7 @@ func (h *CompletionHandler) batchCreate(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2817,7 +2711,7 @@ func (h *CompletionHandler) batchList(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2863,7 +2757,7 @@ func (h *CompletionHandler) batchRetrieve(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2909,7 +2803,7 @@ func (h *CompletionHandler) batchCancel(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -2955,7 +2849,7 @@ func (h *CompletionHandler) batchResults(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3044,7 +2938,7 @@ func (h *CompletionHandler) fileUpload(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3110,7 +3004,7 @@ func (h *CompletionHandler) fileList(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3156,7 +3050,7 @@ func (h *CompletionHandler) fileRetrieve(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3202,7 +3096,7 @@ func (h *CompletionHandler) fileDelete(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3248,7 +3142,7 @@ func (h *CompletionHandler) fileContent(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3309,7 +3203,7 @@ func (h *CompletionHandler) containerCreate(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3368,7 +3262,7 @@ func (h *CompletionHandler) containerList(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3415,7 +3309,7 @@ func (h *CompletionHandler) containerRetrieve(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3462,7 +3356,7 @@ func (h *CompletionHandler) containerDelete(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3559,7 +3453,7 @@ func (h *CompletionHandler) containerFileCreate(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3619,7 +3513,7 @@ func (h *CompletionHandler) containerFileList(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3674,7 +3568,7 @@ func (h *CompletionHandler) containerFileRetrieve(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3729,7 +3623,7 @@ func (h *CompletionHandler) containerFileContent(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
@@ -3784,7 +3678,7 @@ func (h *CompletionHandler) containerFileDelete(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Convert context
-	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.handlerStore.ShouldAllowDirectKeys(), h.config.GetHeaderMatcher(), h.config.GetMCPHeaderCombinedAllowlist())
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, h.config)
 	defer cancel()
 	if bifrostCtx == nil {
 		SendError(ctx, fasthttp.StatusBadRequest, "Failed to convert context")
