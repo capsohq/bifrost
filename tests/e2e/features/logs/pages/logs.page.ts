@@ -67,9 +67,8 @@ export class LogsPage extends BasePage {
     this.nextPageBtn = page.getByTestId('next-page')
     this.prevPageBtn = page.getByTestId('prev-page')
 
-    // Log detail sheet - Sheet component with role="dialog"
-    this.logDetailSheet = page.locator('[role="dialog"]')
-    this.closeDetailSheetBtn = page.locator('[role="dialog"]').locator('button').filter({ has: page.locator('svg.lucide-x') })
+    this.logDetailSheet = page.getByTestId('log-detail-sheet').or(page.locator('[role="dialog"]'))
+    this.closeDetailSheetBtn = this.logDetailSheet.locator('button').filter({ has: page.locator('svg.lucide-x') })
   }
 
   /**
@@ -224,7 +223,7 @@ export class LogsPage extends BasePage {
     if (count <= rowIndex) {
       throw new Error(`Row index ${rowIndex} out of bounds (${count} rows available)`)
     }
-    await rows.nth(rowIndex).click()
+    await rows.nth(rowIndex).locator('td').first().click()
     // Wait for detail sheet to appear
     await expect(this.logDetailSheet).toBeVisible({ timeout: 5000 })
   }

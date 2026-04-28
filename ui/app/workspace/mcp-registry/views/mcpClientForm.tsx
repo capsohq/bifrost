@@ -71,6 +71,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 
 	const connectionType = watch("connection_type");
 	const authType = watch("auth_type");
+	const name = watch("name");
 	const connectionString = watch("connection_string");
 	const stdioConfig = watch("stdio_config");
 	const oauthConfig = watch("oauth_config");
@@ -88,6 +89,12 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 			}
 		}
 	}
+
+	const nameIsValid = /^[a-zA-Z_][a-zA-Z0-9_]{2,49}$/.test(name || "");
+	const connectionValue = connectionString?.value || "";
+	const connectionIsValid = connectionType === "http" || connectionType === "sse" ? connectionValue.trim().length > 0 : true;
+	const stdioCommandIsValid = connectionType === "stdio" ? (stdioConfig?.command || "").trim().length > 0 : true;
+	const canSubmit = hasCreateMCPClientAccess && nameIsValid && connectionIsValid && stdioCommandIsValid && !headersValidationError;
 
 	// Reset form state when dialog opens
 	useEffect(() => {
@@ -640,7 +647,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 											<span className="inline-block">
 												<Button
 													type="submit"
-													disabled={isLoading || !hasCreateMCPClientAccess}
+													disabled={isLoading || !canSubmit}
 													isLoading={isLoading}
 													data-testid="save-client-btn"
 												>
