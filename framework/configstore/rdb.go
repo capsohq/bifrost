@@ -153,38 +153,40 @@ func mcpExternalBaseURLToString(e *schemas.EnvVar) string {
 // UpdateClientConfig updates the client configuration in the database.
 func (s *RDBConfigStore) UpdateClientConfig(ctx context.Context, config *ClientConfig) error {
 	dbConfig := tables.TableClientConfig{
-		DropExcessRequests:              config.DropExcessRequests,
-		InitialPoolSize:                 config.InitialPoolSize,
-		EnableLogging:                   config.EnableLogging,
-		DisableContentLogging:           config.DisableContentLogging,
-		DisableDBPingsInHealth:          config.DisableDBPingsInHealth,
-		LogRetentionDays:                config.LogRetentionDays,
-		EnforceAuthOnInference:          config.EnforceAuthOnInference,
-		EnforceGovernanceHeader:         config.EnforceGovernanceHeader,
-		EnforceSCIMAuth:                 config.EnforceSCIMAuth,
-		AllowDirectKeys:                 config.AllowDirectKeys,
-		PrometheusLabels:                config.PrometheusLabels,
-		AllowedOrigins:                  config.AllowedOrigins,
-		AllowedHeaders:                  config.AllowedHeaders,
-		MaxRequestBodySizeMB:            config.MaxRequestBodySizeMB,
-		CompatConvertTextToChat:         config.Compat.ConvertTextToChat,
-		CompatConvertChatToResponses:    config.Compat.ConvertChatToResponses,
-		CompatShouldDropParams:          config.Compat.ShouldDropParams,
-		CompatShouldConvertParams:       config.Compat.ShouldConvertParams,
-		MCPAgentDepth:                   config.MCPAgentDepth,
-		MCPToolExecutionTimeout:         config.MCPToolExecutionTimeout,
-		MCPCodeModeBindingLevel:         config.MCPCodeModeBindingLevel,
-		MCPToolSyncInterval:             config.MCPToolSyncInterval,
-		MCPDisableAutoToolInject:        config.MCPDisableAutoToolInject,
-		AsyncJobResultTTL:               config.AsyncJobResultTTL,
-		RequiredHeaders:                 config.RequiredHeaders,
-		LoggingHeaders:                  config.LoggingHeaders,
-		WhitelistedRoutes:               config.WhitelistedRoutes,
-		HideDeletedVirtualKeysInFilters: config.HideDeletedVirtualKeysInFilters,
-		RoutingChainMaxDepth:            config.RoutingChainMaxDepth,
-		MCPExternalBaseURL:                 mcpExternalBaseURLToString(config.MCPExternalBaseURL),
-		HeaderFilterConfig:              config.HeaderFilterConfig,
-		ConfigHash:                      config.ConfigHash,
+		DropExcessRequests:                    config.DropExcessRequests,
+		InitialPoolSize:                       config.InitialPoolSize,
+		EnableLogging:                         config.EnableLogging,
+		DisableContentLogging:                 config.DisableContentLogging,
+		DisableDBPingsInHealth:                config.DisableDBPingsInHealth,
+		LogRetentionDays:                      config.LogRetentionDays,
+		EnforceAuthOnInference:                config.EnforceAuthOnInference,
+		EnforceGovernanceHeader:               config.EnforceGovernanceHeader,
+		EnforceSCIMAuth:                       config.EnforceSCIMAuth,
+		AllowDirectKeys:                       config.AllowDirectKeys,
+		PrometheusLabels:                      config.PrometheusLabels,
+		AllowedOrigins:                        config.AllowedOrigins,
+		AllowedHeaders:                        config.AllowedHeaders,
+		MaxRequestBodySizeMB:                  config.MaxRequestBodySizeMB,
+		CompatConvertTextToChat:               config.Compat.ConvertTextToChat,
+		CompatConvertChatToResponses:          config.Compat.ConvertChatToResponses,
+		CompatShouldDropParams:                config.Compat.ShouldDropParams,
+		CompatShouldConvertParams:             config.Compat.ShouldConvertParams,
+		MCPAgentDepth:                         config.MCPAgentDepth,
+		MCPToolExecutionTimeout:               config.MCPToolExecutionTimeout,
+		MCPCodeModeBindingLevel:               config.MCPCodeModeBindingLevel,
+		MCPToolSyncInterval:                   config.MCPToolSyncInterval,
+		MCPDisableAutoToolInject:              config.MCPDisableAutoToolInject,
+		AsyncJobResultTTL:                     config.AsyncJobResultTTL,
+		RequiredHeaders:                       config.RequiredHeaders,
+		LoggingHeaders:                        config.LoggingHeaders,
+		WhitelistedRoutes:                     config.WhitelistedRoutes,
+		HideDeletedVirtualKeysInFilters:       config.HideDeletedVirtualKeysInFilters,
+		RoutingChainMaxDepth:                  config.RoutingChainMaxDepth,
+		MCPExternalBaseURL:                    mcpExternalBaseURLToString(config.MCPExternalBaseURL),
+		HeaderFilterConfig:                    config.HeaderFilterConfig,
+		AllowPerRequestContentStorageOverride: config.AllowPerRequestContentStorageOverride,
+		AllowPerRequestRawOverride:            config.AllowPerRequestRawOverride,
+		ConfigHash:                            config.ConfigHash,
 	}
 	// Delete existing client config and create new one in a transaction
 	return s.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -382,20 +384,22 @@ func (s *RDBConfigStore) GetClientConfig(ctx context.Context) (*ClientConfig, er
 			ShouldDropParams:       dbConfig.CompatShouldDropParams,
 			ShouldConvertParams:    dbConfig.CompatShouldConvertParams,
 		},
-		MCPAgentDepth:                   dbConfig.MCPAgentDepth,
-		MCPToolExecutionTimeout:         dbConfig.MCPToolExecutionTimeout,
-		MCPCodeModeBindingLevel:         dbConfig.MCPCodeModeBindingLevel,
-		MCPToolSyncInterval:             dbConfig.MCPToolSyncInterval,
-		MCPDisableAutoToolInject:        dbConfig.MCPDisableAutoToolInject,
-		AsyncJobResultTTL:               dbConfig.AsyncJobResultTTL,
-		RequiredHeaders:                 dbConfig.RequiredHeaders,
-		LoggingHeaders:                  dbConfig.LoggingHeaders,
-		WhitelistedRoutes:               dbConfig.WhitelistedRoutes,
-		HideDeletedVirtualKeysInFilters: dbConfig.HideDeletedVirtualKeysInFilters,
-		RoutingChainMaxDepth:            dbConfig.RoutingChainMaxDepth,
-		MCPExternalBaseURL:                 schemas.NewEnvVar(dbConfig.MCPExternalBaseURL),
-		HeaderFilterConfig:              dbConfig.HeaderFilterConfig,
-		ConfigHash:                      dbConfig.ConfigHash,
+		MCPAgentDepth:                         dbConfig.MCPAgentDepth,
+		MCPToolExecutionTimeout:               dbConfig.MCPToolExecutionTimeout,
+		MCPCodeModeBindingLevel:               dbConfig.MCPCodeModeBindingLevel,
+		MCPToolSyncInterval:                   dbConfig.MCPToolSyncInterval,
+		MCPDisableAutoToolInject:              dbConfig.MCPDisableAutoToolInject,
+		AsyncJobResultTTL:                     dbConfig.AsyncJobResultTTL,
+		RequiredHeaders:                       dbConfig.RequiredHeaders,
+		LoggingHeaders:                        dbConfig.LoggingHeaders,
+		WhitelistedRoutes:                     dbConfig.WhitelistedRoutes,
+		HideDeletedVirtualKeysInFilters:       dbConfig.HideDeletedVirtualKeysInFilters,
+		RoutingChainMaxDepth:                  dbConfig.RoutingChainMaxDepth,
+		MCPExternalBaseURL:                    schemas.NewEnvVar(dbConfig.MCPExternalBaseURL),
+		HeaderFilterConfig:                    dbConfig.HeaderFilterConfig,
+		AllowPerRequestContentStorageOverride: dbConfig.AllowPerRequestContentStorageOverride,
+		AllowPerRequestRawOverride:            dbConfig.AllowPerRequestRawOverride,
+		ConfigHash:                            dbConfig.ConfigHash,
 	}, nil
 }
 
@@ -1249,7 +1253,7 @@ func (s *RDBConfigStore) GetMCPConfig(ctx context.Context) (*schemas.MCPConfig, 
 				ClientConfigs: clientConfigs,
 				ToolManagerConfig: &schemas.MCPToolManagerConfig{
 					ToolExecutionTimeout: schemas.Duration(30 * time.Second), // default from TableClientConfig
-					MaxAgentDepth:        10,               // default from TableClientConfig
+					MaxAgentDepth:        10,                                 // default from TableClientConfig
 				},
 			}, nil
 		}
@@ -2149,7 +2153,7 @@ func (s *RDBConfigStore) GetVirtualKeysPaginated(ctx context.Context, params Vir
 		case "name":
 			orderClause = fmt.Sprintf("governance_virtual_keys.name %s, governance_virtual_keys.id ASC", dir)
 		case "budget_spent":
-			orderClause = fmt.Sprintf("COALESCE(governance_budgets.current_usage, 0) %s, governance_virtual_keys.id ASC", dir)
+			orderClause = fmt.Sprintf("COALESCE(vk_budget_totals.total_usage, 0) %s, governance_virtual_keys.id ASC", dir)
 		case "created_at":
 			orderClause = fmt.Sprintf("governance_virtual_keys.created_at %s, governance_virtual_keys.id ASC", dir)
 		case "status":
@@ -2160,7 +2164,14 @@ func (s *RDBConfigStore) GetVirtualKeysPaginated(ctx context.Context, params Vir
 	// Fetch with preloads and pagination
 	query := preloadVirtualKeyBaseRelations(baseQuery)
 	if params.SortBy == "budget_spent" {
-		query = query.Joins("LEFT JOIN governance_budgets ON governance_budgets.id = governance_virtual_keys.budget_id")
+		// A virtual key can have multiple budgets (different reset intervals); take MAX so the
+		// highest-spending budget drives the sort without duplicating rows.
+		query = query.Joins(`LEFT JOIN (
+			SELECT virtual_key_id, MAX(current_usage) AS total_usage
+			FROM governance_budgets
+			WHERE virtual_key_id IS NOT NULL
+			GROUP BY virtual_key_id
+		) AS vk_budget_totals ON vk_budget_totals.virtual_key_id = governance_virtual_keys.id`)
 	}
 	var virtualKeys []tables.TableVirtualKey
 	if err := query.

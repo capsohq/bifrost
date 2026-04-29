@@ -98,8 +98,8 @@ type TestScenarios struct {
 	Compaction                   bool // Server-side compaction (context management)
 	InterleavedThinking          bool // Interleaved thinking between tool calls (beta)
 	FastMode                     bool // Fast mode for Opus 4.6 (beta: research preview)
-	EagerInputStreaming          bool // Anthropic fine-grained tool streaming coverage
-	ServerToolsViaOpenAIEndpoint bool // Anthropic-style server tools through OpenAI-compatible endpoint
+	EagerInputStreaming          bool // Fine-grained tool input streaming (Anthropic fine-grained-tool-streaming-2025-05-14)
+	ServerToolsViaOpenAIEndpoint bool // Anthropic server-tool shapes in tools[] via /v1/chat/completions (web_search / web_fetch / code_execution)
 }
 
 // ComprehensiveTestConfig extends TestConfig with additional scenarios
@@ -319,7 +319,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 			},
 		}, nil
 	case schemas.Vertex:
-		//https://aiplatform.googleapis.com/v1/projects/maxim-development-433105/locations/global/publishers/google/models/veo-3.1-generate-preview:fetchPredictOperation
+		// https://aiplatform.googleapis.com/v1/projects/maxim-development-433105/locations/global/publishers/google/models/veo-3.1-generate-preview:fetchPredictOperation
 
 		return []schemas.Key{
 			{
@@ -548,6 +548,28 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 				Models:         []string{},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
+			},
+		}, nil
+	case schemas.Ollama:
+		return []schemas.Key{
+			{
+				Models:         []string{"*"},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+				OllamaKeyConfig: &schemas.OllamaKeyConfig{
+					URL: *schemas.NewEnvVar("env.OLLAMA_BASE_URL"),
+				},
+			},
+		}, nil
+	case schemas.VLLM:
+		return []schemas.Key{
+			{
+				Models:         []string{"*"},
+				Weight:         1.0,
+				UseForBatchAPI: bifrost.Ptr(true),
+				VLLMKeyConfig: &schemas.VLLMKeyConfig{
+					URL: *schemas.NewEnvVar("env.VLLM_BASE_URL"),
+				},
 			},
 		}, nil
 	default:
@@ -1628,7 +1650,8 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			ImageGeneration:            true,
 			ImageGenerationStream:      false,
 		},
-	}, {
+	},
+	{
 		Provider:           schemas.VLLM,
 		ChatModel:          "Qwen/Qwen3-0.6B",
 		TextModel:          "Qwen/Qwen3-0.6B",

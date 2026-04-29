@@ -102,7 +102,7 @@ func (h *ConfigHandler) getConfig(ctx *fasthttp.RequestCtx) {
 			return
 		}
 		if cc != nil {
-			mapConfig["client_config"] = *cc
+			mapConfig["client_config"] = cc.Redacted()
 		}
 		// Fetching framework config
 		fc, err := h.store.ConfigStore.GetFrameworkConfig(ctx)
@@ -130,32 +130,9 @@ func (h *ConfigHandler) getConfig(ctx *fasthttp.RequestCtx) {
 			}
 		}
 	} else {
-		mapConfig["client_config"] = h.store.ClientConfig
-		if h.store.FrameworkConfig == nil {
-			mapConfig["framework_config"] = configstoreTables.TableFrameworkConfig{
-				PricingURL:                         bifrost.Ptr(modelcatalog.DefaultPricingURL),
-				PricingSyncInterval:                bifrost.Ptr(int64(modelcatalog.DefaultPricingSyncInterval.Seconds())),
-				ProviderModelHealthPersistDebounce: bifrost.Ptr(int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())),
-			}
-		} else if h.store.FrameworkConfig.Pricing != nil {
-			pricingURL := bifrost.Ptr(modelcatalog.DefaultPricingURL)
-			if h.store.FrameworkConfig.Pricing.PricingURL != nil {
-				pricingURL = h.store.FrameworkConfig.Pricing.PricingURL
-			}
-			syncIntervalSeconds := int64(modelcatalog.DefaultPricingSyncInterval.Seconds())
-			if h.store.FrameworkConfig.Pricing.PricingSyncInterval != nil {
-				syncIntervalSeconds = *h.store.FrameworkConfig.Pricing.PricingSyncInterval
-			}
-			debounceMilliseconds := int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())
-			if h.store.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce != nil {
-				debounceMilliseconds = int64((*h.store.FrameworkConfig.Pricing.ProviderModelHealthPersistDebounce).Milliseconds())
-			}
-			mapConfig["framework_config"] = configstoreTables.TableFrameworkConfig{
-				PricingURL:                         pricingURL,
-				PricingSyncInterval:                bifrost.Ptr(syncIntervalSeconds),
-				ProviderModelHealthPersistDebounce: bifrost.Ptr(debounceMilliseconds),
-			}
-		}
+		mapConfig["client_config"] = h.store.ClientConfig.Redacted()
+		normalizedFrameworkConfig, _, _ := lib.ResolveFrameworkPricingConfig(nil, h.store.FrameworkConfig)
+		mapConfig["framework_config"] = *normalizedFrameworkConfig
 	}
 	if h.store.ConfigStore != nil {
 		// Fetching governance config
@@ -383,9 +360,8 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 		updatedConfig.EnableLogging = payload.ClientConfig.EnableLogging
 	}
 
-	if payload.ClientConfig.DisableContentLogging != currentConfig.DisableContentLogging {
-		restartReasons = append(restartReasons, "Content logging")
-	}
+	// No restart needed - logging plugin holds a live pointer to ClientConfig.DisableContentLogging,
+	// and ReloadClientConfigFromConfigStore mutates the struct in place so the next request picks up the new value.
 	updatedConfig.DisableContentLogging = payload.ClientConfig.DisableContentLogging
 	updatedConfig.DisableDBPingsInHealth = payload.ClientConfig.DisableDBPingsInHealth
 	updatedConfig.AllowDirectKeys = payload.ClientConfig.AllowDirectKeys
@@ -466,6 +442,12 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 
 	// Toggle whether deleted virtual keys should appear in logs filter data.
 	updatedConfig.HideDeletedVirtualKeysInFilters = payload.ClientConfig.HideDeletedVirtualKeysInFilters
+
+	// Toggle allowing per-request override for content storage and raw request/response storage
+	updatedConfig.AllowPerRequestContentStorageOverride = payload.ClientConfig.AllowPerRequestContentStorageOverride
+
+	// Toggle allowing per-request override for raw request/response exposure
+	updatedConfig.AllowPerRequestRawOverride = payload.ClientConfig.AllowPerRequestRawOverride
 
 	// No restart needed - routing engine reads via pointer, change is effective immediately.
 	if payload.ClientConfig.RoutingChainMaxDepth > 0 {
