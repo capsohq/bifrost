@@ -3,9 +3,9 @@ module github.com/capsohq/bifrost/plugins/semanticcache
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.5
-	github.com/capsohq/bifrost/framework v1.3.5
-	github.com/capsohq/bifrost/plugins/mocker v1.5.5
+	github.com/capsohq/bifrost/core v1.5.6
+	github.com/capsohq/bifrost/framework v1.3.6
+	github.com/capsohq/bifrost/plugins/mocker v1.5.6
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/google/uuid v1.6.0
 )
@@ -80,7 +80,6 @@ require (
 	github.com/mark3labs/mcp-go v0.43.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pinecone-io/go-pinecone/v5 v5.3.0 // indirect

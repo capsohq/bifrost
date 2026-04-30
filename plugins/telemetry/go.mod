@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/telemetry
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.5
-	github.com/capsohq/bifrost/framework v1.3.5
+	github.com/capsohq/bifrost/core v1.5.6
+	github.com/capsohq/bifrost/framework v1.3.6
 	github.com/prometheus/client_golang v1.23.2
 	github.com/valyala/fasthttp v1.68.0
 )
