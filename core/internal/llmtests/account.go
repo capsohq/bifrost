@@ -15,17 +15,15 @@ import (
 
 const Concurrency = 4
 
+// Replicate test key names (see replicateProviderTestKeys).
+// ListModels uses the deployments API via the list-models key; all other operations use the inference key.
+const (
+	ReplicateKeyNameListModels = "replicate-list-models-deployments"
+	ReplicateKeyNameInference  = "replicate-inference"
+)
+
 // ProviderOpenAICustom represents the custom OpenAI provider for testing
 const ProviderOpenAICustom = schemas.ModelProvider("openai-custom")
-
-func ReplicateDirectKeyForListModels() schemas.Key {
-	account := ComprehensiveTestAccount{}
-	keys, err := account.GetKeysForProvider(context.Background(), schemas.Replicate)
-	if err != nil || len(keys) == 0 {
-		return schemas.Key{}
-	}
-	return keys[0]
-}
 
 // TestScenarios defines the comprehensive test scenarios
 type TestScenarios struct {
@@ -161,7 +159,6 @@ func (account *ComprehensiveTestAccount) GetConfiguredProviders() ([]schemas.Mod
 		schemas.Anthropic,
 		schemas.Bedrock,
 		schemas.Cohere,
-		schemas.Deepseek,
 		schemas.Azure,
 		schemas.Vertex,
 		schemas.Ollama,
@@ -173,22 +170,44 @@ func (account *ComprehensiveTestAccount) GetConfiguredProviders() ([]schemas.Mod
 		schemas.Perplexity,
 		schemas.Cerebras,
 		schemas.Gemini,
-		schemas.GLM,
-		schemas.Minimax,
-		schemas.Moonshot,
 		schemas.OpenRouter,
-		schemas.Qwen,
 		schemas.HuggingFace,
 		schemas.Nebius,
 		schemas.XAI,
 		schemas.Replicate,
 		schemas.VLLM,
-		schemas.ModelArk,
-		schemas.Volcengine,
 		schemas.Runway,
 		schemas.Fireworks,
 		ProviderOpenAICustom,
 	}, nil
+}
+
+// replicateProviderTestKeys returns the two Replicate keys used by comprehensive tests:
+func replicateProviderTestKeys() []schemas.Key {
+	return []schemas.Key{
+		{
+			Name:               ReplicateKeyNameListModels,
+			Value:              *schemas.NewEnvVar("env.REPLICATE_API_KEY"),
+			Models:             []string{"*"},
+			Weight:             0,
+			UseForBatchAPI:     bifrost.Ptr(false),
+			ReplicateKeyConfig: &schemas.ReplicateKeyConfig{UseDeploymentsEndpoint: true},
+		},
+		{
+			Name:               ReplicateKeyNameInference,
+			Value:              *schemas.NewEnvVar("env.REPLICATE_API_KEY"),
+			Models:             []string{"*"},
+			Weight:             1.0,
+			UseForBatchAPI:     bifrost.Ptr(true),
+			ReplicateKeyConfig: nil,
+		},
+	}
+}
+
+// ReplicateDirectKeyForListModels returns the key used for Replicate ListModels (deployments endpoint).
+// List-models tests set it on the context as schemas.BifrostContextKeyDirectKey so Bifrost passes only this key.
+func ReplicateDirectKeyForListModels() schemas.Key {
+	return replicateProviderTestKeys()[0]
 }
 
 // GetKeysForProvider returns the API keys and associated models for a given provider.
@@ -198,7 +217,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.OPENAI_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -207,7 +226,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.OPENAI_API_KEY"), // Use GROQ API key for OpenAI-compatible endpoint
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -216,7 +235,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.ANTHROPIC_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -224,38 +243,40 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 	case schemas.Bedrock:
 		return []schemas.Key{
 			{
-				Models: []string{},
+				Models: []string{"*"},
 				Weight: 1.0,
+				Aliases: map[string]string{
+					"claude-3.7-sonnet": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+					"claude-4-sonnet":   "global.anthropic.claude-sonnet-4-20250514-v1:0",
+					"claude-4.5-sonnet": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+					"claude-4.6-sonnet": "global.anthropic.claude-sonnet-4-6",
+					"claude-4.5-haiku":  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+				},
 				BedrockKeyConfig: &schemas.BedrockKeyConfig{
 					AccessKey:    *schemas.NewEnvVar("env.AWS_ACCESS_KEY_ID"),
 					SecretKey:    *schemas.NewEnvVar("env.AWS_SECRET_ACCESS_KEY"),
 					SessionToken: schemas.NewEnvVar("env.AWS_SESSION_TOKEN"),
 					Region:       schemas.NewEnvVar(getEnvWithDefault("AWS_REGION", "us-east-1")),
 					ARN:          schemas.NewEnvVar("env.AWS_ARN"),
-					Deployments: map[string]string{
-						"claude-3.7-sonnet": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-						"claude-4-sonnet":   "global.anthropic.claude-sonnet-4-20250514-v1:0",
-						"claude-4.5-sonnet": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-						"claude-4.5-haiku":  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-					},
 				},
 			},
 			{
-				Models: []string{},
+				Models: []string{"*"},
 				Weight: 1.0,
+				Aliases: map[string]string{
+					"claude-3.5-sonnet": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+					"claude-3.7-sonnet": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+					"claude-4-sonnet":   "global.anthropic.claude-sonnet-4-20250514-v1:0",
+					"claude-4.5-sonnet": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+					"claude-4.6-sonnet": "global.anthropic.claude-sonnet-4-6",
+					"claude-4.5-haiku":  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+				},
 				BedrockKeyConfig: &schemas.BedrockKeyConfig{
 					AccessKey:    *schemas.NewEnvVar("env.AWS_ACCESS_KEY_ID"),
 					SecretKey:    *schemas.NewEnvVar("env.AWS_SECRET_ACCESS_KEY"),
 					SessionToken: schemas.NewEnvVar("env.AWS_SESSION_TOKEN"),
 					Region:       schemas.NewEnvVar(getEnvWithDefault("AWS_REGION", "us-east-1")),
 					ARN:          schemas.NewEnvVar("env.AWS_BEDROCK_ARN"),
-					Deployments: map[string]string{
-						"claude-3.5-sonnet": "anthropic.claude-3-5-sonnet-20240620-v1:0",
-						"claude-3.7-sonnet": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-						"claude-4-sonnet":   "global.anthropic.claude-sonnet-4-20250514-v1:0",
-						"claude-4.5-sonnet": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-						"claude-4.5-haiku":  "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-					},
 				},
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -274,7 +295,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.COHERE_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -283,20 +304,20 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:  *schemas.NewEnvVar("env.AZURE_API_KEY"),
-				Models: []string{},
+				Models: []string{"*"},
 				Weight: 1.0,
+				Aliases: schemas.KeyAliases{
+					"gpt-4o":                 "gpt-4o",
+					"gpt-4o-backup":          "gpt-4o-3",
+					"claude-opus-4-5":        "claude-opus-4-5",
+					"o1":                     "o1",
+					"gpt-image-1":            "gpt-image-1",
+					"text-embedding-ada-002": "text-embedding-ada-002",
+					"sora-2":                 "sora-2",
+				},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("env.AZURE_ENDPOINT"),
-					APIVersion: schemas.NewEnvVar("env.AZURE_API_VERSION"),
-					Deployments: map[string]string{
-						"gpt-4o":                 "gpt-4o",
-						"gpt-4o-backup":          "gpt-4o-3",
-						"claude-opus-4-5":        "claude-opus-4-5",
-						"o1":                     "o1",
-						"gpt-image-1":            "gpt-image-1",
-						"text-embedding-ada-002": "text-embedding-ada-002",
-						"sora-2":                 "sora-2",
-					},
+					Endpoint:     *schemas.NewEnvVar("env.AZURE_ENDPOINT"),
+					APIVersion:   schemas.NewEnvVar("env.AZURE_API_VERSION"),
 					ClientID:     schemas.NewEnvVar("env.AZURE_CLIENT_ID"),
 					ClientSecret: schemas.NewEnvVar("env.AZURE_CLIENT_SECRET"),
 					TenantID:     schemas.NewEnvVar("env.AZURE_TENANT_ID"),
@@ -305,16 +326,17 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 			},
 			{
 				Value:  *schemas.NewEnvVar("env.AZURE_API_KEY"),
-				Models: []string{},
+				Models: []string{"*"},
 				Weight: 1.0,
+				Aliases: schemas.KeyAliases{
+					"whisper":                   "whisper",
+					"whisper-1":                 "whisper",
+					"gpt-4o-mini-tts":           "gpt-4o-mini-tts",
+					"gpt-4o-mini-audio-preview": "gpt-4o-mini-audio-preview",
+				},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
 					Endpoint:   *schemas.NewEnvVar("env.AZURE_ENDPOINT"),
 					APIVersion: schemas.NewEnvVar("env.AZURE_API_VERSION"),
-					Deployments: map[string]string{
-						"whisper":                   "whisper",
-						"gpt-4o-mini-tts":           "gpt-4o-mini-tts",
-						"gpt-4o-mini-audio-preview": "gpt-4o-mini-audio-preview",
-					},
 				},
 			},
 		}, nil
@@ -324,7 +346,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:  *schemas.NewEnvVar("env.VERTEX_API_KEY"),
-				Models: []string{"text-multilingual-embedding-002", "google/gemini-2.0-flash-001", "gemini-2.5-flash-image", "imagen-4.0-generate-001", "imagen-3.0-capability-001", "semantic-ranker-default@latest", "semantic-ranker-default-004"},
+				Models: []string{"text-multilingual-embedding-002", "gemini-2.5-pro", "gemini-2.5-flash-image", "imagen-4.0-generate-001", "imagen-3.0-capability-001", "semantic-ranker-default@latest", "semantic-ranker-default-004"},
 				Weight: 1.0,
 				VertexKeyConfig: &schemas.VertexKeyConfig{
 					ProjectID:       *schemas.NewEnvVar("env.VERTEX_PROJECT_ID"),
@@ -348,15 +370,15 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 				Value:  *schemas.NewEnvVar("env.VERTEX_API_KEY"),
 				Models: []string{"claude-sonnet-4-5", "claude-4.5-haiku", "claude-opus-4-5"},
 				Weight: 1.0,
+				Aliases: schemas.KeyAliases{
+					"claude-sonnet-4-5": "claude-sonnet-4-5",
+					"claude-4.5-haiku":  "claude-haiku-4-5@20251001",
+					"claude-opus-4-5":   "claude-opus-4-5",
+				},
 				VertexKeyConfig: &schemas.VertexKeyConfig{
 					ProjectID:       *schemas.NewEnvVar("env.VERTEX_PROJECT_ID"),
 					Region:          *schemas.NewEnvVar(getEnvWithDefault("VERTEX_REGION_ANTHROPIC", "us-east5")),
 					AuthCredentials: *schemas.NewEnvVar("env.VERTEX_CREDENTIALS"),
-					Deployments: map[string]string{
-						"claude-sonnet-4-5": "claude-sonnet-4-5",
-						"claude-4.5-haiku":  "claude-haiku-4-5@20251001",
-						"claude-opus-4-5":   "claude-opus-4-5",
-					},
 				},
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -365,7 +387,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.MISTRAL_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -374,7 +396,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.GROQ_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -383,7 +405,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.PARASAIL_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -392,7 +414,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.ELEVENLABS_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -401,7 +423,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.PERPLEXITY_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -410,16 +432,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.CEREBRAS_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.Deepseek:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.DEEPSEEK_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -428,34 +441,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.GEMINI_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.GLM:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.GLM_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.Minimax:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.MINIMAX_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.Moonshot:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.MOONSHOT_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -464,16 +450,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.OPENROUTER_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.Qwen:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.QWEN_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -482,7 +459,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.HUGGING_FACE_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -491,7 +468,7 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.NEBIUS_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -500,43 +477,18 @@ func (account *ComprehensiveTestAccount) GetKeysForProvider(ctx context.Context,
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.XAI_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
 		}, nil
 	case schemas.Replicate:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.REPLICATE_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
+		return replicateProviderTestKeys(), nil
 	case schemas.Runway:
 		return []schemas.Key{
 			{
 				Value:          *schemas.NewEnvVar("env.RUNWAY_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.Volcengine:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.VOLCENGINE_API_KEY"),
-				Models:         []string{},
-				Weight:         1.0,
-				UseForBatchAPI: bifrost.Ptr(true),
-			},
-		}, nil
-	case schemas.ModelArk:
-		return []schemas.Key{
-			{
-				Value:          *schemas.NewEnvVar("env.MODELARK_API_KEY"),
-				Models:         []string{},
+				Models:         []string{"*"},
 				Weight:         1.0,
 				UseForBatchAPI: bifrost.Ptr(true),
 			},
@@ -791,20 +743,6 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 				BufferSize:  10,
 			},
 		}, nil
-	case schemas.Deepseek:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-				DefaultRequestTimeoutInSeconds: 120,
-				MaxRetries:                     10,
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
 	case schemas.VLLM:
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
@@ -832,67 +770,11 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 				BufferSize:  20,
 			},
 		}, nil
-	case schemas.GLM:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("GLM_BASE_URL", "https://api.z.ai"),
-				DefaultRequestTimeoutInSeconds: 120,
-				MaxRetries:                     10,
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
-	case schemas.Minimax:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("MINIMAX_BASE_URL", "https://api.minimax.io"),
-				DefaultRequestTimeoutInSeconds: 120,
-				MaxRetries:                     10,
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
-	case schemas.Moonshot:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("MOONSHOT_BASE_URL", "https://api.moonshot.ai"),
-				DefaultRequestTimeoutInSeconds: 120,
-				MaxRetries:                     10,
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
 	case schemas.OpenRouter:
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
 				DefaultRequestTimeoutInSeconds: 120,
 				MaxRetries:                     10, // OpenRouter can be variable (proxy service)
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
-	case schemas.Qwen:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("QWEN_BASE_URL", "https://dashscope-us.aliyuncs.com/compatible-mode/v1"),
-				DefaultRequestTimeoutInSeconds: 120,
-				MaxRetries:                     10,
 				RetryBackoffInitial:            1 * time.Second,
 				RetryBackoffMax:                12 * time.Second,
 			},
@@ -966,34 +848,6 @@ func (account *ComprehensiveTestAccount) GetConfigForProvider(providerKey schema
 				BufferSize:  10,
 			},
 		}, nil
-	case schemas.Volcengine:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("VOLCENGINE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
-				DefaultRequestTimeoutInSeconds: 300,
-				MaxRetries:                     10,
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
-	case schemas.ModelArk:
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:                        getEnvWithDefault("MODELARK_BASE_URL", "https://ark.ap-southeast.bytepluses.com/api/v3"),
-				DefaultRequestTimeoutInSeconds: 300,
-				MaxRetries:                     10,
-				RetryBackoffInitial:            1 * time.Second,
-				RetryBackoffMax:                12 * time.Second,
-			},
-			ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{
-				Concurrency: Concurrency,
-				BufferSize:  10,
-			},
-		}, nil
 	case schemas.Fireworks:
 		return &schemas.ProviderConfig{
 			NetworkConfig: schemas.NetworkConfig{
@@ -1033,6 +887,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1089,6 +944,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1132,6 +988,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1178,6 +1035,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1218,6 +1076,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1267,6 +1126,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1302,6 +1162,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			SimpleChat:                 true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1337,6 +1198,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1372,6 +1234,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1437,6 +1300,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1477,6 +1341,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1522,6 +1387,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1600,6 +1466,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1633,6 +1500,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,
@@ -1676,6 +1544,7 @@ var AllProviderConfigs = []ComprehensiveTestConfig{
 			CompletionStream:           true,
 			MultiTurnConversation:      true,
 			ToolCalls:                  true,
+			ToolCallsStreaming:         true,
 			MultipleToolCalls:          true,
 			MultipleToolCallsStreaming: true,
 			End2EndToolCalling:         true,

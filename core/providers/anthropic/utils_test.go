@@ -1254,7 +1254,9 @@ func TestFilterBetaHeadersForProvider(t *testing.T) {
 }
 
 // TestNetworkConfigBetaOverridesFlow proves the production sequence
-//   FilterBetaHeadersForProvider(MergeBetaHeaders(ctx, networkConfig.ExtraHeaders), provider, networkConfig.BetaHeaderOverrides)
+//
+//	FilterBetaHeadersForProvider(MergeBetaHeaders(ctx, networkConfig.ExtraHeaders), provider, networkConfig.BetaHeaderOverrides)
+//
 // honours operator-configured BetaHeaderOverrides for each Anthropic-compatible provider.
 // This is the exact call sequence used at anthropic.go:205, vertex.go:407,
 // bedrock.go:208, and azure.go:259 — the wire layer where headers are set on the outbound request.
@@ -1370,23 +1372,17 @@ func TestStripUnsupportedFieldsFromRawBody(t *testing.T) {
 		}
 	})
 
-	t.Run("vertex_strips_entire_context_management_field", func(t *testing.T) {
-		// Vertex rejects the context_management field entirely ("Extra inputs are not permitted").
-		// This covers compact edits (Compaction:true keeps the beta header but not the body field)
-		// and clear edits (ContextEditing:false).
-		for _, editType := range []string{
-			string(ContextManagementEditTypeCompact),
-			string(ContextManagementEditTypeClearToolUses),
-			string(ContextManagementEditTypeClearThinking),
-		} {
-			input := []byte(`{"model":"claude-sonnet-4-6","context_management":{"edits":[{"type":"` + editType + `"}]}}`)
-			result, err := StripUnsupportedFieldsFromRawBody(input, schemas.Vertex, "claude-sonnet-4-6")
-			if err != nil {
-				t.Fatalf("unexpected error for edit type %q: %v", editType, err)
-			}
-			if providerUtils.JSONFieldExists(result, "context_management") {
-				t.Errorf("expected context_management to be fully stripped for Vertex (edit type %q), got: %s", editType, string(result))
-			}
+	t.Run("vertex_keeps_supported_context_management_edits", func(t *testing.T) {
+		// Vertex now accepts context_management with compact (Compaction:true) and
+		// clear_tool_uses/clear_thinking (ContextEditing:true) edits. Re-enabled
+		// 2026-05-01 (see core/providers/anthropic/types.go:153-168).
+		input := []byte(`{"model":"claude-sonnet-4-6","context_management":{"edits":[{"type":"` + string(ContextManagementEditTypeCompact) + `"},{"type":"` + string(ContextManagementEditTypeClearToolUses) + `"}]}}`)
+		result, err := StripUnsupportedFieldsFromRawBody(input, schemas.Vertex, "claude-sonnet-4-6")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !providerUtils.JSONFieldExists(result, "context_management") {
+			t.Errorf("expected context_management to be kept for Vertex, got: %s", string(result))
 		}
 	})
 
