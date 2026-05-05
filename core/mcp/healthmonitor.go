@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -140,9 +141,15 @@ func (chm *ClientHealthMonitor) performHealthCheck() {
 	}
 	chm.mu.Unlock()
 
-	// Get the client connection
+	// Capture the connection while holding the lock so removeClientUnsafe cannot race with the health check.
 	chm.manager.mu.RLock()
 	clientState, exists := chm.manager.clientMap[chm.clientID]
+	var isDisabled bool
+	var conn *client.Client
+	if exists && clientState != nil {
+		conn = clientState.Conn
+		isDisabled = clientState.State == schemas.MCPConnectionStateDisabled
+	}
 	chm.manager.mu.RUnlock()
 
 	if !exists {
@@ -150,8 +157,15 @@ func (chm *ClientHealthMonitor) performHealthCheck() {
 		return
 	}
 
+	// Do not health-check intentionally disabled clients
+	// Health monitoring is already stopped for disabled clients. This is just a sanity check.
+	if isDisabled {
+		chm.Stop()
+		return
+	}
+
 	var err error
-	if clientState.Conn == nil {
+	if conn == nil {
 		// No active connection — treat as a health check failure
 		err = fmt.Errorf("no active connection")
 	} else {
@@ -160,7 +174,7 @@ func (chm *ClientHealthMonitor) performHealthCheck() {
 		defer cancel()
 
 		if chm.isPingAvailable {
-			err = clientState.Conn.Ping(ctx)
+			err = conn.Ping(ctx)
 		} else {
 			listRequest := mcp.ListToolsRequest{
 				PaginatedRequest: mcp.PaginatedRequest{
@@ -169,7 +183,7 @@ func (chm *ClientHealthMonitor) performHealthCheck() {
 					},
 				},
 			}
-			_, err = clientState.Conn.ListTools(ctx, listRequest)
+			_, err = conn.ListTools(ctx, listRequest)
 		}
 	}
 
@@ -204,6 +218,17 @@ func (chm *ClientHealthMonitor) attemptReconnect() {
 
 	chm.logger.Debug("%s Attempting to reconnect MCP client %s...", MCPLogPrefix, chm.clientID)
 
+	// Do not attempt reconnect if the client has been intentionally disabled
+	// Health monitoring is already stopped for disabled clients. This is just a sanity check.
+	chm.manager.mu.RLock()
+	clientState, exists := chm.manager.clientMap[chm.clientID]
+	isDisabled := exists && clientState != nil && clientState.State == schemas.MCPConnectionStateDisabled
+	chm.manager.mu.RUnlock()
+	if isDisabled {
+		chm.logger.Debug("%s Skipping reconnect for disabled MCP client %s", MCPLogPrefix, chm.clientID)
+		return
+	}
+
 	if err := chm.manager.ReconnectClient(chm.clientID); err != nil {
 		chm.logger.Warn("%s Failed to reconnect MCP client %s: %v", MCPLogPrefix, chm.clientID, err)
 		return
@@ -218,6 +243,14 @@ func (chm *ClientHealthMonitor) updateClientState(state schemas.MCPConnectionSta
 	chm.manager.mu.Lock()
 	clientState, exists := chm.manager.clientMap[chm.clientID]
 	if !exists {
+		chm.manager.mu.Unlock()
+		return
+	}
+
+	// Never overwrite a disabled state. DisableClient is authoritative: a health
+	// check tick or reconnect callback that races with DisableClient must not
+	// flip the client back to Disconnected/Connected.
+	if clientState.State == schemas.MCPConnectionStateDisabled {
 		chm.manager.mu.Unlock()
 		return
 	}
