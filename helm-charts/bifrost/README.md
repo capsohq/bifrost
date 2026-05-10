@@ -4,9 +4,19 @@
 
 Official Helm charts for deploying [Bifrost](https://github.com/capsohq/bifrost) - a high-performance AI gateway with unified interface for multiple providers.
 
-**Latest Version:** 2.1.12
+**Latest Version:** 2.1.14
 
 ## Changelog
+
+### 2.1.14
+
+- Removed the obsolete `bifrost.client.allowDirectKeys` assertion from `validate-helm-config-fields.sh`. The field was deleted from the chart schema and codebase in a prior release, so the test was rendering an invalid values file and helm was rejecting it via `additionalProperties: false`.
+- Hardened `render_config()` in `validate-helm-config-fields.sh` so a failing `helm template` actually surfaces its stderr instead of being swallowed by the script's `set -e` (the previous post-hoc `$?` check was unreachable).
+
+### 2.1.13
+
+- Surfaced `bifrost.client.enforceAuthOnInference` in `values.yaml` as a commented default with usage notes. The field was already wired in `_helpers.tpl` to render to `client.enforce_auth_on_inference` and declared in `values.schema.json`; this change makes the knob discoverable without altering default rendered config.
+- Marked `bifrost.client.enforceGovernanceHeader` as deprecated in `values.yaml` (use `enforceAuthOnInference` instead). Schema description was already deprecated in 2.1.11.
 
 ### 2.1.12
 
