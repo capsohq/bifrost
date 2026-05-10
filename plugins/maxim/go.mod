@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/maxim
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.7
-	github.com/capsohq/bifrost/framework v1.3.7
+	github.com/capsohq/bifrost/core v1.5.8
+	github.com/capsohq/bifrost/framework v1.3.8
 	github.com/maximhq/maxim-go v0.2.1
 )
 
@@ -162,7 +162,6 @@ require (
 	gorm.io/gorm v1.31.1 // indirect
 )
 
-replace (
-	github.com/capsohq/bifrost/core => ../../core
-	github.com/capsohq/bifrost/framework => ../../framework
-)
+replace github.com/capsohq/bifrost/core => ../../core
+
+replace github.com/capsohq/bifrost/framework => ../../framework

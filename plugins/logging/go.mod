@@ -4,8 +4,8 @@ go 1.26.2
 
 require (
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.5.7
-	github.com/capsohq/bifrost/framework v1.3.7
+	github.com/capsohq/bifrost/core v1.5.8
+	github.com/capsohq/bifrost/framework v1.3.8
 )
 
 require (
@@ -158,7 +158,6 @@ require (
 	gorm.io/gorm v1.31.1 // indirect
 )
 
-replace (
-	github.com/capsohq/bifrost/core => ../../core
-	github.com/capsohq/bifrost/framework => ../../framework
-)
+replace github.com/capsohq/bifrost/core => ../../core
+
+replace github.com/capsohq/bifrost/framework => ../../framework

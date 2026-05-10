@@ -6,16 +6,16 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.5.7
-	github.com/capsohq/bifrost/framework v1.3.7
-	github.com/capsohq/bifrost/plugins/compat v0.1.6
-	github.com/capsohq/bifrost/plugins/governance v1.5.7
-	github.com/capsohq/bifrost/plugins/logging v1.5.7
-	github.com/capsohq/bifrost/plugins/maxim v1.6.7
-	github.com/capsohq/bifrost/plugins/otel v1.2.7
-	github.com/capsohq/bifrost/plugins/prompts v1.0.7
-	github.com/capsohq/bifrost/plugins/semanticcache v1.5.7
-	github.com/capsohq/bifrost/plugins/telemetry v1.5.7
+	github.com/capsohq/bifrost/core v1.5.8
+	github.com/capsohq/bifrost/framework v1.3.8
+	github.com/capsohq/bifrost/plugins/compat v0.1.7
+	github.com/capsohq/bifrost/plugins/governance v1.5.8
+	github.com/capsohq/bifrost/plugins/logging v1.5.8
+	github.com/capsohq/bifrost/plugins/maxim v1.6.8
+	github.com/capsohq/bifrost/plugins/otel v1.2.8
+	github.com/capsohq/bifrost/plugins/prompts v1.0.8
+	github.com/capsohq/bifrost/plugins/semanticcache v1.5.8
+	github.com/capsohq/bifrost/plugins/telemetry v1.5.8
 	github.com/fasthttp/router v1.5.4
 	github.com/fasthttp/websocket v1.5.12
 	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f
@@ -76,7 +76,7 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
-	github.com/capsohq/bifrost/plugins/mocker v1.5.7 // indirect
+	github.com/capsohq/bifrost/plugins/mocker v1.5.8 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
@@ -209,16 +209,24 @@ require (
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
 
-replace (
-	github.com/capsohq/bifrost/core => ../core
-	github.com/capsohq/bifrost/framework => ../framework
-	github.com/capsohq/bifrost/plugins/compat => ../plugins/compat
-	github.com/capsohq/bifrost/plugins/governance => ../plugins/governance
-	github.com/capsohq/bifrost/plugins/logging => ../plugins/logging
-	github.com/capsohq/bifrost/plugins/maxim => ../plugins/maxim
-	github.com/capsohq/bifrost/plugins/mocker => ../plugins/mocker
-	github.com/capsohq/bifrost/plugins/otel => ../plugins/otel
-	github.com/capsohq/bifrost/plugins/prompts => ../plugins/prompts
-	github.com/capsohq/bifrost/plugins/semanticcache => ../plugins/semanticcache
-	github.com/capsohq/bifrost/plugins/telemetry => ../plugins/telemetry
-)
+replace github.com/capsohq/bifrost/core => ../core
+
+replace github.com/capsohq/bifrost/framework => ../framework
+
+replace github.com/capsohq/bifrost/plugins/compat => ../plugins/compat
+
+replace github.com/capsohq/bifrost/plugins/governance => ../plugins/governance
+
+replace github.com/capsohq/bifrost/plugins/logging => ../plugins/logging
+
+replace github.com/capsohq/bifrost/plugins/maxim => ../plugins/maxim
+
+replace github.com/capsohq/bifrost/plugins/mocker => ../plugins/mocker
+
+replace github.com/capsohq/bifrost/plugins/otel => ../plugins/otel
+
+replace github.com/capsohq/bifrost/plugins/prompts => ../plugins/prompts
+
+replace github.com/capsohq/bifrost/plugins/semanticcache => ../plugins/semanticcache
+
+replace github.com/capsohq/bifrost/plugins/telemetry => ../plugins/telemetry

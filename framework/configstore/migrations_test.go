@@ -1281,7 +1281,7 @@ func TestFullMigration_VirtualKeyCRUD(t *testing.T) {
 		ID:        "vk-test-001",
 		Name:      "test-virtual-key",
 		Value:     "vk-secret-value-12345",
-		IsActive:  true,
+		IsActive:  bifrost.Ptr(true),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -1297,7 +1297,7 @@ func TestFullMigration_VirtualKeyCRUD(t *testing.T) {
 	assert.Equal(t, "vk-test-001", vks[0].ID)
 	assert.Equal(t, "test-virtual-key", vks[0].Name)
 	assert.Equal(t, "vk-secret-value-12345", vks[0].Value) // AfterFind decrypts
-	assert.True(t, vks[0].IsActive)
+	assert.True(t, vks[0].IsActiveValue())
 
 	// Verify encryption at raw DB level
 	var rawValue, rawStatus, rawHash string
@@ -1469,7 +1469,7 @@ func TestFullMigration_EndToEnd(t *testing.T) {
 	} {
 		err := store.CreateVirtualKey(ctx, &tables.TableVirtualKey{
 			ID: vk.id, Name: vk.name, Value: vk.value,
-			IsActive: true, CreatedAt: now, UpdatedAt: now,
+			IsActive: bifrost.Ptr(true), CreatedAt: now, UpdatedAt: now,
 		})
 		require.NoError(t, err, "CreateVirtualKey %s", vk.name)
 	}

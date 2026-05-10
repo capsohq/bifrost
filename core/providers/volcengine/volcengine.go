@@ -1007,7 +1007,7 @@ func (provider *VolcengineProvider) FileList(ctx *schemas.BifrostContext, keys [
 		return nil, providerUtils.NewBifrostOperationError("no keys provided", nil)
 	}
 
-	helper, err := providerUtils.NewSerialListHelper(keys, request.After, provider.logger)
+	helper, err := providerUtils.NewSerialListHelper(keys, request.After, provider.logger, true)
 	if err != nil {
 		return nil, providerUtils.NewBifrostOperationError("invalid pagination cursor", err)
 	}

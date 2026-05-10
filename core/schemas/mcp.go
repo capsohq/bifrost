@@ -29,6 +29,11 @@ var (
 	ErrOAuth2NotPerUserSession        = errors.New("state does not match a per-user oauth session")
 	ErrOAuth2TokenNotFound            = errors.New("per-user oauth token not found for this identity and mcp server")
 	ErrPerUserOAuthPendingFlowExpired = errors.New("per-user oauth pending flow has expired")
+	// ErrMCPReconnectNotApplicable signals that the reconnect operation is not
+	// meaningful for this client type — e.g. per-user OAuth clients, where
+	// each user manages their own auth and there is no shared upstream
+	// connection to "reconnect". Distinct from "not implemented".
+	ErrMCPReconnectNotApplicable = errors.New("reconnect is not applicable for this client type")
 )
 
 // MCPUserOAuthRequiredError is returned when a per-user OAuth MCP server requires
@@ -155,6 +160,8 @@ type MCPClientConfig struct {
 	StdioConfig         *MCPStdioConfig   `json:"stdio_config,omitempty"`          // STDIO configuration (required for STDIO connections)
 	AuthType            MCPAuthType       `json:"auth_type"`                       // Authentication type (none, headers, or oauth)
 	OauthConfigID       *string           `json:"oauth_config_id,omitempty"`       // OAuth config ID (references oauth_configs table)
+	OauthClientID       *EnvVar           `json:"oauth_client_id,omitempty"`       // Redacted OAuth client ID (populated on GET, not stored here)
+	OauthClientSecret   *EnvVar           `json:"oauth_client_secret,omitempty"`   // Redacted OAuth client secret (populated on GET, not stored here)
 	State               string            `json:"state,omitempty"`                 // Connection state (connected, disconnected, error)
 	Headers             map[string]EnvVar `json:"headers,omitempty"`               // Headers to send with the request (for headers auth type)
 	AllowedExtraHeaders WhiteList         `json:"allowed_extra_headers,omitempty"` // Allowlist of request-level headers that callers may forward to this MCP server at execution time
