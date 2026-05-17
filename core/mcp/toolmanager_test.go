@@ -42,6 +42,9 @@ func (m *mockToolClientManager) GetToolPerClient(ctx context.Context) map[string
 	}
 }
 
+func (m *mockToolClientManager) GetPluginPipeline() PluginPipeline             { return nil }
+func (m *mockToolClientManager) ReleasePluginPipeline(pipeline PluginPipeline) {}
+
 // makeTool is a convenience constructor for test tool fixtures.
 func makeTool(name string) schemas.ChatTool {
 	return schemas.ChatTool{
@@ -102,8 +105,6 @@ func newToolsManagerForTest(cm ClientManager) *ToolsManager {
 		},
 		cm,
 		nil, // fetchNewRequestIDFunc
-		nil, // pluginPipelineProvider
-		nil, // releasePluginPipeline
 		nil, // oauth2Provider
 		&MockLogger{},
 	)

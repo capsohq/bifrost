@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/fasthttp/router"
-	"github.com/fasthttp/websocket"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/fasthttp/router"
+	"github.com/fasthttp/websocket"
 	"github.com/valyala/fasthttp"
 )
 

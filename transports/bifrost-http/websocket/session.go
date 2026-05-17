@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	ws "github.com/fasthttp/websocket"
 	"github.com/google/uuid"
-	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // Session tracks the binding between a client WebSocket connection and its upstream state.

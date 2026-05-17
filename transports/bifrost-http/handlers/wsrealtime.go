@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fasthttp/router"
-	ws "github.com/fasthttp/websocket"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	bfws "github.com/capsohq/bifrost/transports/bifrost-http/websocket"
+	"github.com/fasthttp/router"
+	ws "github.com/fasthttp/websocket"
 	"github.com/valyala/fasthttp"
 )
 

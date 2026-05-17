@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore"
@@ -20,6 +19,7 @@ import (
 	"github.com/capsohq/bifrost/framework/tracing"
 	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
 )
 
@@ -85,7 +85,7 @@ func CorsMiddleware(config *lib.Config) schemas.BifrostHTTPMiddleware {
 				isLocalhostOrigin(origin) ||
 				slices.Contains(config.ClientConfig.AllowedOrigins, origin)
 
-			allowedHeaders := []string{"Content-Type", "Authorization", "X-Requested-With", "X-Stainless-Timeout", "X-Api-Key", "X-OpenAI-Agents-SDK"}
+			allowedHeaders := []string{"Content-Type", "Authorization", "X-Requested-With", "X-Stainless-Timeout", "X-Api-Key", "X-OpenAI-Agents-SDK", "X-Operation-ID"}
 			if slices.Contains(config.ClientConfig.AllowedHeaders, "*") {
 				if credentialed {
 					// Per the Fetch spec, Access-Control-Allow-Headers: * is NOT treated as a

@@ -4,18 +4,18 @@ go 1.26.2
 
 require (
 	github.com/andybalholm/brotli v1.2.0
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.5.8
-	github.com/capsohq/bifrost/framework v1.3.8
-	github.com/capsohq/bifrost/plugins/compat v0.1.7
-	github.com/capsohq/bifrost/plugins/governance v1.5.8
-	github.com/capsohq/bifrost/plugins/logging v1.5.8
-	github.com/capsohq/bifrost/plugins/maxim v1.6.8
-	github.com/capsohq/bifrost/plugins/otel v1.2.8
-	github.com/capsohq/bifrost/plugins/prompts v1.0.8
-	github.com/capsohq/bifrost/plugins/semanticcache v1.5.8
-	github.com/capsohq/bifrost/plugins/telemetry v1.5.8
+	github.com/capsohq/bifrost/core v1.5.10
+	github.com/capsohq/bifrost/framework v1.3.10
+	github.com/capsohq/bifrost/plugins/compat v0.1.9
+	github.com/capsohq/bifrost/plugins/governance v1.5.10
+	github.com/capsohq/bifrost/plugins/logging v1.5.10
+	github.com/capsohq/bifrost/plugins/maxim v1.6.10
+	github.com/capsohq/bifrost/plugins/otel v1.2.10
+	github.com/capsohq/bifrost/plugins/prompts v1.0.10
+	github.com/capsohq/bifrost/plugins/semanticcache v1.5.10
+	github.com/capsohq/bifrost/plugins/telemetry v1.5.10
 	github.com/fasthttp/router v1.5.4
 	github.com/fasthttp/websocket v1.5.12
 	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f
@@ -25,6 +25,7 @@ require (
 	github.com/pion/rtcp v1.2.16
 	github.com/pion/webrtc/v4 v4.2.9
 	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_model v0.6.2
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
@@ -53,12 +54,12 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.55.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.41.5 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.41.7 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.11 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.14 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.5 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.22 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7 // indirect
@@ -70,13 +71,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.10 // indirect
-	github.com/aws/smithy-go v1.24.2 // indirect
+	github.com/aws/smithy-go v1.25.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
-	github.com/capsohq/bifrost/plugins/mocker v1.5.8 // indirect
+	github.com/capsohq/bifrost/plugins/mocker v1.5.10 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
@@ -121,7 +122,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.9.1 // indirect
+	github.com/jackc/pgx/v5 v5.9.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jaswdr/faker/v2 v2.8.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -155,7 +156,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/qdrant/go-client v1.16.2 // indirect

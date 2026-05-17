@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"hash"
 	"maps"
+	"math"
 	"sort"
 	"strconv"
 
@@ -41,6 +42,25 @@ type CompatConfig struct {
 	ConvertChatToResponses bool `json:"convert_chat_to_responses"`
 	ShouldDropParams       bool `json:"should_drop_params"`
 	ShouldConvertParams    bool `json:"should_convert_params"`
+}
+
+// UnmarshalJSON defaults all bool fields to true when absent from JSON.
+func (c *CompatConfig) UnmarshalJSON(data []byte) error {
+	type compatConfig struct {
+		ConvertTextToChat      *bool `json:"convert_text_to_chat"`
+		ConvertChatToResponses *bool `json:"convert_chat_to_responses"`
+		ShouldDropParams       *bool `json:"should_drop_params"`
+		ShouldConvertParams    *bool `json:"should_convert_params"`
+	}
+	var s compatConfig
+	if err := sonic.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	c.ConvertTextToChat = s.ConvertTextToChat == nil || *s.ConvertTextToChat
+	c.ConvertChatToResponses = s.ConvertChatToResponses == nil || *s.ConvertChatToResponses
+	c.ShouldDropParams = s.ShouldDropParams == nil || *s.ShouldDropParams
+	c.ShouldConvertParams = s.ShouldConvertParams == nil || *s.ShouldConvertParams
+	return nil
 }
 
 // ClientConfig represents the core configuration for Bifrost HTTP transport and the Bifrost Client.
@@ -120,6 +140,24 @@ func normalizedBedrockKeyConfigForHash(cfg *schemas.BedrockKeyConfig) *schemas.B
 	normalized := *cfg
 	normalized.Deployments = nil
 	return &normalized
+}
+
+// UnmarshalJSON defaults all bool fields to true when absent from JSON.
+func (c *ClientConfig) UnmarshalJSON(data []byte) error {
+	type ClientConfigAlias ClientConfig
+	alias := ClientConfigAlias{
+		Compat: CompatConfig{
+			ConvertTextToChat:      true,
+			ConvertChatToResponses: true,
+			ShouldDropParams:       true,
+			ShouldConvertParams:    true,
+		},
+	}
+	if err := sonic.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*c = ClientConfig(alias)
+	return nil
 }
 
 // GenerateClientConfigHash generates a SHA256 hash of the client configuration.
@@ -368,6 +406,27 @@ func (c *ClientConfig) GenerateClientConfigHash() (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// GenerateClientConfigHashWithToolManager extends GenerateClientConfigHash to also cover
+// the mcp.tool_manager_config file section. When tm is nil it returns the same value as
+// GenerateClientConfigHash, so it is safe to call unconditionally.
+func (c *ClientConfig) GenerateClientConfigHashWithToolManager(tm *schemas.MCPToolManagerConfig) (string, error) {
+	base, err := c.GenerateClientConfigHash()
+	if err != nil || tm == nil {
+		return base, err
+	}
+	h := sha256.New()
+	h.Write([]byte(base))
+	h.Write([]byte("toolMgrAgentDepth:" + strconv.Itoa(tm.MaxAgentDepth)))
+	h.Write([]byte("toolMgrTimeout:" + strconv.FormatInt(int64(math.Ceil(tm.ToolExecutionTimeout.D().Seconds())), 10)))
+	h.Write([]byte("toolMgrCodeMode:" + string(tm.CodeModeBindingLevel)))
+	if tm.DisableAutoToolInject {
+		h.Write([]byte("toolMgrDisableAutoInject:true"))
+	} else {
+		h.Write([]byte("toolMgrDisableAutoInject:false"))
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // Redacted returns a copy of ClientConfig with any env-backed EnvVar fields masked.
@@ -768,7 +827,6 @@ type VirtualKeyProviderConfigHashInput struct {
 	Provider      string
 	Weight        *float64
 	AllowedModels []string
-	BudgetID      *string
 	RateLimitID   *string
 	KeyIDs        []string // Only key IDs, not full key objects
 }
@@ -808,10 +866,6 @@ func GenerateVirtualKeyHash(vk tables.TableVirtualKey) (string, error) {
 	if vk.RateLimitID != nil {
 		hash.Write([]byte("rateLimitID:" + *vk.RateLimitID))
 	}
-	// Hash legacy BudgetID compatibility field when present.
-	if vk.BudgetID != nil {
-		hash.Write([]byte("budgetID:" + *vk.BudgetID))
-	}
 	// Hash ProviderConfigs
 	if len(vk.ProviderConfigs) > 0 {
 		// Copy and sort provider configs for deterministic hashing
@@ -830,16 +884,6 @@ func GenerateVirtualKeyHash(vk tables.TableVirtualKey) (string, error) {
 			}
 			if ri != rj {
 				return ri < rj
-			}
-			bi, bj := "", ""
-			if sortedProviderConfigs[i].BudgetID != nil {
-				bi = *sortedProviderConfigs[i].BudgetID
-			}
-			if sortedProviderConfigs[j].BudgetID != nil {
-				bj = *sortedProviderConfigs[j].BudgetID
-			}
-			if bi != bj {
-				return bi < bj
 			}
 			wi, wj := sortedProviderConfigs[i].Weight, sortedProviderConfigs[j].Weight
 			if (wi == nil) != (wj == nil) {
@@ -868,7 +912,6 @@ func GenerateVirtualKeyHash(vk tables.TableVirtualKey) (string, error) {
 				Provider:      pc.Provider,
 				Weight:        pc.Weight,
 				AllowedModels: sortedAllowedModels,
-				BudgetID:      pc.BudgetID,
 				RateLimitID:   pc.RateLimitID,
 				KeyIDs:        keyIDs,
 			}

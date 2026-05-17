@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fasthttp/router"
-	"github.com/google/uuid"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/fasthttp/router"
+	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
 )
 

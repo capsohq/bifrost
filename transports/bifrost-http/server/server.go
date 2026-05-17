@@ -18,6 +18,7 @@ import (
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/configstore"
 	"github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/encrypt"
 	"github.com/capsohq/bifrost/framework/logstore"
 	dynamicPlugins "github.com/capsohq/bifrost/framework/plugins"
 	"github.com/capsohq/bifrost/framework/tracing"
@@ -32,7 +33,9 @@ import (
 	bfws "github.com/capsohq/bifrost/transports/bifrost-http/websocket"
 	"github.com/fasthttp/router"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
@@ -574,10 +577,30 @@ func (s *BifrostHTTPServer) ReloadProvider(ctx context.Context, provider schemas
 	bfCtx.SetValue(schemas.BifrostContextKeyValidateKeys, true) // Validate keys during provider add/update
 	defer bfCtx.Cancel()
 
-	allModels, bifrostErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
-		Provider: provider,
-	})
-	s.recordProviderModelDiscoveryResult(provider, false, allModels, bifrostErr)
+	// Run filtered and unfiltered model listing concurrently
+	var (
+		allModels        *schemas.BifrostListModelsResponse
+		bifrostErr       *schemas.BifrostError
+		unfilteredModels *schemas.BifrostListModelsResponse
+		listModelsErr    *schemas.BifrostError
+		listWg           sync.WaitGroup
+	)
+	listWg.Add(2)
+	go func() {
+		defer listWg.Done()
+		allModels, bifrostErr = s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
+			Provider: provider,
+		})
+	}()
+	go func() {
+		defer listWg.Done()
+		unfilteredModels, listModelsErr = s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
+			Provider:   provider,
+			Unfiltered: true,
+		})
+	}()
+	listWg.Wait()
+
 	if allModels != nil && len(allModels.KeyStatuses) > 0 && s.Config.ConfigStore != nil {
 		s.updateKeyStatus(ctx, allModels.KeyStatuses)
 	}
@@ -608,11 +631,6 @@ func (s *BifrostHTTPServer) ReloadProvider(ctx context.Context, provider schemas
 		}
 	}
 	s.Config.ModelCatalog.UpsertModelDataForProvider(provider, allModels, modelsInKeys)
-	unfilteredModelData, listModelsErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
-		Provider:   provider,
-		Unfiltered: true,
-	})
-	s.recordProviderModelDiscoveryResult(provider, true, unfilteredModelData, listModelsErr)
 	if listModelsErr != nil {
 		if hasNoKeys {
 			logger.Warn("unfiltered model discovery skipped for provider %s: no keys configured", provider)
@@ -620,7 +638,7 @@ func (s *BifrostHTTPServer) ReloadProvider(ctx context.Context, provider schemas
 			logger.Error("failed to list unfiltered models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 		}
 	} else {
-		s.Config.ModelCatalog.UpsertUnfilteredModelDataForProvider(provider, unfilteredModelData)
+		s.Config.ModelCatalog.UpsertUnfilteredModelDataForProvider(provider, unfilteredModels)
 	}
 	return updatedProvider, nil
 }
@@ -735,6 +753,14 @@ func (s *BifrostHTTPServer) ReloadClientConfigFromConfigStore(ctx context.Contex
 			MCPConfig:          mcpConfig,
 			Logger:             logger,
 		})
+		if err := s.Client.UpdateToolManagerConfig(
+			s.Config.ClientConfig.MCPAgentDepth,
+			s.Config.ClientConfig.MCPToolExecutionTimeout,
+			s.Config.ClientConfig.MCPCodeModeBindingLevel,
+			s.Config.ClientConfig.MCPDisableAutoToolInject,
+		); err != nil {
+			logger.Warn("failed to sync MCP tool manager config during client config reload: %v", err)
+		}
 	}
 	return nil
 }
@@ -819,7 +845,6 @@ func (s *BifrostHTTPServer) populateModelPoolWithListModels(ctx context.Context)
 			modelData, listModelsErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
 				Provider: provider,
 			})
-			s.recordProviderModelDiscoveryResult(provider, false, modelData, listModelsErr)
 			if listModelsErr != nil {
 				logger.Error("failed to list models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 			}
@@ -839,7 +864,6 @@ func (s *BifrostHTTPServer) populateModelPoolWithListModels(ctx context.Context)
 				Provider:   provider,
 				Unfiltered: true,
 			})
-			s.recordProviderModelDiscoveryResult(provider, true, unfilteredModelData, listModelsErr)
 			if listModelsErr != nil {
 				logger.Error("failed to list unfiltered models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 			} else {
@@ -1156,15 +1180,23 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 		s.devPprofHandler = handlers.NewDevPprofHandler()
 		s.devPprofHandler.RegisterRoutes(s.Router, middlewares...)
 	}
-	// Add Prometheus /metrics endpoint
-	prometheusPlugin, err := lib.FindPluginAs[*telemetry.PrometheusPlugin](s.Config, telemetry.PluginName)
-	if err == nil && prometheusPlugin.GetRegistry() != nil {
-		// Use the plugin's dedicated registry if available
-		metricsHandler := fasthttpadaptor.NewFastHTTPHandler(promhttp.HandlerFor(prometheusPlugin.GetRegistry(), promhttp.HandlerOpts{}))
-		s.Router.GET("/metrics", lib.ChainMiddlewares(metricsHandler, middlewares...))
-	} else {
-		logger.Warn("prometheus plugin not found or registry is nil, skipping metrics endpoint")
+	metricsGatherer := prometheus.GathererFunc(func() ([]*dto.MetricFamily, error) {
+		plugin, err := lib.FindPluginAs[*telemetry.PrometheusPlugin](s.Config, telemetry.PluginName)
+		if err != nil || plugin == nil {
+			return nil, nil
+		}
+		return plugin.GetMetricsGatherer().Gather()
+	})
+	metricsAdapter := fasthttpadaptor.NewFastHTTPHandler(promhttp.HandlerFor(metricsGatherer, promhttp.HandlerOpts{}))
+	metricsHandler := func(ctx *fasthttp.RequestCtx) {
+		plugin, err := lib.FindPluginAs[*telemetry.PrometheusPlugin](s.Config, telemetry.PluginName)
+		if err != nil || plugin == nil || !plugin.IsMetricsEnabled() {
+			handlers.SendError(ctx, fasthttp.StatusNotFound, "Route not found: "+string(ctx.Path()))
+			return
+		}
+		metricsAdapter(ctx)
 	}
+	s.Router.GET("/metrics", lib.ChainMiddlewares(metricsHandler, middlewares...))
 	// 404 handler
 	s.Router.NotFound = func(ctx *fasthttp.RequestCtx) {
 		handlers.SendError(ctx, fasthttp.StatusNotFound, "Route not found: "+string(ctx.Path()))
@@ -1366,7 +1398,6 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 				modelData, listModelsErr := s.Client.ListModelsRequest(bfCtx, &schemas.BifrostListModelsRequest{
 					Provider: provider,
 				})
-				s.recordProviderModelDiscoveryResult(provider, false, modelData, listModelsErr)
 				if modelData != nil && len(modelData.KeyStatuses) > 0 && s.Config.ConfigStore != nil {
 					s.updateKeyStatus(ctx, modelData.KeyStatuses)
 				}
@@ -1392,7 +1423,6 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 					Provider:   provider,
 					Unfiltered: true,
 				})
-				s.recordProviderModelDiscoveryResult(provider, true, unfilteredModelData, listModelsErr)
 				if listModelsErr != nil {
 					logger.Error("failed to list unfiltered models for provider %s: %v: falling back onto the static datasheet", provider, bifrost.GetErrorMessage(listModelsErr))
 				} else {
@@ -1412,7 +1442,10 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	if s.Config.ConfigStore == nil {
 		logger.Error("auth middleware requires config store, skipping auth middleware initialization")
 	} else {
-		s.WSTicketStore = handlers.NewWSTicketStore()
+		// Use a signed (stateless) ticket store when an encryption key is configured
+		// so tickets are verifiable across nodes; otherwise fall back to in-memory.
+		// NewSignedWSTicketStore handles empty key by degrading to in-memory mode.
+		s.WSTicketStore = handlers.NewSignedWSTicketStore(encrypt.Key())
 		s.AuthMiddleware, err = handlers.InitAuthMiddleware(s.Config.ConfigStore, s.WSTicketStore)
 		if err != nil {
 			s.WSTicketStore.Stop()

@@ -6,9 +6,9 @@
 package handlers
 
 import (
-	"github.com/fasthttp/router"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
 )
 

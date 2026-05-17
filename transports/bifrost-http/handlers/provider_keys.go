@@ -6,10 +6,10 @@ import (
 	"net/url"
 
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
 )
 
