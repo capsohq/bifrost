@@ -4,8 +4,8 @@ if [ "${1:-}" = "" ]; then
 fi
 
 VERSION="$1"
-REGISTRY="docker.io"
-ACCOUNT="maximhq"
+REGISTRY="${REGISTRY:-ghcr.io}"
+ACCOUNT="${ACCOUNT:-capsohq}"
 IMAGE_NAME="bifrost"
 IMAGE="${REGISTRY}/${ACCOUNT}/${IMAGE_NAME}"
 
