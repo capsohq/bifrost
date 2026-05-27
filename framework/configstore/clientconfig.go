@@ -87,6 +87,7 @@ type ClientConfig struct {
 	MCPCodeModeBindingLevel               string                           `json:"mcp_code_mode_binding_level"`          // Code mode binding level: "server" or "tool"
 	MCPToolSyncInterval                   int                              `json:"mcp_tool_sync_interval"`               // Global tool sync interval in minutes (default: 10, 0 = disabled)
 	MCPDisableAutoToolInject              bool                             `json:"mcp_disable_auto_tool_inject"`         // When true, MCP tools are not injected into requests by default
+	MCPEnableTempTokenAuth                bool                             `json:"mcp_enable_temp_token_auth"`           // When true, scoped temp tokens can authorize MCP per-user OAuth pages
 	HeaderFilterConfig                    *tables.GlobalHeaderFilterConfig `json:"header_filter_config,omitempty"`       // Global header filtering configuration for x-bf-eh-* headers
 	AsyncJobResultTTL                     int                              `json:"async_job_result_ttl"`                 // Default TTL for async job results in seconds (default: 3600 = 1 hour)
 	RequiredHeaders                       []string                         `json:"required_headers,omitempty"`           // Headers that must be present on every request (case-insensitive)
@@ -94,7 +95,6 @@ type ClientConfig struct {
 	WhitelistedRoutes                     []string                         `json:"whitelisted_routes,omitempty"`         // Routes that bypass auth middleware
 	HideDeletedVirtualKeysInFilters       bool                             `json:"hide_deleted_virtual_keys_in_filters"` // Hide deleted virtual keys from logs/MCP filter data
 	RoutingChainMaxDepth                  int                              `json:"routing_chain_max_depth"`              // Maximum depth for routing rule chain evaluation (default: 10)
-	MCPExternalServerURL                  *schemas.EnvVar                  `json:"mcp_external_server_url,omitempty"`    // Public base URL advertised in OAuth server metadata (.well-known, WWW-Authenticate). Supports env var syntax ("env.MY_VAR")
 	MCPExternalClientURL                  *schemas.EnvVar                  `json:"mcp_external_client_url,omitempty"`    // Public base URL used as redirect_uri when Bifrost acts as an OAuth client to upstream MCP servers. Supports env var syntax ("env.MY_VAR")
 	ConfigHash                            string                           `json:"-"`                                    // Config hash for reconciliation (not serialized)
 }
@@ -103,16 +103,7 @@ func canonicalKeyAliases(key schemas.Key) schemas.KeyAliases {
 	if len(key.Aliases) > 0 {
 		return maps.Clone(key.Aliases)
 	}
-	switch {
-	case key.AzureKeyConfig != nil && len(key.AzureKeyConfig.Deployments) > 0:
-		return maps.Clone(schemas.KeyAliases(key.AzureKeyConfig.Deployments))
-	case key.VertexKeyConfig != nil && len(key.VertexKeyConfig.Deployments) > 0:
-		return maps.Clone(schemas.KeyAliases(key.VertexKeyConfig.Deployments))
-	case key.BedrockKeyConfig != nil && len(key.BedrockKeyConfig.Deployments) > 0:
-		return maps.Clone(schemas.KeyAliases(key.BedrockKeyConfig.Deployments))
-	default:
-		return nil
-	}
+	return nil
 }
 
 func normalizedAzureKeyConfigForHash(cfg *schemas.AzureKeyConfig) *schemas.AzureKeyConfig {
@@ -120,7 +111,6 @@ func normalizedAzureKeyConfigForHash(cfg *schemas.AzureKeyConfig) *schemas.Azure
 		return nil
 	}
 	normalized := *cfg
-	normalized.Deployments = nil
 	return &normalized
 }
 
@@ -129,7 +119,6 @@ func normalizedVertexKeyConfigForHash(cfg *schemas.VertexKeyConfig) *schemas.Ver
 		return nil
 	}
 	normalized := *cfg
-	normalized.Deployments = nil
 	return &normalized
 }
 
@@ -138,7 +127,6 @@ func normalizedBedrockKeyConfigForHash(cfg *schemas.BedrockKeyConfig) *schemas.B
 		return nil
 	}
 	normalized := *cfg
-	normalized.Deployments = nil
 	return &normalized
 }
 
@@ -250,6 +238,11 @@ func (c *ClientConfig) GenerateClientConfigHash() (string, error) {
 	// Only hash non-default value to avoid legacy config hash churn on upgrade.
 	if c.MCPDisableAutoToolInject {
 		hash.Write([]byte("mcpDisableAutoToolInject:true"))
+	}
+
+	// Only hash non-default value to avoid legacy config hash churn on upgrade.
+	if c.MCPEnableTempTokenAuth {
+		hash.Write([]byte("mcpEnableTempTokenAuth:true"))
 	}
 
 	// Only hash non-default value to avoid legacy config hash churn on upgrade.
@@ -389,14 +382,6 @@ func (c *ClientConfig) GenerateClientConfigHash() (string, error) {
 		}
 	}
 
-	if c.MCPExternalServerURL.IsSet() {
-		if c.MCPExternalServerURL.IsFromEnv() {
-			hash.Write([]byte("externalServerURL:env:" + c.MCPExternalServerURL.EnvVar))
-		} else {
-			hash.Write([]byte("externalServerURL:val:" + c.MCPExternalServerURL.GetValue()))
-		}
-	}
-
 	if c.MCPExternalClientURL.IsSet() {
 		if c.MCPExternalClientURL.IsFromEnv() {
 			hash.Write([]byte("externalClientURL:env:" + c.MCPExternalClientURL.EnvVar))
@@ -432,9 +417,6 @@ func (c *ClientConfig) GenerateClientConfigHashWithToolManager(tm *schemas.MCPTo
 // Redacted returns a copy of ClientConfig with any env-backed EnvVar fields masked.
 func (c *ClientConfig) Redacted() ClientConfig {
 	out := *c
-	if c.MCPExternalServerURL != nil && c.MCPExternalServerURL.IsFromEnv() {
-		out.MCPExternalServerURL = c.MCPExternalServerURL.Redacted()
-	}
 	if c.MCPExternalClientURL != nil && c.MCPExternalClientURL.IsFromEnv() {
 		out.MCPExternalClientURL = c.MCPExternalClientURL.Redacted()
 	}
@@ -523,11 +505,10 @@ func (p *ProviderConfig) Redacted() *ProviderConfig {
 		// Redact Azure key config if present
 		if key.AzureKeyConfig != nil {
 			azureConfig := &schemas.AzureKeyConfig{}
-			azureConfig.Endpoint = *key.AzureKeyConfig.Endpoint.Redacted()
-			if key.AzureKeyConfig.APIVersion != nil && key.AzureKeyConfig.APIVersion.IsFromEnv() {
-				azureConfig.APIVersion = key.AzureKeyConfig.APIVersion.Redacted()
+			if key.AzureKeyConfig.Endpoint.IsFromEnv() {
+				azureConfig.Endpoint = *key.AzureKeyConfig.Endpoint.Redacted()
 			} else {
-				azureConfig.APIVersion = key.AzureKeyConfig.APIVersion
+				azureConfig.Endpoint = key.AzureKeyConfig.Endpoint
 			}
 			if key.AzureKeyConfig.ClientID != nil {
 				azureConfig.ClientID = key.AzureKeyConfig.ClientID.Redacted()
@@ -1386,6 +1367,28 @@ func GeneratePluginHash(p tables.TablePlugin) (string, error) {
 	hash.Write(data)
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// frameworkConfigHashPayload holds the config.json-sourced fields used for hashing.
+type frameworkConfigHashPayload struct {
+	PricingURL          *string `json:"pricing_url"`
+	ModelParametersURL  *string `json:"model_parameters_url"`
+	PricingSyncInterval *int64  `json:"pricing_sync_interval"`
+}
+
+// GenerateFrameworkConfigHash generates a SHA256 hash for a framework config.
+// This is used to detect changes to framework config between config.json and database.
+func GenerateFrameworkConfigHash(pricingURL *string, modelParametersURL *string, pricingSyncInterval *int64) (string, error) {
+	data, err := sonic.Marshal(frameworkConfigHashPayload{
+		PricingURL:          pricingURL,
+		ModelParametersURL:  modelParametersURL,
+		PricingSyncInterval: pricingSyncInterval,
+	})
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:]), nil
 }
 
 // AuthConfig represents configured auth config for Bifrost dashboard

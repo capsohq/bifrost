@@ -22,10 +22,11 @@ type ModelCatalog struct {
 	logger schemas.Logger
 
 	// Configuration fields (protected by syncMu)
-	pricingURL   string
-	syncInterval time.Duration
-	lastSyncedAt time.Time
-	syncMu       sync.RWMutex
+	pricingURL         string
+	modelParametersURL string
+	syncInterval       time.Duration
+	lastSyncedAt       time.Time
+	syncMu             sync.RWMutex
 
 	shouldSyncGate func(ctx context.Context) bool
 	afterSyncHook  func(ctx context.Context)
@@ -42,15 +43,17 @@ type ModelCatalog struct {
 	customPricing *customPricingData
 	overridesMu   sync.RWMutex
 
-	modelPool                          map[schemas.ModelProvider][]string
-	unfilteredModelPool                map[schemas.ModelProvider][]string // model pool without allowed models filtering
-	baseModelIndex                     map[string]string                  // model string → canonical base model name
-	providerModelSnapshots             map[schemas.ModelProvider][]string
-	providerModelSources               map[schemas.ModelProvider]ProviderModelSource
-	unfilteredProviderModelSources     map[schemas.ModelProvider]ProviderModelSource
-	providerModelHealth                map[schemas.ModelProvider]providerModelHealthState
-	providerModelHealthPersistDebounce time.Duration
+	modelPool           map[schemas.ModelProvider][]string
+	unfilteredModelPool map[schemas.ModelProvider][]string // model pool without allowed models filtering
+	baseModelIndex      map[string]string                  // model string → canonical base model name
+
+	providerModelSnapshots         map[schemas.ModelProvider][]string
+	providerModelSources           map[schemas.ModelProvider]ProviderModelSource
+	unfilteredProviderModelSources map[schemas.ModelProvider]ProviderModelSource
+	providerModelHealth            map[schemas.ModelProvider]providerModelHealthState
+
 	providerModelHealthPersistSignal   chan struct{}
+	providerModelHealthPersistDebounce time.Duration
 	providerModelHealthPersistCallback func()
 
 	// Pre-parsed supported response types index (keyed by model name)
@@ -69,30 +72,6 @@ type ModelCatalog struct {
 	syncCancel context.CancelFunc
 }
 
-func (mc *ModelCatalog) ensureProviderModelStateLocked() {
-	if mc.modelPool == nil {
-		mc.modelPool = make(map[schemas.ModelProvider][]string)
-	}
-	if mc.unfilteredModelPool == nil {
-		mc.unfilteredModelPool = make(map[schemas.ModelProvider][]string)
-	}
-	if mc.baseModelIndex == nil {
-		mc.baseModelIndex = make(map[string]string)
-	}
-	if mc.providerModelSnapshots == nil {
-		mc.providerModelSnapshots = make(map[schemas.ModelProvider][]string)
-	}
-	if mc.providerModelSources == nil {
-		mc.providerModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
-	}
-	if mc.unfilteredProviderModelSources == nil {
-		mc.unfilteredProviderModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
-	}
-	if mc.providerModelHealth == nil {
-		mc.providerModelHealth = make(map[schemas.ModelProvider]providerModelHealthState)
-	}
-}
-
 // Init initializes the model catalog
 func Init(ctx context.Context, config *Config, configStore configstore.ConfigStore, logger schemas.Logger) (*ModelCatalog, error) {
 	// Initialize pricing URL and sync interval
@@ -100,13 +79,13 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 	if config.PricingURL != nil {
 		pricingURL = *config.PricingURL
 	}
+	modelParametersURL := DefaultModelParametersURL
+	if config.ModelParametersURL != nil && *config.ModelParametersURL != "" {
+		modelParametersURL = *config.ModelParametersURL
+	}
 	syncInterval := DefaultSyncInterval
 	if config.PricingSyncInterval != nil {
 		syncInterval = time.Duration(*config.PricingSyncInterval) * time.Second
-	}
-	providerModelHealthPersistDebounce := DefaultProviderModelHealthPersistDebounce
-	if config.ProviderModelHealthPersistDebounce != nil && *config.ProviderModelHealthPersistDebounce > 0 {
-		providerModelHealthPersistDebounce = *config.ProviderModelHealthPersistDebounce
 	}
 
 	// Log the active interval and the scheduler's actual check frequency so operators
@@ -116,6 +95,7 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 
 	mc := &ModelCatalog{
 		pricingURL:                         pricingURL,
+		modelParametersURL:                 modelParametersURL,
 		syncInterval:                       syncInterval,
 		configStore:                        configStore,
 		logger:                             logger,
@@ -127,7 +107,7 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 		providerModelSources:               make(map[schemas.ModelProvider]ProviderModelSource),
 		unfilteredProviderModelSources:     make(map[schemas.ModelProvider]ProviderModelSource),
 		providerModelHealth:                make(map[schemas.ModelProvider]providerModelHealthState),
-		providerModelHealthPersistDebounce: providerModelHealthPersistDebounce,
+		providerModelHealthPersistDebounce: DefaultProviderModelHealthPersistDebounce,
 		supportedResponseTypes:             make(map[string][]string),
 		supportedParams:                    make(map[string][]string),
 		done:                               make(chan struct{}),
@@ -151,10 +131,6 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 
 	logger.Info("initializing model catalog...")
 	if configStore != nil {
-		mc.loadProviderModelSnapshots(ctx)
-		mc.loadProviderModelHealthState(ctx)
-		mc.startProviderModelHealthPersistWorker(ctx)
-
 		// Per-model lazy load when the in-memory cache misses (eviction, new models, or if
 		// startup bulk load was skipped). loadModelParametersFromDatabase still bulk-warms
 		// the cache on init and on ReloadFromDB so common paths avoid a DB read per model.
@@ -206,11 +182,18 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 					}
 				}()
 			} else {
-				if err := mc.withDistributedLock(ctx, "model_catalog_pricing_startup_sync", 10, func() error {
-					return mc.syncPricing(ctx)
-				}); err != nil {
-					pricingErr = fmt.Errorf("failed to sync pricing data: %w", err)
-				}
+				mc.logger.Info("no existing pricing data found in database, syncing from URL in background")
+				mc.wg.Add(1)
+				go func() {
+					defer mc.wg.Done()
+					if err := mc.withDistributedLock(mc.syncCtx, "model_catalog_pricing_startup_sync", 10, func() error {
+						return mc.syncPricing(mc.syncCtx)
+					}); err != nil {
+						mc.logger.Warn("background startup pricing sync failed: %v", err)
+					} else {
+						mc.logger.Info("background startup pricing sync completed successfully")
+					}
+				}()
 			}
 		}()
 		go func() {
@@ -234,11 +217,18 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 					}
 				}()
 			} else {
-				if err := mc.withDistributedLock(ctx, "model_catalog_params_startup_sync", 10, func() error {
-					return mc.syncModelParameters(ctx)
-				}); err != nil {
-					paramsErr = fmt.Errorf("failed to sync model parameters data: %w", err)
-				}
+				mc.logger.Info("no existing model parameters found in database, syncing from URL in background")
+				mc.wg.Add(1)
+				go func() {
+					defer mc.wg.Done()
+					if err := mc.withDistributedLock(mc.syncCtx, "model_catalog_params_startup_sync", 10, func() error {
+						return mc.syncModelParameters(mc.syncCtx)
+					}); err != nil {
+						mc.logger.Warn("background startup model parameters sync failed: %v", err)
+					} else {
+						mc.logger.Info("background startup model parameters sync completed successfully")
+					}
+				}()
 			}
 		}()
 		wg.Wait()
@@ -264,12 +254,15 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 
 	// Populate model pool with normalized providers from pricing data
 	mc.populateModelPoolFromPricingData()
+	mc.loadProviderModelSnapshots(ctx)
+	mc.loadProviderModelHealthState(ctx)
 
 	if err := mc.loadPricingOverridesFromStore(ctx); err != nil {
 		return nil, fmt.Errorf("failed to load pricing overrides: %w", err)
 	}
 
 	// Start background sync worker
+	mc.startProviderModelHealthPersistWorker(mc.syncCtx)
 	mc.startSyncWorker(mc.syncCtx)
 	initSucceeded = true
 	return mc, nil
@@ -314,6 +307,11 @@ func (mc *ModelCatalog) UpdateSyncConfig(ctx context.Context, config *Config) er
 	mc.pricingURL = DefaultPricingURL
 	if config.PricingURL != nil {
 		mc.pricingURL = *config.PricingURL
+	}
+
+	mc.modelParametersURL = DefaultModelParametersURL
+	if config.ModelParametersURL != nil && *config.ModelParametersURL != "" {
+		mc.modelParametersURL = *config.ModelParametersURL
 	}
 
 	mc.syncInterval = DefaultSyncInterval
@@ -398,6 +396,12 @@ func (mc *ModelCatalog) getPricingURL() string {
 	return mc.pricingURL
 }
 
+func (mc *ModelCatalog) getModelParametersURL() string {
+	mc.syncMu.RLock()
+	defer mc.syncMu.RUnlock()
+	return mc.modelParametersURL
+}
+
 // IsRequestTypeSupported checks if a model supports chat completion.
 // It checks the supportedResponseTypes index.
 func (mc *ModelCatalog) IsRequestTypeSupported(model string, provider schemas.ModelProvider, requestType schemas.RequestType) bool {
@@ -427,15 +431,11 @@ func (mc *ModelCatalog) populateModelPoolFromPricingData() {
 	// Acquire write lock for the entire rebuild operation
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mc.ensureProviderModelStateLocked()
 
 	// Clear existing model pool and base model index
 	mc.modelPool = make(map[schemas.ModelProvider][]string)
 	mc.unfilteredModelPool = make(map[schemas.ModelProvider][]string)
 	mc.baseModelIndex = make(map[string]string)
-	mc.providerModelSnapshots = make(map[schemas.ModelProvider][]string)
-	mc.providerModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
-	mc.unfilteredProviderModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
 
 	// Map to track unique models per provider
 	providerModels := make(map[schemas.ModelProvider]map[string]bool)
@@ -465,13 +465,8 @@ func (mc *ModelCatalog) populateModelPoolFromPricingData() {
 		for model := range modelSet {
 			models = append(models, model)
 		}
-		modelsClone := slices.Clone(models)
-		mc.modelPool[provider] = modelsClone
-		mc.unfilteredModelPool[provider] = slices.Clone(modelsClone)
-		mc.providerModelSnapshots[provider] = slices.Clone(modelsClone)
-		mc.providerModelSources[provider] = ProviderModelSourcePricingCatalog
-		mc.unfilteredProviderModelSources[provider] = ProviderModelSourcePricingCatalog
-		mc.updateProviderModelHealthSnapshotUpdatedAtLocked(provider, time.Now().UTC())
+		mc.modelPool[provider] = models
+		mc.unfilteredModelPool[provider] = models
 	}
 
 	// Log the populated model pool for debugging
@@ -511,12 +506,12 @@ func NewTestCatalog(baseModelIndex map[string]string) *ModelCatalog {
 		modelPool:                          make(map[schemas.ModelProvider][]string),
 		unfilteredModelPool:                make(map[schemas.ModelProvider][]string),
 		baseModelIndex:                     baseModelIndex,
-		pricingData:                        make(map[string]configstoreTables.TableModelPricing),
 		providerModelSnapshots:             make(map[schemas.ModelProvider][]string),
 		providerModelSources:               make(map[schemas.ModelProvider]ProviderModelSource),
 		unfilteredProviderModelSources:     make(map[schemas.ModelProvider]ProviderModelSource),
 		providerModelHealth:                make(map[schemas.ModelProvider]providerModelHealthState),
 		providerModelHealthPersistDebounce: DefaultProviderModelHealthPersistDebounce,
+		pricingData:                        make(map[string]configstoreTables.TableModelPricing),
 		supportedResponseTypes:             make(map[string][]string),
 		supportedParams:                    make(map[string][]string),
 		done:                               make(chan struct{}),

@@ -21,14 +21,15 @@ import (
 
 // OAuth-related errors
 var (
-	ErrOAuth2ConfigNotFound           = errors.New("oauth2 config not found")
-	ErrOAuth2ProviderNotAvailable     = errors.New("oauth2 provider not available")
-	ErrOAuth2TokenExpired             = errors.New("oauth2 token expired")
-	ErrOAuth2TokenInvalid             = errors.New("oauth2 token invalid")
-	ErrOAuth2RefreshFailed            = errors.New("oauth2 token refresh failed")
-	ErrOAuth2NotPerUserSession        = errors.New("state does not match a per-user oauth session")
-	ErrOAuth2TokenNotFound            = errors.New("per-user oauth token not found for this identity and mcp server")
-	ErrPerUserOAuthPendingFlowExpired = errors.New("per-user oauth pending flow has expired")
+	ErrOAuth2ConfigNotFound       = errors.New("oauth2 config not found")
+	ErrOAuth2ProviderNotAvailable = errors.New("oauth2 provider not available")
+	ErrOAuth2TokenExpired         = errors.New("oauth2 token expired")
+	ErrOAuth2TokenInvalid         = errors.New("oauth2 token invalid")
+	ErrOAuth2RefreshFailed        = errors.New("oauth2 token refresh failed")
+	ErrOAuth2NotPerUserSession    = errors.New("state does not match a per-user oauth session")
+	ErrOAuth2TokenNotFound        = errors.New("per-user oauth token not found for this identity and mcp server")
+	ErrOAuth2FlowNotPending       = errors.New("oauth flow is not in pending state")
+	ErrOAuth2FlowExpired          = errors.New("oauth flow has expired")
 	// ErrMCPReconnectNotApplicable signals that the reconnect operation is not
 	// meaningful for this client type — e.g. per-user OAuth clients, where
 	// each user manages their own auth and there is no shared upstream

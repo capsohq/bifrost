@@ -6,10 +6,10 @@ require gorm.io/gorm v1.31.1
 
 require (
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.5.10
-	github.com/capsohq/bifrost/framework v1.3.10
 	github.com/google/cel-go v0.26.1
 	github.com/google/uuid v1.6.0
+	github.com/capsohq/bifrost/core v1.5.13
+	github.com/capsohq/bifrost/framework v1.3.13
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.68.0
 )
@@ -120,7 +120,7 @@ require (
 	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
-	github.com/stoewer/go-strcase v1.3.0 // indirect
+	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect

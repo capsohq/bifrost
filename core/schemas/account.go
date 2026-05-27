@@ -193,10 +193,7 @@ const (
 // AzureKeyConfig represents the Azure-specific configuration.
 // It contains Azure-specific settings required for service access and deployment management.
 type AzureKeyConfig struct {
-	Endpoint   EnvVar  `json:"endpoint"`              // Azure service endpoint URL
-	APIVersion *EnvVar `json:"api_version,omitempty"` // Azure API version to use; defaults to "2024-10-21"
-	// Deprecated: kept for backward compatibility with older config/test fixtures.
-	Deployments map[string]string `json:"deployments,omitempty"`
+	Endpoint EnvVar `json:"endpoint"` // Azure service endpoint URL
 
 	ClientID     *EnvVar  `json:"client_id,omitempty"`     // Azure client ID for authentication
 	ClientSecret *EnvVar  `json:"client_secret,omitempty"` // Azure client secret for authentication
@@ -211,8 +208,6 @@ type VertexKeyConfig struct {
 	ProjectNumber   EnvVar `json:"project_number"`
 	Region          EnvVar `json:"region"`
 	AuthCredentials EnvVar `json:"auth_credentials"`
-	// Deprecated: kept for backward compatibility with older config/test fixtures.
-	Deployments map[string]string `json:"deployments,omitempty"`
 }
 
 // NOTE: To use Vertex IAM role authentication, set AuthCredentials to empty string.
@@ -238,8 +233,6 @@ type BedrockKeyConfig struct {
 	SessionToken *EnvVar `json:"session_token,omitempty"` // AWS session token for temporary credentials
 	Region       *EnvVar `json:"region,omitempty"`        // AWS region for service access
 	ARN          *EnvVar `json:"arn,omitempty"`           // Amazon Resource Name for resource identification
-	// Deprecated: kept for backward compatibility with older config/test fixtures.
-	Deployments map[string]string `json:"deployments,omitempty"`
 	// IAM role for STS AssumeRole
 	RoleARN         *EnvVar `json:"role_arn,omitempty"`
 	ExternalID      *EnvVar `json:"external_id,omitempty"`

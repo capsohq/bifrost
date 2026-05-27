@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/mocker
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.10
 	github.com/jaswdr/faker/v2 v2.8.0
+	github.com/capsohq/bifrost/core v1.5.13
 )
 
 require (

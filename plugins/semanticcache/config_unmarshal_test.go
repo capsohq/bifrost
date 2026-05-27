@@ -43,7 +43,6 @@ func TestUnmarshalJSON_AllFields(t *testing.T) {
 	input := `{
 		"provider": "openai",
 		"embedding_model": "text-embedding-3-small",
-		"cleanup_on_shutdown": true,
 		"dimension": 1536,
 		"ttl": "10m",
 		"threshold": 0.9,
@@ -65,9 +64,6 @@ func TestUnmarshalJSON_AllFields(t *testing.T) {
 	}
 	if config.EmbeddingModel != "text-embedding-3-small" {
 		t.Errorf("EmbeddingModel: expected %q, got %q", "text-embedding-3-small", config.EmbeddingModel)
-	}
-	if !config.CleanUpOnShutdown {
-		t.Error("CleanUpOnShutdown: expected true")
 	}
 	if config.Dimension != 1536 {
 		t.Errorf("Dimension: expected 1536, got %d", config.Dimension)

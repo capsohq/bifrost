@@ -6,6 +6,19 @@ icon: "money-bills"
 
 ## Overview
 
+<Warning>
+  Running multiple OSS Bifrost nodes with a Postgres backend is not supported.
+
+  Here is the short technical explanation:
+
+  - Bifrost is designed to keep all critical information in memory, including provider configs, API keys, budgets, usage, and traffic distribution.
+  - Once a node is initialized, it does not read this information back from the database.
+  - In the Enterprise version, we use a slightly modified version of RAFT to synchronize this state in real time across nodes, while the database acts only as a dumb store.
+  - Based on our current view, OSS is sufficient for startups and medium-scale teams, and can easily handle around 3,000–5,000 RPS on a single instance.
+  - If you need high availability and enterprise capabilities such as real-time synchronization, the Enterprise plan is the right fit.
+  - And yes, that is part of how we draw the OSS vs Enterprise line 💰.
+</Warning>
+
 Budgeting and rate limiting are a core feature of Bifrost's governance system managed through [Virtual Keys](./virtual-keys).
 
 Bifrost's budget management system provides comprehensive cost control and financial governance for enterprise AI deployments. It operates through a **hierarchical budget structure** that enables granular cost management, usage tracking, and financial oversight across your entire organization.
@@ -14,7 +27,7 @@ Bifrost's budget management system provides comprehensive cost control and finan
 ```
 Customer (has independent budget)
     ↓ (one-to-many)
-Team (has independent budget) 
+Team (has independent budget)
     ↓ (one-to-many)
 Virtual Key (has independent budget + rate limits)
     ↓ (one-to-many)
@@ -40,7 +53,7 @@ Provider Config (has independent budget + rate limits)
 - **Budget Management** - Independent budget limits at each hierarchy level with cumulative checking
 - **Rate Limiting** - Request and token-based throttling at both VK and provider config levels
 - **Provider-Level Governance** - Granular budgets and rate limits per AI provider within a virtual key
-- **Model/Provider Filtering** - Granular access control per virtual key  
+- **Model/Provider Filtering** - Granular access control per virtual key
 - **Usage Tracking** - Real-time monitoring and audit trails
 - **Audit Headers** - Optional team and customer identification
 
@@ -69,7 +82,7 @@ When a request is made with a virtual key, Bifrost checks **all applicable budge
 ```
 1. ✓ Provider Config Budget (if provider config has budget)
 2. ✓ VK Budget (if VK has budget)
-3. ✓ Team Budget (if VK's team has budget)  
+3. ✓ Team Budget (if VK's team has budget)
 4. ✓ Customer Budget (if team's customer has budget)
 ```
 
@@ -97,12 +110,12 @@ When a request is made with a virtual key, Bifrost checks **all applicable budge
 ```
 - Provider config budget: $4/$5 remaining ✓
 - VK budget: $9/$10 remaining ✓
-- Team budget: $15/$20 remaining ✓  
+- Team budget: $15/$20 remaining ✓
 - Customer budget: $45/$50 remaining ✓
 - Result: Allowed (no budget is exceeded)
 
-- After request: 
-    - Request cost: $2 
+- After request:
+    - Request cost: $2
     - Updated Provider=$6/$5, VK=$11/$10, Team=$17/$20, Customer=$47/$50
     - Then the next request will be blocked (both provider and VK budgets exceeded).
 ```
@@ -138,7 +151,7 @@ Budgets and rate limits support flexible reset durations:
 
 **Format Examples:**
 - `1m` - 1 minute
-- `5m` - 5 minutes  
+- `5m` - 5 minutes
 - `1h` - 1 hour
 - `1d` - 1 day
 - `1w` - 1 week
@@ -588,7 +601,7 @@ Provider configurations with budget-based failover:
 - **Cost Control**: Track and control spending by provider for better financial oversight
 - **Performance Testing**: A/B testing across providers with controlled budgets
 - **Multi-Provider Strategies**: Primary/backup provider configurations
-- **Cost-Tiered Access**: Cheap providers for basic tasks, premium for complex workloads  
+- **Cost-Tiered Access**: Cheap providers for basic tasks, premium for complex workloads
 
 ---
 

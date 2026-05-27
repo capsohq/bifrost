@@ -409,10 +409,16 @@ func ToAnthropicChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bif
 				responseFormatTool := convertChatResponseFormatToTool(ctx, bifrostReq.Params)
 				if responseFormatTool != nil {
 					anthropicReq.Tools = append(anthropicReq.Tools, *responseFormatTool)
-					// Force the model to use this specific tool
-					anthropicReq.ToolChoice = &AnthropicToolChoice{
-						Type: "tool",
-						Name: responseFormatTool.Name,
+					// Anthropic rejects forced tool_choice when extended thinking is active.
+					// Skip forcing tool_choice in that case; the model may still call the tool.
+					thinkingEnabled := bifrostReq.Params.Reasoning != nil &&
+						(bifrostReq.Params.Reasoning.MaxTokens != nil ||
+							(bifrostReq.Params.Reasoning.Effort != nil && *bifrostReq.Params.Reasoning.Effort != "none"))
+					if !thinkingEnabled {
+						anthropicReq.ToolChoice = &AnthropicToolChoice{
+							Type: "tool",
+							Name: responseFormatTool.Name,
+						}
 					}
 				}
 			} else {
@@ -565,7 +571,10 @@ func ToAnthropicChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bif
 		}
 
 		// Convert service tier
-		anthropicReq.ServiceTier = bifrostReq.Params.ServiceTier
+		if bifrostReq.Params.ServiceTier != nil {
+			mapped := MapBifrostServiceTierToAnthropicRequest(*bifrostReq.Params.ServiceTier)
+			anthropicReq.ServiceTier = &mapped
+		}
 	}
 
 	// Convert messages - group consecutive tool messages into single user messages
@@ -745,6 +754,20 @@ func ToAnthropicChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bif
 	anthropicReq.Messages = anthropicMessages
 	anthropicReq.System = systemContent
 
+	// Trim trailing whitespace from the last assistant message text blocks
+	// ContentStr is converted to a single text ContentBlock during message conversion
+	// so we trim the text of that block instead.
+	lastMsgIndex := len(anthropicReq.Messages) - 1
+	if lastMsgIndex >= 0 && anthropicReq.Messages[lastMsgIndex].Role == AnthropicMessageRoleAssistant {
+		blocks := anthropicReq.Messages[lastMsgIndex].Content.ContentBlocks
+		for j := len(blocks) - 1; j >= 0; j-- {
+			if blocks[j].Type == AnthropicContentBlockTypeText && blocks[j].Text != nil {
+				anthropicReq.Messages[lastMsgIndex].Content.ContentBlocks[j].Text = schemas.Ptr(strings.TrimRight(*blocks[j].Text, " \n\r\t"))
+				break
+			}
+		}
+	}
+
 	// Strip request- and tool-level fields the target Anthropic-family
 	// provider does not support. Fail-closed tool validation stays in
 	// ValidateToolsForProvider; this is strip-silently for additive fields.
@@ -773,6 +796,7 @@ func (response *AnthropicMessageResponse) ToBifrostChatResponse(ctx *schemas.Bif
 			structuredOutputToolName = toolName
 		}
 	}
+	var usedStructuredOutputTool bool
 
 	// Collect all content and tool calls into a single message
 	var toolCalls []schemas.ChatAssistantMessageToolCall
@@ -808,6 +832,7 @@ func (response *AnthropicMessageResponse) ToBifrostChatResponse(ctx *schemas.Bif
 							jsonStr = "{}"
 						}
 						contentStr = &jsonStr
+						usedStructuredOutputTool = true
 						continue // Skip adding to toolCalls
 					}
 
@@ -897,6 +922,12 @@ func (response *AnthropicMessageResponse) ToBifrostChatResponse(ctx *schemas.Bif
 		FinishReason: func() *string {
 			if response.StopReason != "" {
 				mapped := ConvertAnthropicFinishReasonToBifrost(response.StopReason)
+				// When the structured output tool was folded back into text content, the
+				// stop reason should be "stop", not "tool_calls".
+				if usedStructuredOutputTool && len(toolCalls) == 0 &&
+					mapped == string(schemas.BifrostFinishReasonToolCalls) {
+					mapped = string(schemas.BifrostFinishReasonStop)
+				}
 				return &mapped
 			}
 			return nil
@@ -925,7 +956,8 @@ func (response *AnthropicMessageResponse) ToBifrostChatResponse(ctx *schemas.Bif
 		bifrostResponse.Usage.TotalTokens = bifrostResponse.Usage.PromptTokens + bifrostResponse.Usage.CompletionTokens
 		// Forward service tier from usage to response
 		if response.Usage.ServiceTier != nil {
-			bifrostResponse.ServiceTier = response.Usage.ServiceTier
+			mapped := MapAnthropicServiceTierToBifrost(*response.Usage.ServiceTier)
+			bifrostResponse.ServiceTier = &mapped
 		}
 	}
 
@@ -971,7 +1003,8 @@ func ToAnthropicChatResponse(bifrostResp *schemas.BifrostChatResponse) *Anthropi
 		}
 		// Forward service tier
 		if bifrostResp.ServiceTier != nil {
-			anthropicResp.Usage.ServiceTier = bifrostResp.ServiceTier
+			mapped := MapBifrostServiceTierToAnthropicResponse(*bifrostResp.ServiceTier)
+			anthropicResp.Usage.ServiceTier = &mapped
 		}
 	}
 
@@ -1076,6 +1109,23 @@ func (chunk *AnthropicStreamEvent) ToBifrostChatCompletionStream(ctx *schemas.Bi
 
 	switch chunk.Type {
 	case AnthropicStreamEventTypeMessageStart:
+		if chunk.Message != nil && chunk.Message.Role != "" {
+			role := chunk.Message.Role
+			streamResponse := &schemas.BifrostChatResponse{
+				Object: "chat.completion.chunk",
+				Choices: []schemas.BifrostResponseChoice{
+					{
+						Index: 0,
+						ChatStreamResponseChoice: &schemas.ChatStreamResponseChoice{
+							Delta: &schemas.ChatStreamResponseChoiceDelta{
+								Role: &role,
+							},
+						},
+					},
+				},
+			}
+			return streamResponse, nil, false
+		}
 		return nil, nil, false
 
 	case AnthropicStreamEventTypeMessageStop:
@@ -1150,26 +1200,8 @@ func (chunk *AnthropicStreamEvent) ToBifrostChatCompletionStream(ctx *schemas.Bi
 				}
 
 			case AnthropicStreamDeltaTypeInputJSON:
-				// Handle tool use streaming - accumulate partial JSON
+				// Handle tool use streaming - accumulate partial JSON.
 				if chunk.Delta.PartialJSON != nil {
-					if structuredOutputToolName != "" {
-						// Structured output: stream JSON as content
-						streamResponse := &schemas.BifrostChatResponse{
-							Object: "chat.completion.chunk",
-							Choices: []schemas.BifrostResponseChoice{
-								{
-									Index: 0,
-									ChatStreamResponseChoice: &schemas.ChatStreamResponseChoice{
-										Delta: &schemas.ChatStreamResponseChoiceDelta{
-											Content: chunk.Delta.PartialJSON,
-										},
-									},
-								},
-							},
-						}
-						return streamResponse, nil, false
-					}
-
 					// Resolve which tool-call this delta belongs to via the content-block index.
 					toolCallIdx := state.contentBlockToToolCallIdx[*chunk.Index]
 

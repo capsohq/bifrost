@@ -20,6 +20,21 @@ func (mc *ModelCatalog) getProviderModelStore() (providerModelStore, bool) {
 	return store, ok
 }
 
+func (mc *ModelCatalog) ensureProviderModelStateLocked() {
+	if mc.providerModelSnapshots == nil {
+		mc.providerModelSnapshots = make(map[schemas.ModelProvider][]string)
+	}
+	if mc.providerModelSources == nil {
+		mc.providerModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
+	}
+	if mc.unfilteredProviderModelSources == nil {
+		mc.unfilteredProviderModelSources = make(map[schemas.ModelProvider]ProviderModelSource)
+	}
+	if mc.providerModelHealth == nil {
+		mc.providerModelHealth = make(map[schemas.ModelProvider]providerModelHealthState)
+	}
+}
+
 func (mc *ModelCatalog) loadProviderModelSnapshots(ctx context.Context) {
 	store, ok := mc.getProviderModelStore()
 	if !ok {

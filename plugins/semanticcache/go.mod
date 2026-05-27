@@ -3,11 +3,11 @@ module github.com/capsohq/bifrost/plugins/semanticcache
 go 1.26.2
 
 require (
-	github.com/capsohq/bifrost/core v1.5.10
-	github.com/capsohq/bifrost/framework v1.3.10
-	github.com/capsohq/bifrost/plugins/mocker v1.5.3
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/google/uuid v1.6.0
+	github.com/capsohq/bifrost/core v1.5.13
+	github.com/capsohq/bifrost/framework v1.3.13
+	github.com/capsohq/bifrost/plugins/mocker v1.5.3
 )
 
 require (

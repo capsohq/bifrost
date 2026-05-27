@@ -1,13 +1,13 @@
 ---
-title: "Writing WASM Plugins"
-description: "Build cross-platform Bifrost plugins using WebAssembly with TypeScript, Go, or Rust"
+title: "Writing WASM Plugins (Deprecated)"
+description: "Deprecated WebAssembly plugin guide. Use native Go plugins today; webhook-based plugins are planned as the next cross-language extension path."
 icon: "puzzle-piece"
 ---
 
 <Warning>
-**Beta Feature - Enterprise Only**
+**Deprecated**
 
-WASM plugins are currently in beta and only available in Bifrost Enterprise builds. Contact your account team for access.
+WASM custom plugins are deprecated. Existing WASM plugins can continue to run where supported, but new plugin development should use native Go plugins. We are adding support for webhook-based plugins as the next cross-language extension path.
 </Warning>
 
 ## Overview
@@ -1274,9 +1274,9 @@ WASM plugins have some trade-offs compared to native Go plugins:
 
 Complete hello-world examples are available in the Bifrost repository:
 
-- **TypeScript**: [examples/plugins/hello-world-wasm-typescript](https://github.com/maximhq/bifrost/tree/main/examples/plugins/hello-world-wasm-typescript)
-- **Go (TinyGo)**: [examples/plugins/hello-world-wasm-go](https://github.com/maximhq/bifrost/tree/main/examples/plugins/hello-world-wasm-go)
-- **Rust**: [examples/plugins/hello-world-wasm-rust](https://github.com/maximhq/bifrost/tree/main/examples/plugins/hello-world-wasm-rust)
+- **TypeScript**: [examples/plugins/hello-world-wasm-typescript](https://github.com/capsohq/bifrost/tree/main/examples/plugins/hello-world-wasm-typescript)
+- **Go (TinyGo)**: [examples/plugins/hello-world-wasm-go](https://github.com/capsohq/bifrost/tree/main/examples/plugins/hello-world-wasm-go)
+- **Rust**: [examples/plugins/hello-world-wasm-rust](https://github.com/capsohq/bifrost/tree/main/examples/plugins/hello-world-wasm-rust)
 
 ## Troubleshooting
 
@@ -1327,5 +1327,5 @@ wasm-objdump -x plugin.wasm | grep -A 20 "Export"
 ## Need Help?
 
 - **Discord Community**: [Join our Discord](https://discord.gg/exN5KAydbU)
-- **GitHub Issues**: [Report bugs or request features](https://github.com/maximhq/bifrost/issues)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/capsohq/bifrost/issues)
 - **Documentation**: [Browse all docs](/)

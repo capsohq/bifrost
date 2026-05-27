@@ -76,99 +76,6 @@ func (provider *MistralProvider) GetProviderKey() schemas.ModelProvider {
 	return providerUtils.GetProviderName(schemas.Mistral, provider.customProviderConfig)
 }
 
-// prepareChatRequest preserves alias metadata on the original request while ensuring
-// OpenAI compatibility conversion applies Mistral-specific request shaping.
-func (provider *MistralProvider) prepareChatRequest(request *schemas.BifrostChatRequest) *schemas.BifrostChatRequest {
-	if request == nil {
-		return nil
-	}
-	reqCopy := *request
-	reqCopy.Provider = schemas.Mistral
-	return &reqCopy
-}
-
-func (provider *MistralProvider) decorateBifrostError(err *schemas.BifrostError, requestType schemas.RequestType, requestedModel string) *schemas.BifrostError {
-	if err == nil {
-		return nil
-	}
-	err.ExtraFields.Provider = provider.GetProviderKey()
-	if requestType != "" {
-		err.ExtraFields.RequestType = requestType
-	}
-	if strings.TrimSpace(requestedModel) != "" {
-		err.ExtraFields.OriginalModelRequested = requestedModel
-	}
-	return err
-}
-
-func (provider *MistralProvider) decorateChatResponse(response *schemas.BifrostChatResponse, requestedModel string) *schemas.BifrostChatResponse {
-	if response == nil {
-		return nil
-	}
-	response.ExtraFields.Provider = provider.GetProviderKey()
-	response.ExtraFields.RequestType = schemas.ChatCompletionRequest
-	if strings.TrimSpace(requestedModel) != "" {
-		response.ExtraFields.OriginalModelRequested = requestedModel
-	}
-	if response.ExtraFields.ResolvedModelUsed == "" {
-		if strings.TrimSpace(response.Model) != "" {
-			response.ExtraFields.ResolvedModelUsed = response.Model
-		} else if strings.TrimSpace(requestedModel) != "" {
-			response.ExtraFields.ResolvedModelUsed = requestedModel
-		}
-	}
-	return response
-}
-
-func (provider *MistralProvider) decorateEmbeddingResponse(response *schemas.BifrostEmbeddingResponse, requestedModel string) *schemas.BifrostEmbeddingResponse {
-	if response == nil {
-		return nil
-	}
-	response.ExtraFields.Provider = provider.GetProviderKey()
-	response.ExtraFields.RequestType = schemas.EmbeddingRequest
-	if strings.TrimSpace(requestedModel) != "" {
-		response.ExtraFields.OriginalModelRequested = requestedModel
-	}
-	if response.ExtraFields.ResolvedModelUsed == "" {
-		if strings.TrimSpace(response.Model) != "" {
-			response.ExtraFields.ResolvedModelUsed = response.Model
-		} else if strings.TrimSpace(requestedModel) != "" {
-			response.ExtraFields.ResolvedModelUsed = requestedModel
-		}
-	}
-	return response
-}
-
-func (provider *MistralProvider) decorateTranscriptionResponse(response *schemas.BifrostTranscriptionResponse, requestType schemas.RequestType, requestedModel string) *schemas.BifrostTranscriptionResponse {
-	if response == nil {
-		return nil
-	}
-	response.ExtraFields.Provider = provider.GetProviderKey()
-	response.ExtraFields.RequestType = requestType
-	if strings.TrimSpace(requestedModel) != "" {
-		response.ExtraFields.OriginalModelRequested = requestedModel
-		if response.ExtraFields.ResolvedModelUsed == "" {
-			response.ExtraFields.ResolvedModelUsed = requestedModel
-		}
-	}
-	return response
-}
-
-func (provider *MistralProvider) decorateTranscriptionStreamResponse(response *schemas.BifrostTranscriptionStreamResponse, requestedModel string) *schemas.BifrostTranscriptionStreamResponse {
-	if response == nil {
-		return nil
-	}
-	response.ExtraFields.Provider = provider.GetProviderKey()
-	response.ExtraFields.RequestType = schemas.TranscriptionStreamRequest
-	if strings.TrimSpace(requestedModel) != "" {
-		response.ExtraFields.OriginalModelRequested = requestedModel
-		if response.ExtraFields.ResolvedModelUsed == "" {
-			response.ExtraFields.ResolvedModelUsed = requestedModel
-		}
-	}
-	return response
-}
-
 // listModelsByKey performs a list models request for a single key.
 // Returns the response and latency, or an error if the request fails.
 func (provider *MistralProvider) listModelsByKey(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostListModelsRequest) (*schemas.BifrostListModelsResponse, *schemas.BifrostError) {
@@ -268,33 +175,20 @@ func (provider *MistralProvider) normalizeChatRequestForConversion(request *sche
 
 // ChatCompletion performs a chat completion request to the Mistral API.
 func (provider *MistralProvider) ChatCompletion(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostChatRequest) (*schemas.BifrostChatResponse, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ChatCompletionRequest); err != nil {
-		if request != nil {
-			err.ExtraFields.OriginalModelRequested = request.Model
-		}
-		return nil, provider.decorateBifrostError(err, schemas.ChatCompletionRequest, request.Model)
-	}
-
-	response, bifrostErr := openai.HandleOpenAIChatCompletionRequest(
+	return openai.HandleOpenAIChatCompletionRequest(
 		ctx,
 		provider.client,
 		provider.networkConfig.BaseURL+providerUtils.GetPathFromContext(ctx, "/v1/chat/completions"),
-		provider.prepareChatRequest(request),
+		provider.normalizeChatRequestForConversion(request),
 		key,
 		provider.networkConfig.ExtraHeaders,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
 		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
 		provider.GetProviderKey(),
 		nil,
-		func(resp *fasthttp.Response) *schemas.BifrostError {
-			return ParseMistralErrorWithMetadata(resp, provider.GetProviderKey(), schemas.ChatCompletionRequest, request.Model)
-		},
+		ParseMistralError,
 		provider.logger,
 	)
-	if bifrostErr != nil {
-		return nil, provider.decorateBifrostError(bifrostErr, schemas.ChatCompletionRequest, request.Model)
-	}
-	return provider.decorateChatResponse(response, request.Model), nil
 }
 
 // ChatCompletionStream performs a streaming chat completion request to the Mistral API.
@@ -302,12 +196,6 @@ func (provider *MistralProvider) ChatCompletion(ctx *schemas.BifrostContext, key
 // Uses Mistral's OpenAI-compatible streaming format.
 // Returns a channel containing BifrostStreamChunk objects representing the stream or an error if the request fails.
 func (provider *MistralProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ChatCompletionStreamRequest); err != nil {
-		if request != nil {
-			err.ExtraFields.OriginalModelRequested = request.Model
-		}
-		return nil, provider.decorateBifrostError(err, schemas.ChatCompletionStreamRequest, request.Model)
-	}
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
@@ -317,37 +205,19 @@ func (provider *MistralProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 		ctx,
 		provider.streamingClient,
 		provider.networkConfig.BaseURL+"/v1/chat/completions",
-		provider.prepareChatRequest(request),
+		provider.normalizeChatRequestForConversion(request),
 		authHeader,
 		provider.networkConfig.ExtraHeaders,
+		provider.networkConfig.StreamIdleTimeoutInSeconds,
 		providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest),
 		providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse),
 		provider.GetProviderKey(),
 		postHookRunner,
 		nil,
 		nil,
-		func(resp *fasthttp.Response) *schemas.BifrostError {
-			return ParseMistralErrorWithMetadata(resp, provider.GetProviderKey(), schemas.ChatCompletionStreamRequest, request.Model)
-		},
+		ParseMistralError,
 		nil,
-		func(response *schemas.BifrostChatResponse) *schemas.BifrostChatResponse {
-			if response == nil {
-				return nil
-			}
-			response.ExtraFields.RequestType = schemas.ChatCompletionStreamRequest
-			response.ExtraFields.Provider = provider.GetProviderKey()
-			if strings.TrimSpace(request.Model) != "" {
-				response.ExtraFields.OriginalModelRequested = request.Model
-			}
-			if response.ExtraFields.ResolvedModelUsed == "" {
-				if strings.TrimSpace(response.Model) != "" {
-					response.ExtraFields.ResolvedModelUsed = response.Model
-				} else if strings.TrimSpace(request.Model) != "" {
-					response.ExtraFields.ResolvedModelUsed = request.Model
-				}
-			}
-			return response
-		},
+		nil,
 		provider.logger,
 		postHookSpanFinalizer,
 	)
@@ -355,13 +225,6 @@ func (provider *MistralProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 
 // Responses performs a responses request to the Mistral API.
 func (provider *MistralProvider) Responses(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostResponsesRequest) (*schemas.BifrostResponsesResponse, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ResponsesRequest); err != nil {
-		if request != nil {
-			err.ExtraFields.OriginalModelRequested = request.Model
-		}
-		return nil, err
-	}
-
 	chatResponse, err := provider.ChatCompletion(ctx, key, request.ToChatRequest())
 	if err != nil {
 		return nil, err
@@ -374,12 +237,6 @@ func (provider *MistralProvider) Responses(ctx *schemas.BifrostContext, key sche
 
 // ResponsesStream performs a streaming responses request to the Mistral API.
 func (provider *MistralProvider) ResponsesStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostResponsesRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.ResponsesStreamRequest); err != nil {
-		if request != nil {
-			err.ExtraFields.OriginalModelRequested = request.Model
-		}
-		return nil, err
-	}
 	ctx.SetValue(schemas.BifrostContextKeyIsResponsesToChatCompletionFallback, true)
 	return provider.ChatCompletionStream(
 		ctx,
@@ -393,15 +250,8 @@ func (provider *MistralProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 // Embedding generates embeddings for the given input text(s) using the Mistral API.
 // Supports Mistral's embedding models and returns a BifrostResponse containing the embedding(s).
 func (provider *MistralProvider) Embedding(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.EmbeddingRequest); err != nil {
-		if request != nil {
-			err.ExtraFields.OriginalModelRequested = request.Model
-		}
-		return nil, provider.decorateBifrostError(err, schemas.EmbeddingRequest, request.Model)
-	}
-
 	// Use the shared embedding request handler
-	response, bifrostErr := openai.HandleOpenAIEmbeddingRequest(
+	return openai.HandleOpenAIEmbeddingRequest(
 		ctx,
 		provider.client,
 		provider.networkConfig.BaseURL+providerUtils.GetPathFromContext(ctx, "/v1/embeddings"),
@@ -414,138 +264,11 @@ func (provider *MistralProvider) Embedding(ctx *schemas.BifrostContext, key sche
 		nil,
 		provider.logger,
 	)
-	if bifrostErr != nil {
-		return nil, provider.decorateBifrostError(bifrostErr, schemas.EmbeddingRequest, request.Model)
-	}
-	return provider.decorateEmbeddingResponse(response, request.Model), nil
 }
 
 // Speech is not supported by the Mistral provider.
 func (provider *MistralProvider) Speech(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostSpeechRequest) (*schemas.BifrostSpeechResponse, *schemas.BifrostError) {
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.SpeechRequest, provider.GetProviderKey())
-}
-
-// Rerank is not supported by the Mistral provider.
-func (provider *MistralProvider) Rerank(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostRerankRequest) (*schemas.BifrostRerankResponse, *schemas.BifrostError) {
-	return nil, providerUtils.NewUnsupportedOperationError(schemas.RerankRequest, provider.GetProviderKey())
-}
-
-// OCR performs an OCR request to the Mistral API.
-// It sends a JSON request to Mistral's OCR endpoint and returns the extracted content.
-func (provider *MistralProvider) OCR(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostOCRRequest) (*schemas.BifrostOCRResponse, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Mistral, provider.customProviderConfig, schemas.OCRRequest); err != nil {
-		if request != nil {
-			err.ExtraFields.OriginalModelRequested = request.Model
-		}
-		return nil, err
-	}
-
-	// Convert Bifrost request to Mistral format
-	mistralReq := ToMistralOCRRequest(request)
-	if mistralReq == nil {
-		return nil, providerUtils.NewBifrostOperationError("ocr request input is not provided", nil)
-	}
-
-	// Marshal request body
-	requestBody, err := sonic.Marshal(mistralReq)
-	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err)
-	}
-
-	// Merge extra params into JSON payload
-	if len(mistralReq.ExtraParams) > 0 {
-		requestBody, err = providerUtils.MergeExtraParamsIntoJSON(requestBody, mistralReq.ExtraParams)
-		if err != nil {
-			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err)
-		}
-	}
-
-	// Create HTTP request
-	req := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseRequest(req)
-	defer fasthttp.ReleaseResponse(resp)
-
-	// Set extra headers from network config
-	providerUtils.SetExtraHeaders(ctx, req, provider.networkConfig.ExtraHeaders, nil)
-
-	req.SetRequestURI(provider.networkConfig.BaseURL + providerUtils.GetPathFromContext(ctx, "/v1/ocr"))
-	req.Header.SetMethod(http.MethodPost)
-	req.Header.SetContentType("application/json")
-	if key.Value.GetValue() != "" {
-		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
-	}
-
-	req.SetBody(requestBody)
-
-	// Set raw request if enabled
-	if providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest) {
-		request.RawRequestBody = requestBody
-	}
-
-	// Make request
-	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
-	defer wait()
-	if bifrostErr != nil {
-		return nil, bifrostErr
-	}
-
-	// Handle error response
-	if resp.StatusCode() != fasthttp.StatusOK {
-		return nil, ParseMistralErrorWithMetadata(resp, provider.GetProviderKey(), schemas.OCRRequest, request.Model)
-	}
-
-	responseBody, err := providerUtils.CheckAndDecodeBody(resp)
-	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
-	}
-
-	// Check for empty response
-	trimmed := strings.TrimSpace(string(responseBody))
-	if len(trimmed) == 0 {
-		return nil, &schemas.BifrostError{
-			IsBifrostError: true,
-			Error: &schemas.ErrorField{
-				Message: schemas.ErrProviderResponseEmpty,
-			},
-		}
-	}
-
-	copiedResponseBody := append([]byte(nil), responseBody...)
-
-	// Parse Mistral's OCR response
-	var mistralResponse MistralOCRResponse
-	if err := sonic.Unmarshal(copiedResponseBody, &mistralResponse); err != nil {
-		if providerUtils.IsHTMLResponse(resp, copiedResponseBody) {
-			return nil, &schemas.BifrostError{
-				IsBifrostError: false,
-				Error: &schemas.ErrorField{
-					Message: schemas.ErrProviderResponseHTML,
-					Error:   errors.New(string(copiedResponseBody)),
-				},
-			}
-		}
-		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseUnmarshal, err)
-	}
-
-	// Convert to Bifrost format
-	response := mistralResponse.ToBifrostOCRResponse()
-	if response == nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to convert ocr response", nil)
-	}
-
-	// Set extra fields
-	response.ExtraFields.Latency = latency.Milliseconds()
-
-	// Set raw response if enabled
-	if providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse) {
-		var rawResponse interface{}
-		if err := sonic.Unmarshal(copiedResponseBody, &rawResponse); err == nil {
-			response.ExtraFields.RawResponse = rawResponse
-		}
-	}
-
-	return response, nil
 }
 
 // SpeechStream is not supported by the Mistral provider.
@@ -649,7 +372,7 @@ func (provider *MistralProvider) Transcription(ctx *schemas.BifrostContext, key 
 		}
 	}
 
-	return provider.decorateTranscriptionResponse(response, schemas.TranscriptionRequest, request.Model), nil
+	return response, nil
 }
 
 // TranscriptionStream performs a streaming transcription request to Mistral's API.
@@ -701,10 +424,11 @@ func (provider *MistralProvider) TranscriptionStream(ctx *schemas.BifrostContext
 
 	req.SetBody(body.Bytes())
 
+	startTime := time.Now()
 	// Make the request
 	err := provider.streamingClient.Do(req, resp)
 	if err != nil {
-		defer providerUtils.ReleaseStreamingResponse(resp)
+		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
 		if errors.Is(err, context.Canceled) {
 			return nil, &schemas.BifrostError{
 				IsBifrostError: false,
@@ -726,8 +450,8 @@ func (provider *MistralProvider) TranscriptionStream(ctx *schemas.BifrostContext
 
 	// Check for HTTP errors
 	if resp.StatusCode() != fasthttp.StatusOK {
-		defer providerUtils.ReleaseStreamingResponse(resp)
-		return nil, ParseMistralErrorWithMetadata(resp, providerName, schemas.TranscriptionStreamRequest, request.Model)
+		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
+		return nil, ParseMistralError(resp)
 	}
 
 	// Large payload streaming passthrough — pipe raw upstream SSE to client
@@ -752,13 +476,13 @@ func (provider *MistralProvider) TranscriptionStream(ctx *schemas.BifrostContext
 			}
 			close(responseChan)
 		}()
-		defer providerUtils.ReleaseStreamingResponse(resp)
+		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
 		// Decompress gzip-encoded streams transparently (no-op for non-gzip)
 		reader, releaseGzip := providerUtils.DecompressStreamBody(resp)
 		defer releaseGzip()
 
 		// Wrap reader with idle timeout to detect stalled streams.
-		reader, stopIdleTimeout := providerUtils.NewIdleTimeoutReader(reader, resp.BodyStream(), providerUtils.GetStreamIdleTimeout(ctx))
+		reader, stopIdleTimeout := providerUtils.NewIdleTimeoutReader(reader, resp.BodyStream(), providerUtils.GetStreamIdleTimeout(ctx), ctx)
 		defer stopIdleTimeout()
 
 		// Setup cancellation handler to close the raw network stream on ctx cancellation,
@@ -770,7 +494,6 @@ func (provider *MistralProvider) TranscriptionStream(ctx *schemas.BifrostContext
 		sseReader := providerUtils.GetSSEEventReader(ctx, reader)
 		chunkIndex := -1
 
-		startTime := time.Now()
 		lastChunkTime := startTime
 
 		for {
@@ -781,11 +504,11 @@ func (provider *MistralProvider) TranscriptionStream(ctx *schemas.BifrostContext
 
 			eventType, eventDataBytes, readErr := sseReader.ReadEvent()
 			if readErr != nil {
+				// If context was cancelled/timed out, let defer handle it
+				if ctx.Err() != nil {
+					return
+				}
 				if readErr != io.EOF {
-					// If context was cancelled/timed out, let defer handle it
-					if ctx.Err() != nil {
-						return
-					}
 					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
 					provider.logger.Warn("Error reading stream: %v", readErr)
 					providerUtils.ProcessAndSendError(ctx, postHookRunner, readErr, responseChan, provider.logger, postHookSpanFinalizer)
@@ -881,6 +604,122 @@ func (provider *MistralProvider) processTranscriptionStreamEvent(
 	}
 
 	providerUtils.ProcessAndSendResponse(ctx, postHookRunner, providerUtils.GetBifrostResponseForStreamResponse(nil, nil, nil, nil, response, nil), responseChan, postHookSpanFinalizer)
+}
+
+// Rerank is not supported by the Mistral provider.
+func (provider *MistralProvider) Rerank(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostRerankRequest) (*schemas.BifrostRerankResponse, *schemas.BifrostError) {
+	return nil, providerUtils.NewUnsupportedOperationError(schemas.RerankRequest, provider.GetProviderKey())
+}
+
+// OCR performs an OCR request to the Mistral API.
+// It sends a JSON request to Mistral's OCR endpoint and returns the extracted content.
+func (provider *MistralProvider) OCR(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostOCRRequest) (*schemas.BifrostOCRResponse, *schemas.BifrostError) {
+	// Convert Bifrost request to Mistral format
+	mistralReq := ToMistralOCRRequest(request)
+	if mistralReq == nil {
+		return nil, providerUtils.NewBifrostOperationError("ocr request input is not provided", nil)
+	}
+
+	// Marshal request body
+	requestBody, err := sonic.Marshal(mistralReq)
+	if err != nil {
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err)
+	}
+
+	// Merge extra params into JSON payload
+	if len(mistralReq.ExtraParams) > 0 {
+		requestBody, err = providerUtils.MergeExtraParamsIntoJSON(requestBody, mistralReq.ExtraParams)
+		if err != nil {
+			return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderRequestMarshal, err)
+		}
+	}
+
+	// Create HTTP request
+	req := fasthttp.AcquireRequest()
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseRequest(req)
+	defer fasthttp.ReleaseResponse(resp)
+
+	// Set extra headers from network config
+	providerUtils.SetExtraHeaders(ctx, req, provider.networkConfig.ExtraHeaders, nil)
+
+	req.SetRequestURI(provider.networkConfig.BaseURL + providerUtils.GetPathFromContext(ctx, "/v1/ocr"))
+	req.Header.SetMethod(http.MethodPost)
+	req.Header.SetContentType("application/json")
+	if key.Value.GetValue() != "" {
+		req.Header.Set("Authorization", "Bearer "+key.Value.GetValue())
+	}
+
+	req.SetBody(requestBody)
+
+	// Set raw request if enabled
+	if providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest) {
+		request.RawRequestBody = requestBody
+	}
+
+	// Make request
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	defer wait()
+	if bifrostErr != nil {
+		return nil, bifrostErr
+	}
+
+	// Handle error response
+	if resp.StatusCode() != fasthttp.StatusOK {
+		return nil, ParseMistralError(resp)
+	}
+
+	responseBody, err := providerUtils.CheckAndDecodeBody(resp)
+	if err != nil {
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err)
+	}
+
+	// Check for empty response
+	trimmed := strings.TrimSpace(string(responseBody))
+	if len(trimmed) == 0 {
+		return nil, &schemas.BifrostError{
+			IsBifrostError: true,
+			Error: &schemas.ErrorField{
+				Message: schemas.ErrProviderResponseEmpty,
+			},
+		}
+	}
+
+	copiedResponseBody := append([]byte(nil), responseBody...)
+
+	// Parse Mistral's OCR response
+	var mistralResponse MistralOCRResponse
+	if err := sonic.Unmarshal(copiedResponseBody, &mistralResponse); err != nil {
+		if providerUtils.IsHTMLResponse(resp, copiedResponseBody) {
+			return nil, &schemas.BifrostError{
+				IsBifrostError: false,
+				Error: &schemas.ErrorField{
+					Message: schemas.ErrProviderResponseHTML,
+					Error:   errors.New(string(copiedResponseBody)),
+				},
+			}
+		}
+		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseUnmarshal, err)
+	}
+
+	// Convert to Bifrost format
+	response := mistralResponse.ToBifrostOCRResponse()
+	if response == nil {
+		return nil, providerUtils.NewBifrostOperationError("failed to convert ocr response", nil)
+	}
+
+	// Set extra fields
+	response.ExtraFields.Latency = latency.Milliseconds()
+
+	// Set raw response if enabled
+	if providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse) {
+		var rawResponse interface{}
+		if err := sonic.Unmarshal(copiedResponseBody, &rawResponse); err == nil {
+			response.ExtraFields.RawResponse = rawResponse
+		}
+	}
+
+	return response, nil
 }
 
 // BatchCreate is not supported by Mistral provider.

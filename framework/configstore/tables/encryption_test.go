@@ -96,7 +96,6 @@ func TestTableKey_AzureFieldsEncryptDecrypt(t *testing.T) {
 
 	endpoint := schemas.NewEnvVar("https://my-azure.openai.azure.com")
 	clientSecret := schemas.NewEnvVar("azure-secret-123")
-	apiVersion := schemas.NewEnvVar("2024-10-21")
 
 	key := &TableKey{
 		Name:       "azure-key",
@@ -109,7 +108,6 @@ func TestTableKey_AzureFieldsEncryptDecrypt(t *testing.T) {
 			ClientID:     schemas.NewEnvVar("azure-client-id-123"),
 			ClientSecret: clientSecret,
 			TenantID:     schemas.NewEnvVar("azure-tenant-id-456"),
-			APIVersion:   apiVersion,
 		},
 	}
 
@@ -122,7 +120,6 @@ func TestTableKey_AzureFieldsEncryptDecrypt(t *testing.T) {
 	assert.NotEqual(t, "azure-client-id-123", raw["azure_client_id"])
 	assert.NotEqual(t, "azure-secret-123", raw["azure_client_secret"])
 	assert.NotEqual(t, "azure-tenant-id-456", raw["azure_tenant_id"])
-	assert.NotEqual(t, "2024-10-21", raw["azure_api_version"])
 
 	// Verify reading back decrypts and reconstructs AzureKeyConfig
 	var found TableKey
@@ -135,8 +132,6 @@ func TestTableKey_AzureFieldsEncryptDecrypt(t *testing.T) {
 	assert.Equal(t, "azure-secret-123", found.AzureKeyConfig.ClientSecret.GetValue())
 	require.NotNil(t, found.AzureKeyConfig.TenantID)
 	assert.Equal(t, "azure-tenant-id-456", found.AzureKeyConfig.TenantID.GetValue())
-	require.NotNil(t, found.AzureKeyConfig.APIVersion)
-	assert.Equal(t, "2024-10-21", found.AzureKeyConfig.APIVersion.GetValue())
 }
 
 func TestTableKey_VertexFieldsEncryptDecrypt(t *testing.T) {
@@ -237,7 +232,7 @@ func TestTableKey_BedrockFieldsEncryptDecrypt(t *testing.T) {
 	assert.True(t, found.BedrockKeyConfig.BatchS3Config.Buckets[0].IsDefault)
 }
 
-func TestTableKey_DeprecatedProviderDeploymentsRoundTripViaAliases(t *testing.T) {
+func TestTableKey_AliasesRoundTrip(t *testing.T) {
 	db := setupTestDB(t)
 
 	assert.False(t, db.Migrator().HasColumn(&TableKey{}, "azure_deployments"))
@@ -246,65 +241,56 @@ func TestTableKey_DeprecatedProviderDeploymentsRoundTripViaAliases(t *testing.T)
 
 	keys := []*TableKey{
 		{
-			Name:       "azure-deployments-via-aliases",
+			Name:       "azure-aliases",
 			ProviderID: 1,
 			Provider:   "azure",
-			KeyID:      "azure-deployments-via-aliases",
+			KeyID:      "azure-aliases",
 			Value:      *schemas.NewEnvVar("azure-api-key"),
-			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Deployments: map[string]string{
-					"gpt-4o": "azure-gpt4o-deployment",
-				},
+			Aliases: schemas.KeyAliases{
+				"gpt-4o": "azure-gpt4o-deployment",
 			},
+			AzureKeyConfig: &schemas.AzureKeyConfig{},
 		},
 		{
-			Name:       "vertex-deployments-via-aliases",
+			Name:       "vertex-aliases",
 			ProviderID: 1,
 			Provider:   "vertex",
-			KeyID:      "vertex-deployments-via-aliases",
+			KeyID:      "vertex-aliases",
 			Value:      *schemas.NewEnvVar("vertex-api-key"),
-			VertexKeyConfig: &schemas.VertexKeyConfig{
-				Deployments: map[string]string{
-					"gemini-1.5-pro": "vertex-gemini-endpoint",
-				},
+			Aliases: schemas.KeyAliases{
+				"gemini-1.5-pro": "vertex-gemini-endpoint",
 			},
+			VertexKeyConfig: &schemas.VertexKeyConfig{},
 		},
 		{
-			Name:       "bedrock-deployments-via-aliases",
+			Name:       "bedrock-aliases",
 			ProviderID: 1,
 			Provider:   "bedrock",
-			KeyID:      "bedrock-deployments-via-aliases",
+			KeyID:      "bedrock-aliases",
 			Value:      *schemas.NewEnvVar("bedrock-api-key"),
-			BedrockKeyConfig: &schemas.BedrockKeyConfig{
-				Deployments: map[string]string{
-					"claude-3-sonnet": "bedrock-inference-profile",
-				},
+			Aliases: schemas.KeyAliases{
+				"claude-3-sonnet": "bedrock-inference-profile",
 			},
+			BedrockKeyConfig: &schemas.BedrockKeyConfig{},
 		},
 	}
 
 	for _, key := range keys {
 		require.NoError(t, db.Create(key).Error)
 		raw := rawRow(t, db, "config_keys", key.ID)
-		require.NotNil(t, raw["aliases_json"], "aliases_json should store deprecated deployment mappings")
+		require.NotNil(t, raw["aliases_json"], "aliases_json should store aliases")
 	}
 
 	var azureFound, vertexFound, bedrockFound TableKey
-	require.NoError(t, db.Where("key_id = ?", "azure-deployments-via-aliases").First(&azureFound).Error)
-	require.NoError(t, db.Where("key_id = ?", "vertex-deployments-via-aliases").First(&vertexFound).Error)
-	require.NoError(t, db.Where("key_id = ?", "bedrock-deployments-via-aliases").First(&bedrockFound).Error)
+	require.NoError(t, db.Where("key_id = ?", "azure-aliases").First(&azureFound).Error)
+	require.NoError(t, db.Where("key_id = ?", "vertex-aliases").First(&vertexFound).Error)
+	require.NoError(t, db.Where("key_id = ?", "bedrock-aliases").First(&bedrockFound).Error)
 
 	assert.Equal(t, schemas.KeyAliases{"gpt-4o": "azure-gpt4o-deployment"}, azureFound.Aliases)
-	require.NotNil(t, azureFound.AzureKeyConfig)
-	assert.Equal(t, map[string]string{"gpt-4o": "azure-gpt4o-deployment"}, azureFound.AzureKeyConfig.Deployments)
 
 	assert.Equal(t, schemas.KeyAliases{"gemini-1.5-pro": "vertex-gemini-endpoint"}, vertexFound.Aliases)
-	require.NotNil(t, vertexFound.VertexKeyConfig)
-	assert.Equal(t, map[string]string{"gemini-1.5-pro": "vertex-gemini-endpoint"}, vertexFound.VertexKeyConfig.Deployments)
 
 	assert.Equal(t, schemas.KeyAliases{"claude-3-sonnet": "bedrock-inference-profile"}, bedrockFound.Aliases)
-	require.NotNil(t, bedrockFound.BedrockKeyConfig)
-	assert.Equal(t, map[string]string{"claude-3-sonnet": "bedrock-inference-profile"}, bedrockFound.BedrockKeyConfig.Deployments)
 }
 
 func TestTableKey_EnvVarNotEncrypted(t *testing.T) {
@@ -1237,7 +1223,6 @@ func TestTableKey_AllProviderConfigs_EncryptDecrypt(t *testing.T) {
 			ClientID:     schemas.NewEnvVar("multi-azure-cid"),
 			ClientSecret: schemas.NewEnvVar("azure-cs"),
 			TenantID:     schemas.NewEnvVar("multi-azure-tid"),
-			APIVersion:   schemas.NewEnvVar("2024-10-21"),
 		},
 		VertexKeyConfig: &schemas.VertexKeyConfig{
 			AuthCredentials: *schemas.NewEnvVar(`{"type":"sa"}`),
@@ -1261,7 +1246,6 @@ func TestTableKey_AllProviderConfigs_EncryptDecrypt(t *testing.T) {
 	assert.Equal(t, "encrypted", raw["encryption_status"])
 	assert.NotEqual(t, "multi-azure-cid", raw["azure_client_id"])
 	assert.NotEqual(t, "multi-azure-tid", raw["azure_tenant_id"])
-	assert.NotEqual(t, "2024-10-21", raw["azure_api_version"])
 	assert.NotEqual(t, "proj-123", raw["vertex_project_id"])
 	assert.NotEqual(t, "987654321", raw["vertex_project_number"])
 	assert.NotEqual(t, "us-central1", raw["vertex_region"])
@@ -1291,8 +1275,6 @@ func TestTableKey_AllProviderConfigs_EncryptDecrypt(t *testing.T) {
 	assert.Equal(t, "azure-cs", found.AzureKeyConfig.ClientSecret.GetValue())
 	require.NotNil(t, found.AzureKeyConfig.TenantID)
 	assert.Equal(t, "multi-azure-tid", found.AzureKeyConfig.TenantID.GetValue())
-	require.NotNil(t, found.AzureKeyConfig.APIVersion)
-	assert.Equal(t, "2024-10-21", found.AzureKeyConfig.APIVersion.GetValue())
 
 	require.NotNil(t, found.VertexKeyConfig)
 	assert.Equal(t, `{"type":"sa"}`, found.VertexKeyConfig.AuthCredentials.GetValue())
@@ -1680,36 +1662,7 @@ func forEachDB(t *testing.T) []namedDB {
 // ============================================================================
 
 func TestEncryptedColumns_AzureAPIVersion_FitsAfterWidening(t *testing.T) {
-	// "2024-02-01-preview" is 18 chars — encrypts to ~62 chars.
-	// This overflowed the old varchar(50) column.
-	apiVersion := schemas.NewEnvVar("2024-02-01-preview")
-
-	for _, ndb := range forEachDB(t) {
-		ndb := ndb
-		t.Run(ndb.name, func(t *testing.T) {
-			providerID := createTestProvider(t, ndb.db, "azure-av-provider-"+ndb.name)
-			key := &TableKey{
-				Name:       "azure-apiversion-width-" + ndb.name,
-				ProviderID: providerID,
-				Provider:   "azure",
-				KeyID:      "az-av-width-" + ndb.name,
-				Value:      *schemas.NewEnvVar("sk-azure-key"),
-				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
-					APIVersion: apiVersion,
-				},
-			}
-
-			require.NoError(t, ndb.db.Create(key).Error,
-				"expected no overflow error — azure_api_version should be text")
-
-			var found TableKey
-			require.NoError(t, ndb.db.First(&found, key.ID).Error)
-			require.NotNil(t, found.AzureKeyConfig)
-			require.NotNil(t, found.AzureKeyConfig.APIVersion)
-			assert.Equal(t, "2024-02-01-preview", found.AzureKeyConfig.APIVersion.GetValue())
-		})
-	}
+	t.Skip("azure_api_version column has been removed from AzureKeyConfig")
 }
 
 func TestEncryptedColumns_VertexRegion_FitsAfterWidening(t *testing.T) {
@@ -1787,7 +1740,7 @@ func TestPostgres_EncryptedColumns_AreText(t *testing.T) {
 		DataType string `gorm:"column:data_type"`
 	}
 
-	columns := []string{"azure_api_version", "vertex_region", "bedrock_region"}
+	columns := []string{"vertex_region", "bedrock_region"}
 	for _, col := range columns {
 		col := col
 		t.Run(col, func(t *testing.T) {
@@ -1892,37 +1845,6 @@ func TestTableKey_AzureUnresolvedEnvVar_RoundTrip(t *testing.T) {
 		"env var reference for Endpoint lost on round-trip")
 	assert.True(t, found.AzureKeyConfig.Endpoint.FromEnv,
 		"FromEnv flag for Endpoint lost on round-trip")
-}
-
-// TestTableKey_AzureOnlyApiVersion_AfterFindReconstructs verifies that AzureKeyConfig
-// is reconstructed from the DB even when ONLY a non-endpoint Azure field is set.
-// Before the fix, AfterFind only checked AzureEndpoint != nil and would silently drop
-// the entire Azure config when only api_version (or any other Azure field) was present.
-func TestTableKey_AzureOnlyApiVersion_AfterFindReconstructs(t *testing.T) {
-	db := setupTestDB(t)
-
-	apiVersion := schemas.NewEnvVar("2024-10-21")
-	key := &TableKey{
-		Name:       "azure-only-apiversion",
-		ProviderID: 1,
-		Provider:   "azure",
-		KeyID:      "azure-apiver-uuid-1",
-		Value:      *schemas.NewEnvVar(""),
-		AzureKeyConfig: &schemas.AzureKeyConfig{
-			// No endpoint, no client id — only api_version.
-			APIVersion: apiVersion,
-		},
-	}
-
-	require.NoError(t, db.Create(key).Error)
-
-	var found TableKey
-	require.NoError(t, db.First(&found, key.ID).Error)
-
-	require.NotNil(t, found.AzureKeyConfig,
-		"AzureKeyConfig should be reconstructed when only api_version is present")
-	require.NotNil(t, found.AzureKeyConfig.APIVersion)
-	assert.Equal(t, "2024-10-21", found.AzureKeyConfig.APIVersion.GetValue())
 }
 
 // TestTableKey_BedrockUnresolvedEnvVar_RoundTrip verifies the same property for

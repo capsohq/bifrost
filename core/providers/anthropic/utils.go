@@ -100,7 +100,7 @@ func ValidateToolsForProvider(tools []schemas.ResponsesTool, provider schemas.Mo
 	for _, tool := range tools {
 		switch tool.Type {
 		case schemas.ResponsesToolTypeWebSearch, schemas.ResponsesToolTypeWebSearchPreview:
-			if !features.WebSearch {
+			if !features.WebSearch && !features.WebSearchNova {
 				return fmt.Errorf("tool type '%s' is not supported by provider '%s'", tool.Type, provider)
 			}
 		case schemas.ResponsesToolTypeWebFetch:
@@ -108,7 +108,7 @@ func ValidateToolsForProvider(tools []schemas.ResponsesTool, provider schemas.Mo
 				return fmt.Errorf("tool type '%s' is not supported by provider '%s'", tool.Type, provider)
 			}
 		case schemas.ResponsesToolTypeCodeInterpreter:
-			if !features.CodeExecution {
+			if !features.CodeExecution && !features.CodeExecNova {
 				return fmt.Errorf("tool type '%s' is not supported by provider '%s'", tool.Type, provider)
 			}
 		case schemas.ResponsesToolTypeComputerUsePreview:
@@ -230,6 +230,9 @@ func stripUnsupportedAnthropicFields(req *AnthropicMessageRequest, provider sche
 	}
 	if req.InferenceGeo != nil && !features.InferenceGeo {
 		req.InferenceGeo = nil
+	}
+	if req.ServiceTier != nil && !features.ServiceTier {
+		req.ServiceTier = nil
 	}
 	// cache_control.scope — strip on providers without PromptCachingScope
 	// support at every slot scope can live: top-level request, tools, system
@@ -384,6 +387,14 @@ func StripUnsupportedFieldsFromRawBody(jsonBody []byte, provider schemas.ModelPr
 		jsonBody, err = providerUtils.DeleteJSONField(jsonBody, "inference_geo")
 		if err != nil {
 			return nil, fmt.Errorf("strip raw inference_geo: %w", err)
+		}
+	}
+
+	// service_tier — Vertex uses HTTP headers instead of a request body field
+	if !features.ServiceTier && providerUtils.JSONFieldExists(jsonBody, "service_tier") {
+		jsonBody, err = providerUtils.DeleteJSONField(jsonBody, "service_tier")
+		if err != nil {
+			return nil, fmt.Errorf("strip raw service_tier: %w", err)
 		}
 	}
 
@@ -1846,6 +1857,60 @@ func convertMapToToolFunctionParameters(m map[string]interface{}) *schemas.ToolF
 }
 
 // ConvertAnthropicFinishReasonToBifrost converts provider finish reasons to Bifrost format
+// MapAnthropicRequestServiceTierToBifrost maps Anthropic request service_tier values back to Bifrost/OpenAI values.
+// Anthropic request values: "auto" or "standard_only".
+func MapAnthropicRequestServiceTierToBifrost(tier string) schemas.BifrostServiceTier {
+	switch tier {
+	case "standard_only":
+		return schemas.BifrostServiceTierDefault
+	case "auto":
+		return schemas.BifrostServiceTierAuto
+	default:
+		return schemas.BifrostServiceTierAuto
+	}
+}
+
+// MapBifrostServiceTierToAnthropicRequest maps OpenAI-compatible service_tier request values to Anthropic's two allowed values.
+// Anthropic only supports "auto" (use priority if available) or "standard_only" (always standard).
+func MapBifrostServiceTierToAnthropicRequest(tier schemas.BifrostServiceTier) string {
+	switch tier {
+	case schemas.BifrostServiceTierAuto, schemas.BifrostServiceTierPriority:
+		return "auto"
+	case schemas.BifrostServiceTierDefault, schemas.BifrostServiceTierFlex:
+		return "standard_only"
+	default:
+		return "auto"
+	}
+}
+
+// MapAnthropicServiceTierToBifrost maps Anthropic response service_tier values to OpenAI-compatible Bifrost values.
+// Anthropic response values: "standard", "priority", "batch".
+func MapAnthropicServiceTierToBifrost(tier string) schemas.BifrostServiceTier {
+	switch tier {
+	case "standard":
+		return schemas.BifrostServiceTierDefault
+	case "priority":
+		return schemas.BifrostServiceTierPriority
+	default:
+		return schemas.BifrostServiceTier(tier)
+	}
+}
+
+// MapBifrostServiceTierToAnthropicResponse maps Bifrost/OpenAI response service_tier values back to Anthropic wire format.
+// Used when re-encoding a Bifrost response into Anthropic format.
+func MapBifrostServiceTierToAnthropicResponse(tier schemas.BifrostServiceTier) string {
+	switch tier {
+	case schemas.BifrostServiceTierDefault:
+		return "standard"
+	case schemas.BifrostServiceTierPriority:
+		return "priority"
+	case schemas.BifrostServiceTierAuto, schemas.BifrostServiceTierFlex:
+		return "standard"
+	default:
+		return string(tier)
+	}
+}
+
 func ConvertAnthropicFinishReasonToBifrost(providerReason AnthropicStopReason) string {
 	if bifrostReason, ok := anthropicFinishReasonToBifrost[providerReason]; ok {
 		return bifrostReason
@@ -2652,6 +2717,14 @@ func convertResponsesTextConfigToAnthropicOutputFormat(textConfig *schemas.Respo
 
 		if len(format.JSONSchema.Required) > 0 {
 			schema["required"] = format.JSONSchema.Required
+		}
+
+		if format.JSONSchema.Defs != nil {
+			schema["$defs"] = *format.JSONSchema.Defs
+		}
+
+		if format.JSONSchema.Definitions != nil {
+			schema["definitions"] = *format.JSONSchema.Definitions
 		}
 
 		if format.JSONSchema.Type != nil && *format.JSONSchema.Type == "object" {

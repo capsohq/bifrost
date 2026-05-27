@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       skip_tests:
-        description: 'Skip all tests and jump directly to release (admin only)'
+        description: "Skip all tests and jump directly to release (admin only)"
         required: false
         type: boolean
         default: false
@@ -16,11 +16,6 @@ on:
 concurrency:
   group: release-pipeline
   cancel-in-progress: false
-
-# docker/login-action still declares node20 as of v3.7.0; force JS actions onto Node 24 until upstream moves.
-# Temporary exception tracked in .github/action-runtime-exceptions.json.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 permissions:
   contents: read
@@ -55,7 +50,7 @@ jobs:
       - name: Validate admin permission for skip_tests
         id: skip_tests
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.skip_tests }}" == "true" ]]; then
             PERMISSION=$(gh api repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
@@ -87,7 +82,6 @@ jobs:
       transport-version: ${{ steps.detect.outputs.transport-version }}
     steps:
       - name: Harden Runner
-        continue-on-error: true
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
@@ -96,11 +90,15 @@ jobs:
             _https._tcp.esm.ubuntu.com:443
             _https._tcp.motd.ubuntu.com:443
             _https._tcp.packages.microsoft.com:443
+            _https._tcp.dl.google.com:443
+            motd.ubuntu.com:443
+            dl.google.com:443
             api.github.com:443
             azure.archive.ubuntu.com:80
-            dl.google.com:443
             esm.ubuntu.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             packages.microsoft.com:443
             proxy.golang.org:443
             registry.hub.docker.com:443
@@ -152,7 +150,6 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        continue-on-error: true
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
@@ -168,12 +165,15 @@ jobs:
             api.openai.com:443
             api.parasail.io:443
             api.perplexity.ai:443
+            bifrost-gateway-resource.openai.azure.com:443
             bedrock-runtime.us-east-1.amazonaws.com:443
             bedrock.us-east-1.amazonaws.com:443
             bifrost-batch-api-file-upload-testing.s3.us-east-1.amazonaws.com:443
             fal.media:443
             generativelanguage.googleapis.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             huggingface.co:443
             login.microsoftonline.com:443
             maxim-o1.openai.azure.com:443
@@ -198,7 +198,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -296,6 +296,7 @@ jobs:
             github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             release-assets.githubusercontent.com:443
@@ -378,8 +379,11 @@ jobs:
             _grpc_config.localhost:443
             _http._tcp.azure.archive.ubuntu.com:443
             _https._tcp.esm.ubuntu.com:443
+            _https._tcp.dl.google.com:443
             _https._tcp.motd.ubuntu.com:443
             _https._tcp.packages.microsoft.com:443
+            production.cloudfront.docker.com:443
+            dl.google.com:443
             api.github.com:443
             api.openai.com:443
             auth.docker.io:443
@@ -390,8 +394,8 @@ jobs:
             getbifrost.ai:443
             ghcr.io:443
             github.com:443
-            packages.microsoft.com:443
             pkg-containers.githubusercontent.com:443
+            packages.microsoft.com:443
             production.cloudflare.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
@@ -473,14 +477,21 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        continue-on-error: true
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
+          # bifrost-http binary runs on the host and connects to Postgres via
+          # the published port mapping (5432:5432) at 127.0.0.1. The integration
+          # test configs in .github/workflows/configs/*/config.json use
+          # "host": "localhost". The 172.38.0.12 entries below are weaviate's
+          # pinned bridge IP from .github/workflows/configs/docker-compose.yml;
+          # they are kept for any container-to-container traffic but the binary
+          # itself reaches weaviate via 127.0.0.1:9000 (published port).
           allowed-endpoints: >
+            127.0.0.1:5432
             172.38.0.12:8080
             172.38.0.12:8301
-            172.38.0.2:5432
+            iojs.org:443
             api.github.com:443
             auth.docker.io:443
             codecov.io:443
@@ -491,8 +502,11 @@ jobs:
             fonts.gstatic.com:443
             getbifrost.ai:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -515,7 +529,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -552,8 +566,14 @@ jobs:
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
+          # Migration test binary runs on the host (not in a container) and
+          # connects to Postgres via the published port mapping (5432:5432) at
+          # 127.0.0.1. See run-migration-tests.sh:46 (POSTGRES_HOST defaults to
+          # localhost).
           allowed-endpoints: >
-            172.38.0.2:5432
+            127.0.0.1:5432
+            172.38.0.12:8080
+            172.38.0.12:8301
             api.anthropic.com:443
             api.github.com:443
             api.openai.com:443
@@ -561,8 +581,11 @@ jobs:
             downloads.getmaxim.ai:443
             getbifrost.ai:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -582,7 +605,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -614,12 +637,16 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        continue-on-error: true
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
+          # API integrations test compiles bifrost-http and runs it on the host
+          # (not in a container), connecting to Postgres via the published port
+          # mapping (5432:5432) at 127.0.0.1. See test-api-integrations.sh which
+          # defaults POSTGRES_HOST to localhost.
           allowed-endpoints: >
-            172.38.0.2:5432
+            127.0.0.1:5432
+            iojs.org:443
             api.anthropic.com:443
             api.cerebras.ai:443
             api.cohere.ai:443
@@ -640,12 +667,13 @@ jobs:
             getbifrost.ai:443
             ghcr.io:443
             github.com:443
+            pkg-containers.githubusercontent.com:443
             huggingface.co:443
             maxim-o1.openai.azure.com:443
             nodejs.org:443
             openrouter.ai:443
-            pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -667,12 +695,12 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
       - name: Install Newman
-        run: npm install -g newman newman-reporter-htmlextra
+        run: npm install -g newman@6.2.1 newman-reporter-htmlextra@1.23.1
 
       - name: Set up Docker Compose
         run: |
@@ -739,7 +767,17 @@ jobs:
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
+          # 172.28.0.16:5432 is the pinned postgres IP from
+          # tests/docker-compose.yml (postgres.networks.bifrost_network.ipv4_address).
+          # It's also referenced as the literal "host" value in the config.json
+          # generated by .github/workflows/scripts/test-docker-image.sh - the
+          # hostname "postgres" can't be used because harden-runner interferes
+          # with Docker's embedded DNS at 127.0.0.11:53. Keep all three files
+          # in sync; drift here will block egress to Postgres during the docker
+          # image test.
           allowed-endpoints: >
+            127.0.0.11:53
+            172.28.0.16:5432
             api.anthropic.com:443
             api.cerebras.ai:443
             api.cohere.ai:443
@@ -759,12 +797,13 @@ jobs:
             getbifrost.ai:443
             ghcr.io:443
             github.com:443
+            pkg-containers.githubusercontent.com:443
             huggingface.co:443
             maxim-o1.openai.azure.com:443
             nodejs.org:443
             openrouter.ai:443
-            pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -786,7 +825,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -794,7 +833,7 @@ jobs:
         run: npm install -g newman newman-reporter-htmlextra
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Test Docker image (amd64)
         env:
@@ -848,7 +887,17 @@ jobs:
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
         with:
           egress-policy: block
+          # 172.28.0.16:5432 is the pinned postgres IP from
+          # tests/docker-compose.yml (postgres.networks.bifrost_network.ipv4_address).
+          # It's also referenced as the literal "host" value in the config.json
+          # generated by .github/workflows/scripts/test-docker-image.sh - the
+          # hostname "postgres" can't be used because harden-runner interferes
+          # with Docker's embedded DNS at 127.0.0.11:53. Keep all three files
+          # in sync; drift here will block egress to Postgres during the docker
+          # image test.
           allowed-endpoints: >
+            127.0.0.11:53
+            172.28.0.16:5432
             api.anthropic.com:443
             api.cerebras.ai:443
             api.cohere.ai:443
@@ -868,12 +917,13 @@ jobs:
             getbifrost.ai:443
             ghcr.io:443
             github.com:443
+            pkg-containers.githubusercontent.com:443
             huggingface.co:443
             maxim-o1.openai.azure.com:443
             nodejs.org:443
             openrouter.ai:443
-            pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -895,15 +945,15 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "24"
+          node-version: "25"
 
       - name: Install Newman
         run: npm install -g newman newman-reporter-htmlextra
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Test Docker image (arm64)
         env:
@@ -964,6 +1014,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     outputs:
       success: ${{ steps.release.outputs.success }}
       version: ${{ needs.detect-changes.outputs.core-version }}
@@ -975,6 +1026,8 @@ jobs:
           allowed-endpoints: >
             api.github.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             release-assets.githubusercontent.com:443
 
@@ -983,7 +1036,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
@@ -991,7 +1044,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -1003,7 +1056,7 @@ jobs:
       - name: Release core
         id: release
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           MAXIM_API_KEY: ${{ secrets.MAXIM_API_KEY }}
           MAXIM_LOGGER_ID: ${{ secrets.MAXIM_LOG_REPO_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -1038,7 +1091,7 @@ jobs:
           AWS_BEDROCK_ROLE_ARN: ${{ secrets.AWS_BEDROCK_ROLE_ARN }}
           REPLICATE_API_KEY: ${{ secrets.REPLICATE_API_KEY }}
           REPLICATE_OWNER: ${{ secrets.REPLICATE_OWNER }}
-          RUNWAY_API_KEY : ${{ secrets.RUNWAY_API_KEY }}
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
         run: ./.github/workflows/scripts/release-core.sh "${{ needs.detect-changes.outputs.core-version }}"
 
   framework-release:
@@ -1061,6 +1114,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     outputs:
       success: ${{ steps.release.outputs.success }}
       version: ${{ needs.detect-changes.outputs.framework-version }}
@@ -1072,6 +1126,8 @@ jobs:
           allowed-endpoints: >
             api.github.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             proxy.golang.org:443
             release-assets.githubusercontent.com:443
             storage.googleapis.com:443
@@ -1082,7 +1138,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
@@ -1112,7 +1168,7 @@ jobs:
       - name: Release framework
         id: release
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           MAXIM_API_KEY: ${{ secrets.MAXIM_API_KEY }}
           MAXIM_LOGGER_ID: ${{ secrets.MAXIM_LOG_REPO_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -1145,7 +1201,7 @@ jobs:
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           REPLICATE_API_KEY: ${{ secrets.REPLICATE_API_KEY }}
           REPLICATE_OWNER: ${{ secrets.REPLICATE_OWNER }}
-          RUNWAY_API_KEY : ${{ secrets.RUNWAY_API_KEY }}
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
         run: ./.github/workflows/scripts/release-framework.sh "${{ needs.detect-changes.outputs.framework-version }}"
 
   plugins-release:
@@ -1169,6 +1225,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     outputs:
       success: ${{ steps.release.outputs.success }}
     steps:
@@ -1185,6 +1242,8 @@ jobs:
             azure.archive.ubuntu.com:80
             esm.ubuntu.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             packages.microsoft.com:443
             proxy.golang.org:443
@@ -1197,7 +1256,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Install jq
         run: |
@@ -1210,7 +1269,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -1237,7 +1296,7 @@ jobs:
       - name: Release all changed plugins
         id: release
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           MAXIM_API_KEY: ${{ secrets.MAXIM_API_KEY }}
           MAXIM_LOGGER_ID: ${{ secrets.MAXIM_LOG_REPO_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -1270,7 +1329,7 @@ jobs:
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           REPLICATE_API_KEY: ${{ secrets.REPLICATE_API_KEY }}
           REPLICATE_OWNER: ${{ secrets.REPLICATE_OWNER }}
-          RUNWAY_API_KEY : ${{ secrets.RUNWAY_API_KEY }}
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
         run: ./.github/workflows/scripts/release-all-plugins.sh '${{ needs.detect-changes.outputs.changed-plugins }}'
 
   # Prep: update dependencies, validate build, commit/push
@@ -1296,6 +1355,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     outputs:
       success: ${{ steps.prep.outputs.success }}
     steps:
@@ -1308,6 +1368,8 @@ jobs:
             fonts.googleapis.com:443
             fonts.gstatic.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             proxy.golang.org:443
             registry.npmjs.org:443
@@ -1320,7 +1382,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
@@ -1328,7 +1390,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -1340,7 +1402,7 @@ jobs:
       - name: Prep bifrost-http release
         id: prep
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: ./.github/workflows/scripts/release-bifrost-http-prep.sh "${{ needs.detect-changes.outputs.transport-version }}"
 
   # Build darwin, windows, linux/amd64 binaries and upload to R2
@@ -1368,6 +1430,8 @@ jobs:
             fonts.googleapis.com:443
             fonts.gstatic.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             packages.microsoft.com:443
             proxy.golang.org:443
@@ -1381,7 +1445,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Pull latest changes
         run: git pull origin ${{ github.ref_name }}
@@ -1392,7 +1456,7 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "25"
 
@@ -1405,27 +1469,7 @@ jobs:
       - name: Build executables
         run: bash ./.github/workflows/scripts/build-executables.sh "${{ needs.detect-changes.outputs.transport-version }}" "darwin/amd64 darwin/arm64 linux/amd64 windows/amd64"
 
-      - name: Detect R2 configuration
-        id: r2
-        env:
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          has_r2_auth=false
-          has_r2_upload=false
-          if [[ -n "${R2_ENDPOINT}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" ]]; then
-            has_r2_auth=true
-          fi
-          if [[ "${has_r2_auth}" == "true" && -n "${R2_BUCKET}" ]]; then
-            has_r2_upload=true
-          fi
-          echo "has_r2_auth=${has_r2_auth}" >> "$GITHUB_OUTPUT"
-          echo "has_r2_upload=${has_r2_upload}" >> "$GITHUB_OUTPUT"
-
       - name: Configure R2
-        if: steps.r2.outputs.has_r2_auth == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -1433,7 +1477,6 @@ jobs:
         run: bash ./.github/workflows/scripts/configure-r2.sh
 
       - name: Upload to R2
-        if: steps.r2.outputs.has_r2_upload == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -1459,6 +1502,8 @@ jobs:
             fonts.googleapis.com:443
             fonts.gstatic.com:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             nodejs.org:443
             proxy.golang.org:443
             pypi.org:443
@@ -1471,7 +1516,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Pull latest changes
         run: git pull origin ${{ github.ref_name }}
@@ -1482,9 +1527,9 @@ jobs:
           go-version: "1.26.2"
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: "24"
+          node-version: "25"
 
       - name: Build UI
         run: make build-ui
@@ -1492,27 +1537,7 @@ jobs:
       - name: Build linux/arm64 binary
         run: bash ./.github/workflows/scripts/build-executables.sh "${{ needs.detect-changes.outputs.transport-version }}" "linux/arm64"
 
-      - name: Detect R2 configuration
-        id: r2
-        env:
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          has_r2_auth=false
-          has_r2_upload=false
-          if [[ -n "${R2_ENDPOINT}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" ]]; then
-            has_r2_auth=true
-          fi
-          if [[ "${has_r2_auth}" == "true" && -n "${R2_BUCKET}" ]]; then
-            has_r2_upload=true
-          fi
-          echo "has_r2_auth=${has_r2_auth}" >> "$GITHUB_OUTPUT"
-          echo "has_r2_upload=${has_r2_upload}" >> "$GITHUB_OUTPUT"
-
       - name: Configure R2
-        if: steps.r2.outputs.has_r2_auth == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -1520,7 +1545,6 @@ jobs:
         run: bash ./.github/workflows/scripts/configure-r2.sh
 
       - name: Upload to R2
-        if: steps.r2.outputs.has_r2_upload == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -1534,6 +1558,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     outputs:
       success: ${{ steps.release.outputs.success }}
       version: ${{ needs.detect-changes.outputs.transport-version }}
@@ -1547,6 +1572,8 @@ jobs:
             api.github.com:443
             files.pythonhosted.org:443
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
             pypi.org:443
 
       - name: Checkout repository
@@ -1554,26 +1581,12 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Pull latest changes
         run: git pull origin ${{ github.ref_name }}
 
-      - name: Detect R2 configuration
-        id: r2
-        env:
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          has_r2_auth=false
-          if [[ -n "${R2_ENDPOINT}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" ]]; then
-            has_r2_auth=true
-          fi
-          echo "has_r2_auth=${has_r2_auth}" >> "$GITHUB_OUTPUT"
-
       - name: Configure R2
-        if: steps.r2.outputs.has_r2_auth == 'true'
         env:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -1583,7 +1596,7 @@ jobs:
       - name: Finalize bifrost-http release
         id: release
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: ./.github/workflows/scripts/release-bifrost-http-finalize.sh "${{ needs.detect-changes.outputs.transport-version }}"
@@ -1626,10 +1639,11 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            ghcr.io:443
             github.com:443
+            ghcr.io:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -1645,13 +1659,13 @@ jobs:
         id: verify
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           ./.github/workflows/scripts/verify-bifrost-http-release.sh "${{ needs.detect-changes.outputs.transport-version }}" "${{ needs.detect-changes.outputs.bifrost-http-needs-release }}"
           echo "verified=true" >> $GITHUB_OUTPUT
 
       - name: Setup Docker Buidx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -1669,7 +1683,7 @@ jobs:
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push AMD64 Docker image
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           build-args: |
@@ -1717,10 +1731,11 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            ghcr.io:443
             github.com:443
+            ghcr.io:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
             registry.npmjs.org:443
@@ -1736,13 +1751,13 @@ jobs:
         id: verify
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           ./.github/workflows/scripts/verify-bifrost-http-release.sh "${{ needs.detect-changes.outputs.transport-version }}" "${{ needs.detect-changes.outputs.bifrost-http-needs-release }}"
           echo "verified=true" >> $GITHUB_OUTPUT
 
       - name: Setup Docker Buidx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -1760,7 +1775,7 @@ jobs:
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push ARM64 Docker image
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ./transports/Dockerfile
@@ -1775,9 +1790,6 @@ jobs:
     needs: [check-skip, detect-changes, docker-build-amd64, docker-build-arm64]
     if: "always() && needs.check-skip.outputs.should-skip != 'true' && needs.docker-build-amd64.result == 'success' && needs.docker-build-arm64.result == 'success'"
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
     env:
       REGISTRY: ghcr.io
       ACCOUNT: ${{ github.repository_owner }}
@@ -1788,9 +1800,13 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
-            ghcr.io:443
+            auth.docker.io:443
             github.com:443
+            ghcr.io:443
             pkg-containers.githubusercontent.com:443
+            production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
+            registry-1.docker.io:443
 
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -1844,14 +1860,13 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            ghcr.io:443
             github.com:443
+            ghcr.io:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
-            registry.access.redhat.com:443
-            cdn-ubi.redhat.com:443
+            *.redhat.com:443
             *.quay.io:443
             registry.npmjs.org:443
             storage.googleapis.com:443
@@ -1940,14 +1955,13 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            ghcr.io:443
             github.com:443
+            ghcr.io:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             proxy.golang.org:443
             registry-1.docker.io:443
-            registry.access.redhat.com:443
-            cdn-ubi.redhat.com:443
+            *.redhat.com:443
             *.quay.io:443
             registry.npmjs.org:443
             storage.googleapis.com:443
@@ -2003,9 +2017,6 @@ jobs:
     needs: [check-skip, detect-changes, docker-build-ubi9-amd64, docker-build-ubi9-arm64]
     if: "always() && needs.check-skip.outputs.should-skip != 'true' && needs.docker-build-ubi9-amd64.result == 'success' && needs.docker-build-ubi9-arm64.result == 'success'"
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
     env:
       REGISTRY: ghcr.io
       ACCOUNT: ${{ github.repository_owner }}
@@ -2016,9 +2027,13 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
-            ghcr.io:443
+            auth.docker.io:443
             github.com:443
+            ghcr.io:443
             pkg-containers.githubusercontent.com:443
+            production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
+            registry-1.docker.io:443
 
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -2057,6 +2072,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -2064,13 +2080,15 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             github.com:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
 
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Push Mintlify changelog
         run: |
@@ -2123,11 +2141,6 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          if [ -z "${DISCORD_WEBHOOK:-}" ]; then
-            echo "DISCORD_WEBHOOK not configured; skipping notification"
-            exit 0
-          fi
-
           # Build status summary
           CORE_STATUS="⏭️ Skipped"
           FRAMEWORK_STATUS="⏭️ Skipped"

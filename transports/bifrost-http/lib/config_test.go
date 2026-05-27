@@ -337,7 +337,7 @@ EXPECTED BEHAVIORS SUMMARY
    - Both fields are included in key hash for change detection
 
 5. PROVIDER-SPECIFIC CONFIGS:
-   - Azure: Endpoint, APIVersion, Deployments in AzureKeyConfig
+   - Azure: Endpoint, Deployments in AzureKeyConfig
    - Bedrock: Region, AuthCredentials, Deployments in BedrockKeyConfig
    - Vertex: ProjectID, Region, AuthCredentials, Deployments in VertexKeyConfig
    - All fields including Deployments maps affect key hash and must sync correctly
@@ -373,6 +373,7 @@ import (
 	"github.com/capsohq/bifrost/framework/logstore"
 	"github.com/capsohq/bifrost/framework/modelcatalog"
 	"github.com/capsohq/bifrost/framework/vectorstore"
+	otelPlugin "github.com/capsohq/bifrost/plugins/otel"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -424,6 +425,7 @@ func (m *MockConfigStore) Ping(ctx context.Context) error                 { retu
 func (m *MockConfigStore) EncryptPlaintextRows(ctx context.Context) error { return nil }
 func (m *MockConfigStore) Close(ctx context.Context) error                { return nil }
 func (m *MockConfigStore) DB() *gorm.DB                                   { return nil }
+func (m *MockConfigStore) ScopedDB(ctx context.Context) *gorm.DB          { return nil }
 func (m *MockConfigStore) ExecuteTransaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
 	return fn(nil)
 }
@@ -453,6 +455,14 @@ func (m *MockConfigStore) UpdateClientConfig(ctx context.Context, config *config
 
 func (m *MockConfigStore) GetClientConfig(ctx context.Context) (*configstore.ClientConfig, error) {
 	return m.clientConfig, nil
+}
+
+func (m *MockConfigStore) GetClientMetadata(ctx context.Context) (map[string]any, error) {
+	return map[string]any{}, nil
+}
+
+func (m *MockConfigStore) UpdateClientMetadata(ctx context.Context, patch map[string]any) error {
+	return nil
 }
 
 // Provider config
@@ -766,6 +776,10 @@ func (m *MockConfigStore) GetTeamByName(ctx context.Context, name string, custom
 	return nil, nil
 }
 
+func (m *MockConfigStore) GetTeamBySourceID(ctx context.Context, sourceID string) (*tables.TableTeam, error) {
+	return nil, nil
+}
+
 func (m *MockConfigStore) GetTeams(ctx context.Context, customerID string) ([]tables.TableTeam, error) {
 	return nil, nil
 }
@@ -881,6 +895,15 @@ func (m *MockConfigStore) GetFrameworkConfig(ctx context.Context) (*tables.Table
 	return m.frameworkConfig, nil
 }
 
+// Feature flags
+func (m *MockConfigStore) ListFeatureFlags(ctx context.Context) ([]tables.TableFeatureFlag, error) {
+	return nil, nil
+}
+
+func (m *MockConfigStore) UpsertFeatureFlag(ctx context.Context, id string, enabled bool, updatedAt int64) error {
+	return nil
+}
+
 // Vector store config
 func (m *MockConfigStore) UpdateVectorStoreConfig(ctx context.Context, config *vectorstore.Config) error {
 	m.vectorConfig = config
@@ -961,6 +984,23 @@ func (m *MockConfigStore) CreateSession(ctx context.Context, session *tables.Ses
 
 func (m *MockConfigStore) DeleteSession(ctx context.Context, token string) error {
 	return nil
+}
+
+// Temp token
+func (m *MockConfigStore) CreateTempToken(ctx context.Context, token *tables.TempToken, tx ...*gorm.DB) error {
+	return nil
+}
+
+func (m *MockConfigStore) GetTempTokenByHash(ctx context.Context, tokenHash string) (*tables.TempToken, error) {
+	return nil, nil
+}
+
+func (m *MockConfigStore) DeleteTempTokensByResourceID(ctx context.Context, scope, resourceID string, tx ...*gorm.DB) (int64, error) {
+	return 0, nil
+}
+
+func (m *MockConfigStore) DeleteExpiredTempTokens(ctx context.Context, before time.Time) (int64, error) {
+	return 0, nil
 }
 
 // Model pricing
@@ -1176,15 +1216,11 @@ func (m *MockConfigStore) GetOauthUserSessionByID(ctx context.Context, id string
 	return nil, nil
 }
 
-func (m *MockConfigStore) GetOauthUserSessionByState(ctx context.Context, state string) (*tables.TableOauthUserSession, error) {
-	return nil, nil
-}
-
 func (m *MockConfigStore) ClaimOauthUserSessionByState(ctx context.Context, state string) (*tables.TableOauthUserSession, error) {
 	return nil, nil
 }
 
-func (m *MockConfigStore) GetOauthUserSessionBySessionToken(ctx context.Context, sessionToken string) (*tables.TableOauthUserSession, error) {
+func (m *MockConfigStore) GetOauthUserSessionByModeIdentityAndMCPClient(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string) (*tables.TableOauthUserSession, error) {
 	return nil, nil
 }
 
@@ -1197,11 +1233,7 @@ func (m *MockConfigStore) UpdateOauthUserSession(ctx context.Context, session *t
 }
 
 // Per-user OAuth token CRUD
-func (m *MockConfigStore) GetOauthUserTokenByIdentity(ctx context.Context, virtualKeyID, userID, sessionToken, mcpClientID string) (*tables.TableOauthUserToken, error) {
-	return nil, nil
-}
-
-func (m *MockConfigStore) GetOauthUserTokenBySessionToken(ctx context.Context, sessionToken string) (*tables.TableOauthUserToken, error) {
+func (m *MockConfigStore) GetOauthUserTokenByMode(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string) (*tables.TableOauthUserToken, error) {
 	return nil, nil
 }
 
@@ -1217,85 +1249,36 @@ func (m *MockConfigStore) DeleteOauthUserToken(ctx context.Context, id string) e
 	return nil
 }
 
-func (m *MockConfigStore) DeleteOauthUserTokensByMCPClient(ctx context.Context, mcpClientID string) error {
+func (m *MockConfigStore) DeleteOauthUserSession(ctx context.Context, id string) error {
 	return nil
 }
 
-// Per-user OAuth Authorization Server CRUD
-func (m *MockConfigStore) GetPerUserOAuthClientByClientID(ctx context.Context, clientID string) (*tables.TablePerUserOAuthClient, error) {
+func (m *MockConfigStore) DeleteOauthUserSessionsByModeIdentityAndMCPClient(ctx context.Context, mode schemas.MCPAuthMode, identity, mcpClientID string) error {
+	return nil
+}
+
+func (m *MockConfigStore) MarkOauthUserTokenNeedsReauthByID(ctx context.Context, tokenID string) error {
+	return nil
+}
+
+func (m *MockConfigStore) GetOauthUserTokenByID(ctx context.Context, id string) (*tables.TableOauthUserToken, error) {
 	return nil, nil
 }
 
-func (m *MockConfigStore) CreatePerUserOAuthClient(ctx context.Context, client *tables.TablePerUserOAuthClient) error {
-	return nil
-}
-
-func (m *MockConfigStore) GetPerUserOAuthSessionByAccessToken(ctx context.Context, accessToken string) (*tables.TablePerUserOAuthSession, error) {
+func (m *MockConfigStore) ListAllOauthUserTokens(ctx context.Context) ([]tables.TableOauthUserToken, error) {
 	return nil, nil
 }
 
-func (m *MockConfigStore) GetPerUserOAuthSessionByID(ctx context.Context, id string) (*tables.TablePerUserOAuthSession, error) {
+func (m *MockConfigStore) ListAllPendingOauthUserSessions(ctx context.Context) ([]tables.TableOauthUserSession, error) {
 	return nil, nil
 }
 
-func (m *MockConfigStore) CreatePerUserOAuthSession(ctx context.Context, session *tables.TablePerUserOAuthSession) error {
-	return nil
+func (m *MockConfigStore) DeleteExpiredOauthUserSessions(ctx context.Context) (int64, error) {
+	return 0, nil
 }
 
-func (m *MockConfigStore) UpdatePerUserOAuthSession(ctx context.Context, session *tables.TablePerUserOAuthSession) error {
-	return nil
-}
-
-func (m *MockConfigStore) DeletePerUserOAuthSession(ctx context.Context, id string) error {
-	return nil
-}
-
-func (m *MockConfigStore) GetPerUserOAuthCodeByCode(ctx context.Context, code string) (*tables.TablePerUserOAuthCode, error) {
-	return nil, nil
-}
-
-func (m *MockConfigStore) ClaimPerUserOAuthCode(ctx context.Context, code string) (*tables.TablePerUserOAuthCode, error) {
-	return nil, nil
-}
-
-func (m *MockConfigStore) CreatePerUserOAuthCode(ctx context.Context, code *tables.TablePerUserOAuthCode) error {
-	return nil
-}
-
-func (m *MockConfigStore) UpdatePerUserOAuthCode(ctx context.Context, code *tables.TablePerUserOAuthCode) error {
-	return nil
-}
-
-func (m *MockConfigStore) GetPerUserOAuthPendingFlow(ctx context.Context, id string) (*tables.TablePerUserOAuthPendingFlow, error) {
-	return nil, nil
-}
-
-func (m *MockConfigStore) CreatePerUserOAuthPendingFlow(ctx context.Context, flow *tables.TablePerUserOAuthPendingFlow) error {
-	return nil
-}
-
-func (m *MockConfigStore) UpdatePerUserOAuthPendingFlow(ctx context.Context, flow *tables.TablePerUserOAuthPendingFlow) error {
-	return nil
-}
-
-func (m *MockConfigStore) DeletePerUserOAuthPendingFlow(ctx context.Context, id string) error {
-	return nil
-}
-
-func (m *MockConfigStore) ConsumePerUserOAuthPendingFlow(ctx context.Context, id string) (int64, error) {
-	return 1, nil
-}
-
-func (m *MockConfigStore) GetOauthUserTokensByGatewaySessionID(ctx context.Context, gatewaySessionID string) ([]tables.TableOauthUserToken, error) {
-	return nil, nil
-}
-
-func (m *MockConfigStore) TransferOauthUserTokensFromGatewaySession(ctx context.Context, gatewaySessionID, realSessionToken, virtualKeyID, userID string) error {
-	return nil
-}
-
-func (m *MockConfigStore) FinalizePerUserOAuthConsent(ctx context.Context, flowID string, session *tables.TablePerUserOAuthSession, code *tables.TablePerUserOAuthCode) (int64, error) {
-	return 1, nil
+func (m *MockConfigStore) DeleteOrphanedOauthUserTokens(ctx context.Context, olderThan time.Duration) (int64, error) {
+	return 0, nil
 }
 
 // Routing rules
@@ -1358,7 +1341,7 @@ func (m *MockConfigStore) GetPromptByID(ctx context.Context, id string) (*tables
 	return nil, nil
 }
 
-func (m *MockConfigStore) CreatePrompt(ctx context.Context, prompt *tables.TablePrompt) error {
+func (m *MockConfigStore) CreatePrompt(ctx context.Context, prompt *tables.TablePrompt, tx ...*gorm.DB) error {
 	return nil
 }
 
@@ -2511,7 +2494,6 @@ func TestGenerateKeyHash(t *testing.T) {
 	}
 
 	// AzureKeyConfig should produce different hash
-	apiVersion := "2024-10-21"
 	key6 := schemas.Key{
 		ID:     "key-1",
 		Name:   "test-key",
@@ -2519,8 +2501,7 @@ func TestGenerateKeyHash(t *testing.T) {
 		Models: []string{"gpt-4", "gpt-3.5-turbo"},
 		Weight: 1.5,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar(apiVersion),
+			Endpoint: *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
 		},
 	}
 
@@ -2541,8 +2522,7 @@ func TestGenerateKeyHash(t *testing.T) {
 		Models: []string{"gpt-4", "gpt-3.5-turbo"},
 		Weight: 1.5,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://different-azure.openai.azure.com"), // Different endpoint
-			APIVersion: schemas.NewEnvVar(apiVersion),
+			Endpoint: *schemas.NewEnvVar("https://different-azure.openai.azure.com"), // Different endpoint
 		},
 	}
 
@@ -2563,44 +2543,6 @@ func TestGenerateKeyHash(t *testing.T) {
 
 	if hash1 == hashWithAliases {
 		t.Error("Expected different hash for keys with Aliases")
-	}
-
-	// Deprecated provider deployments should normalize to the same hash as aliases.
-	keyWithAzureDeployments := schemas.Key{
-		ID:     "key-1",
-		Name:   "test-key",
-		Value:  *schemas.NewEnvVar("sk-123"),
-		Models: []string{"gpt-4", "gpt-3.5-turbo"},
-		Weight: 1.5,
-		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:    *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
-			APIVersion:  schemas.NewEnvVar(apiVersion),
-			Deployments: map[string]string{"gpt-4": "gpt-4-deployment"},
-		},
-	}
-	keyWithAzureAliases := schemas.Key{
-		ID:     "key-1",
-		Name:   "test-key",
-		Value:  *schemas.NewEnvVar("sk-123"),
-		Models: []string{"gpt-4", "gpt-3.5-turbo"},
-		Weight: 1.5,
-		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://my-azure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar(apiVersion),
-		},
-		Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
-	}
-
-	hashWithAzureDeployments, err := configstore.GenerateKeyHash(keyWithAzureDeployments)
-	if err != nil {
-		t.Fatalf("Failed to generate hash: %v", err)
-	}
-	hashWithAzureAliases, err := configstore.GenerateKeyHash(keyWithAzureAliases)
-	if err != nil {
-		t.Fatalf("Failed to generate hash: %v", err)
-	}
-	if hashWithAzureDeployments != hashWithAzureAliases {
-		t.Error("Expected deprecated Azure deployments to hash the same as top-level aliases")
 	}
 
 	hash6b, err := configstore.GenerateKeyHash(key6b)
@@ -3245,8 +3187,7 @@ func TestKeyHashComparison_OptionalFieldsPresence(t *testing.T) {
 		Value:  *schemas.NewEnvVar("sk-123"),
 		Weight: 1,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -3552,8 +3493,7 @@ func TestKeyHashComparison_FieldRemoved(t *testing.T) {
 		Models: []string{"gpt-4", "gpt-3.5-turbo"},
 		Weight: 1.5,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -3567,8 +3507,7 @@ func TestKeyHashComparison_FieldRemoved(t *testing.T) {
 		// Models: nil (removed)
 		Weight: 1.5,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -3602,8 +3541,7 @@ func TestKeyHashComparison_FieldRemoved(t *testing.T) {
 		Models: []string{"gpt-4", "gpt-3.5-turbo"},
 		Weight: 1.0, // Changed from 1.5
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -3621,8 +3559,7 @@ func TestKeyHashComparison_FieldRemoved(t *testing.T) {
 		Models: []string{"gpt-4"}, // gpt-3.5-turbo removed
 		Weight: 1.5,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -3640,8 +3577,7 @@ func TestKeyHashComparison_FieldRemoved(t *testing.T) {
 		Models: []string{"gpt-4", "gpt-3.5-turbo"},
 		Weight: 1.5,
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://different.openai.azure.com"), // Changed
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://different.openai.azure.com"), // Changed
 		},
 	}
 
@@ -3651,24 +3587,6 @@ func TestKeyHashComparison_FieldRemoved(t *testing.T) {
 		t.Error("Expected different hash when Azure endpoint is changed")
 	}
 
-	// Azure APIVersion removed
-	keyNoAPIVersion := schemas.Key{
-		ID:     "key-1",
-		Name:   "test-key",
-		Value:  *schemas.NewEnvVar("sk-123"),
-		Models: []string{"gpt-4", "gpt-3.5-turbo"},
-		Weight: 1.5,
-		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			// APIVersion: nil (removed)
-		},
-	}
-
-	hashNoAPIVersion, _ := configstore.GenerateKeyHash(keyNoAPIVersion)
-
-	if originalHash == hashNoAPIVersion {
-		t.Error("Expected different hash when Azure APIVersion is removed")
-	}
 }
 
 // TestProviderHashComparison_PartialFieldChanges tests partial changes within nested structs
@@ -5061,8 +4979,7 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			Weight:  1,
 			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
+				Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 			},
 		}
 
@@ -5073,8 +4990,7 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			Weight:  1,
 			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
+				Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 			},
 		}
 
@@ -5096,8 +5012,7 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			Weight:  1,
 			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
+				Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 			},
 		}
 
@@ -5108,8 +5023,7 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			Weight:  1,
 			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://different-azure.openai.azure.com"), // Changed!
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
+				Endpoint: *schemas.NewEnvVar("https://different-azure.openai.azure.com"), // Changed!
 			},
 		}
 
@@ -5120,41 +5034,6 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			t.Error("Expected different hash when Azure endpoint changes")
 		}
 		t.Log("✓ Different Azure endpoint produces different hash - update triggered")
-	})
-
-	// === Scenario 3: Azure config in DB + different APIVersion in file -> hash differs ===
-	t.Run("DifferentAPIVersion_UpdateTriggered", func(t *testing.T) {
-		dbKey := schemas.Key{
-			ID:      "key-1",
-			Name:    "azure-key",
-			Value:   *schemas.NewEnvVar("azure-api-key-123"),
-			Weight:  1,
-			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
-			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
-			},
-		}
-
-		fileKey := schemas.Key{
-			ID:      "key-1",
-			Name:    "azure-key",
-			Value:   *schemas.NewEnvVar("azure-api-key-123"),
-			Weight:  1,
-			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
-			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-10-21"), // Changed!
-			},
-		}
-
-		dbHash, _ := configstore.GenerateKeyHash(dbKey)
-		fileHash, _ := configstore.GenerateKeyHash(fileKey)
-
-		if dbHash == fileHash {
-			t.Error("Expected different hash when Azure APIVersion changes")
-		}
-		t.Log("✓ Different Azure APIVersion produces different hash - update triggered")
 	})
 
 	// === Scenario 4: Azure config in DB + different Deployments map in file -> hash differs ===
@@ -5208,8 +5087,7 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			Value:  *schemas.NewEnvVar("azure-api-key-123"),
 			Weight: 1,
 			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
+				Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 			},
 		}
 
@@ -5231,8 +5109,7 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 			Value:  *schemas.NewEnvVar("azure-api-key-123"),
 			Weight: 1,
 			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"),
+				Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 			},
 		}
 
@@ -5254,40 +5131,6 @@ func TestKeyHashComparison_AzureConfigSyncScenarios(t *testing.T) {
 		t.Log("✓ Azure config removed produces different hash - update triggered")
 	})
 
-	// === Scenario 7: APIVersion nil vs set -> hash differs ===
-	t.Run("APIVersionNilVsSet_UpdateTriggered", func(t *testing.T) {
-		dbKey := schemas.Key{
-			ID:      "key-1",
-			Name:    "azure-key",
-			Value:   *schemas.NewEnvVar("azure-api-key-123"),
-			Weight:  1,
-			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
-			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				// APIVersion is nil (will use default)
-			},
-		}
-
-		fileKey := schemas.Key{
-			ID:      "key-1",
-			Name:    "azure-key",
-			Value:   *schemas.NewEnvVar("azure-api-key-123"),
-			Weight:  1,
-			Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
-			AzureKeyConfig: &schemas.AzureKeyConfig{
-				Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-				APIVersion: schemas.NewEnvVar("2024-02-01"), // Explicitly set
-			},
-		}
-
-		dbHash, _ := configstore.GenerateKeyHash(dbKey)
-		fileHash, _ := configstore.GenerateKeyHash(fileKey)
-
-		if dbHash == fileHash {
-			t.Error("Expected different hash when APIVersion goes from nil to set")
-		}
-		t.Log("✓ APIVersion nil vs set produces different hash - update triggered")
-	})
 }
 
 // TestKeyHashComparison_BedrockConfigSyncScenarios tests full lifecycle for Bedrock key configs
@@ -5671,8 +5514,7 @@ func TestProviderHashComparison_AzureProviderFullLifecycle(t *testing.T) {
 		Weight:  1,
 		Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -5706,8 +5548,7 @@ func TestProviderHashComparison_AzureProviderFullLifecycle(t *testing.T) {
 		Weight:  1,
 		Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 		AzureKeyConfig: &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar("2024-02-01"),
+			Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 		},
 	}
 
@@ -5739,8 +5580,7 @@ func TestProviderHashComparison_AzureProviderFullLifecycle(t *testing.T) {
 				Weight:  1,
 				Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-					APIVersion: schemas.NewEnvVar("2024-02-01"),
+					Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 				},
 			},
 		},
@@ -5776,8 +5616,7 @@ func TestProviderHashComparison_AzureProviderFullLifecycle(t *testing.T) {
 				Weight:  1,
 				Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment", "gpt-4o": "gpt-4o-deployment"},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://new-azure.openai.azure.com"), // Changed!
-					APIVersion: schemas.NewEnvVar("2024-10-21"),                          // Changed!
+					Endpoint: *schemas.NewEnvVar("https://new-azure.openai.azure.com"), // Changed!
 				},
 			},
 		},
@@ -5865,9 +5704,6 @@ func TestProviderHashComparison_AzureProviderFullLifecycle(t *testing.T) {
 	}
 	if finalConfig.Keys[0].AzureKeyConfig.Endpoint.GetValue() != "https://new-azure.openai.azure.com" {
 		t.Errorf("Expected updated Azure endpoint, got %s", finalConfig.Keys[0].AzureKeyConfig.Endpoint.GetValue())
-	}
-	if finalConfig.Keys[0].AzureKeyConfig.APIVersion.GetValue() != "2024-10-21" {
-		t.Errorf("Expected updated APIVersion, got %s", finalConfig.Keys[0].AzureKeyConfig.APIVersion.GetValue())
 	}
 	if len(finalConfig.Keys[0].Aliases) != 2 {
 		t.Errorf("Expected 2 deployments, got %d", len(finalConfig.Keys[0].Aliases))
@@ -6158,8 +5994,7 @@ func TestProviderHashComparison_AzureNewProviderFromConfig(t *testing.T) {
 				Weight:  1,
 				Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-					APIVersion: schemas.NewEnvVar("2024-02-01"),
+					Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 				},
 			},
 		},
@@ -6294,8 +6129,7 @@ func TestProviderHashComparison_AzureDBValuePreservedWhenHashMatches(t *testing.
 				Weight:  1,
 				Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"),
-					APIVersion: schemas.NewEnvVar("2024-02-01"),
+					Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"),
 				},
 			},
 		},
@@ -6323,8 +6157,7 @@ func TestProviderHashComparison_AzureDBValuePreservedWhenHashMatches(t *testing.
 				Weight:  1,
 				Aliases: schemas.KeyAliases{"gpt-4": "gpt-4-deployment"},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://myazure.openai.azure.com"), // Same
-					APIVersion: schemas.NewEnvVar("2024-02-01"),                        // Same
+					Endpoint: *schemas.NewEnvVar("https://myazure.openai.azure.com"), // Same
 				},
 			},
 		},
@@ -6471,8 +6304,7 @@ func TestProviderHashComparison_AzureConfigChangedInFile(t *testing.T) {
 				Value:  *schemas.NewEnvVar("azure-api-key-123"),
 				Weight: 1,
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://old-azure.openai.azure.com"),
-					APIVersion: schemas.NewEnvVar("2024-02-01"),
+					Endpoint: *schemas.NewEnvVar("https://old-azure.openai.azure.com"),
 				},
 			},
 		},
@@ -6489,7 +6321,7 @@ func TestProviderHashComparison_AzureConfigChangedInFile(t *testing.T) {
 		"azure": dbConfig,
 	}
 
-	// File has CHANGED Azure config (new endpoint, new API version)
+	// File has CHANGED Azure config (new endpoint)
 	fileConfig := configstore.ProviderConfig{
 		Keys: []schemas.Key{
 			{
@@ -6499,8 +6331,7 @@ func TestProviderHashComparison_AzureConfigChangedInFile(t *testing.T) {
 				Weight:  1,
 				Aliases: schemas.KeyAliases{"gpt-4o": "gpt-4o-deployment"},
 				AzureKeyConfig: &schemas.AzureKeyConfig{
-					Endpoint:   *schemas.NewEnvVar("https://NEW-azure.openai.azure.com"), // Changed!
-					APIVersion: schemas.NewEnvVar("2024-10-21"),                          // Changed!
+					Endpoint: *schemas.NewEnvVar("https://NEW-azure.openai.azure.com"), // Changed!
 				},
 			},
 		},
@@ -6532,9 +6363,6 @@ func TestProviderHashComparison_AzureConfigChangedInFile(t *testing.T) {
 	}
 	if updatedConfig.Keys[0].AzureKeyConfig.Endpoint.GetValue() != "https://NEW-azure.openai.azure.com" {
 		t.Errorf("Expected new Azure endpoint, got %v", updatedConfig.Keys[0].AzureKeyConfig.Endpoint)
-	}
-	if updatedConfig.Keys[0].AzureKeyConfig.APIVersion.GetValue() != "2024-10-21" {
-		t.Errorf("Expected new API version, got %v", *updatedConfig.Keys[0].AzureKeyConfig.APIVersion)
 	}
 	if !updatedConfig.SendBackRawResponse {
 		t.Error("Expected SendBackRawResponse to be updated to true")
@@ -13818,10 +13646,8 @@ func TestGenerateKeyHash_RuntimeVsMigrationParity(t *testing.T) {
 
 	// Test case 2: AzureKeyConfig
 	t.Run("AzureKeyConfig_GORMRoundTrip", func(t *testing.T) {
-		apiVersion := "2024-02-01"
 		azureConfig := &schemas.AzureKeyConfig{
-			Endpoint:   *schemas.NewEnvVar("https://myresource.openai.azure.com"),
-			APIVersion: schemas.NewEnvVar(apiVersion),
+			Endpoint: *schemas.NewEnvVar("https://myresource.openai.azure.com"),
 		}
 
 		keyToSave := tables.TableKey{
@@ -15785,7 +15611,6 @@ var excludedGoFields = map[string]map[string]bool{
 		"config_hash":        true,
 		"created_at":         true,
 		"updated_at":         true,
-		"team_id":            true, // Internal owner FK
 		"virtual_key_id":     true, // Internal DB FK for multi-budget ownership
 		"provider_config_id": true, // Internal DB FK for multi-budget ownership
 	},
@@ -15804,23 +15629,23 @@ var excludedGoFields = map[string]map[string]bool{
 		"virtual_keys": true, // GORM relation
 	},
 	"tables.TableTeam": {
-		"config_hash":       true,
-		"created_at":        true,
-		"updated_at":        true,
-		"budgets":           true, // GORM relation
-		"rate_limit":        true, // GORM relation
-		"customer":          true, // GORM relation
-		"virtual_keys":      true, // GORM relation
-		"virtual_key_count": true, // Computed query field
+		"config_hash":  true,
+		"created_at":   true,
+		"updated_at":   true,
+		"budgets":      true, // GORM relation (multiple budgets with different reset intervals)
+		"rate_limit":   true, // GORM relation
+		"customer":     true, // GORM relation
+		"virtual_keys": true, // GORM relation
 	},
 	"tables.TableVirtualKey": {
-		"config_hash": true,
-		"created_at":  true,
-		"updated_at":  true,
-		"budgets":     true, // GORM relation (budgets have virtual_key_id FK)
-		"rate_limit":  true, // GORM relation
-		"team":        true, // GORM relation
-		"customer":    true, // GORM relation
+		"config_hash":        true,
+		"created_at":         true,
+		"updated_at":         true,
+		"created_by_user_id": true, // DB ownership metadata; set by API/session layer
+		"budgets":            true, // GORM relation (budgets have virtual_key_id FK)
+		"rate_limit":         true, // GORM relation
+		"team":               true, // GORM relation
+		"customer":           true, // GORM relation
 	},
 	"tables.TableVirtualKeyProviderConfig": {
 		"rate_limit":     true, // GORM relation
@@ -16195,40 +16020,104 @@ func TestResolveFrameworkPricingConfig(t *testing.T) {
 	initTestLogger()
 	defaultURL := modelcatalog.DefaultPricingURL
 	defaultSyncSeconds := int64(modelcatalog.DefaultSyncInterval.Seconds())
-	defaultDebounceMs := int64(modelcatalog.DefaultProviderModelHealthPersistDebounce.Milliseconds())
+	defaultModelParamsURL := modelcatalog.DefaultModelParametersURL
 	fileURL := "https://example.com/pricing.json"
 	fileSyncSeconds := int64((12 * time.Hour).Seconds())
-	fileDebounceDuration := 1500 * time.Millisecond
-	fileDebounceMs := int64((1500 * time.Millisecond).Milliseconds())
 	dbURL := "https://db.example.com/pricing.json"
 	dbSyncSeconds := int64((6 * time.Hour).Seconds())
-	dbDebounceDuration := 750 * time.Millisecond
-	dbDebounceMs := int64((750 * time.Millisecond).Milliseconds())
 
-	t.Run("db values take precedence", func(t *testing.T) {
+	t.Run("file values override db when no stored hash exists", func(t *testing.T) {
+		// DB has values but no ConfigHash — first time file is applied; file wins.
 		dbConfig := &tables.TableFrameworkConfig{
-			ID:                                 7,
-			PricingURL:                         &dbURL,
-			PricingSyncInterval:                &dbSyncSeconds,
-			ProviderModelHealthPersistDebounce: &dbDebounceMs,
+			ID:                  7,
+			PricingURL:          &dbURL,
+			PricingSyncInterval: &dbSyncSeconds,
+			ModelParametersURL:  &defaultModelParamsURL,
+			ConfigHash:          "",
 		}
 		fileConfig := &framework.FrameworkConfig{
 			Pricing: &modelcatalog.Config{
-				PricingURL:                         &fileURL,
-				PricingSyncInterval:                &fileSyncSeconds,
-				ProviderModelHealthPersistDebounce: &fileDebounceDuration,
+				PricingURL:          &fileURL,
+				PricingSyncInterval: &fileSyncSeconds,
 			},
 		}
 
 		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, fileConfig)
-		require.False(t, needsDBUpdate)
+		require.True(t, needsDBUpdate)
 		require.Equal(t, uint(7), normalizedTable.ID)
-		require.Equal(t, dbURL, *normalizedTable.PricingURL)
-		require.Equal(t, dbSyncSeconds, *normalizedTable.PricingSyncInterval)
-		require.Equal(t, dbURL, *normalizedModelCatalog.PricingURL)
-		require.Equal(t, dbSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
-		require.Equal(t, dbDebounceMs, *normalizedTable.ProviderModelHealthPersistDebounce)
-		require.Equal(t, dbDebounceDuration, *normalizedModelCatalog.ProviderModelHealthPersistDebounce)
+		require.Equal(t, fileURL, *normalizedTable.PricingURL)
+		require.Equal(t, fileSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, fileURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, fileSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
+		// Returned row must carry the new file hash so future restarts can compare.
+		require.NotEmpty(t, normalizedTable.ConfigHash)
+	})
+
+	t.Run("db wins when file hash matches stored hash (user edited via UI)", func(t *testing.T) {
+		// File is unchanged since last write. User may have edited DB via UI.
+		// DB should take precedence so UI edits are respected.
+		storedHash, err := configstore.GenerateFrameworkConfigHash(&fileURL, &defaultModelParamsURL, &fileSyncSeconds)
+		require.NoError(t, err)
+		uiEditedURL := "https://ui-edited.example.com/pricing.json"
+		uiEditedSync := int64((24 * time.Hour).Seconds())
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                  8,
+			PricingURL:          &uiEditedURL,
+			PricingSyncInterval: &uiEditedSync,
+			ModelParametersURL:  &defaultModelParamsURL,
+			ConfigHash:          storedHash, // hash of last file-applied values
+		}
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL:          &fileURL,
+				ModelParametersURL:  &defaultModelParamsURL,
+				PricingSyncInterval: &fileSyncSeconds,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, fileConfig)
+		require.False(t, needsDBUpdate) // file unchanged; DB wins
+		require.Equal(t, uint(8), normalizedTable.ID)
+		require.Equal(t, uiEditedURL, *normalizedTable.PricingURL)
+		require.Equal(t, uiEditedSync, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, defaultModelParamsURL, *normalizedTable.ModelParametersURL)
+		require.Equal(t, uiEditedURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, uiEditedSync, *normalizedModelCatalog.PricingSyncInterval)
+		require.Equal(t, defaultModelParamsURL, *normalizedModelCatalog.ModelParametersURL)
+	})
+
+	t.Run("file values override db when file changes after ui edit", func(t *testing.T) {
+		// DB has UI-edited values. File has changed. File wins and DB is updated.
+		storedHash, err := configstore.GenerateFrameworkConfigHash(&fileURL, &defaultModelParamsURL, &fileSyncSeconds)
+		require.NoError(t, err)
+		uiEditedURL := "https://ui-edited.example.com/pricing.json"
+		uiEditedSync := int64((24 * time.Hour).Seconds())
+		dbConfig := &tables.TableFrameworkConfig{
+			ID:                  9,
+			PricingURL:          &uiEditedURL,
+			ModelParametersURL:  &defaultModelParamsURL,
+			PricingSyncInterval: &uiEditedSync,
+			ConfigHash:          storedHash, // hash of OLD file values
+		}
+		newFileURL := "https://new-file.example.com/pricing.json"
+		newFileSyncSeconds := int64((48 * time.Hour).Seconds())
+		fileConfig := &framework.FrameworkConfig{
+			Pricing: &modelcatalog.Config{
+				PricingURL:          &newFileURL,
+				ModelParametersURL:  &defaultModelParamsURL,
+				PricingSyncInterval: &newFileSyncSeconds,
+			},
+		}
+
+		normalizedTable, normalizedModelCatalog, needsDBUpdate := ResolveFrameworkPricingConfig(dbConfig, fileConfig)
+		require.True(t, needsDBUpdate)
+		require.Equal(t, uint(9), normalizedTable.ID)
+		require.Equal(t, newFileURL, *normalizedTable.PricingURL)
+		require.Equal(t, defaultModelParamsURL, *normalizedTable.ModelParametersURL)
+		require.Equal(t, newFileSyncSeconds, *normalizedTable.PricingSyncInterval)
+		require.Equal(t, newFileURL, *normalizedModelCatalog.PricingURL)
+		require.Equal(t, defaultModelParamsURL, *normalizedModelCatalog.ModelParametersURL)
+		require.Equal(t, newFileSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
 	})
 
 	t.Run("fallback to file when db fields are missing", func(t *testing.T) {
@@ -16239,9 +16128,8 @@ func TestResolveFrameworkPricingConfig(t *testing.T) {
 		}
 		fileConfig := &framework.FrameworkConfig{
 			Pricing: &modelcatalog.Config{
-				PricingURL:                         &fileURL,
-				PricingSyncInterval:                &fileSyncSeconds,
-				ProviderModelHealthPersistDebounce: &fileDebounceDuration,
+				PricingURL:          &fileURL,
+				PricingSyncInterval: &fileSyncSeconds,
 			},
 		}
 
@@ -16252,8 +16140,6 @@ func TestResolveFrameworkPricingConfig(t *testing.T) {
 		require.Equal(t, fileSyncSeconds, *normalizedTable.PricingSyncInterval)
 		require.Equal(t, fileURL, *normalizedModelCatalog.PricingURL)
 		require.Equal(t, fileSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
-		require.Equal(t, fileDebounceMs, *normalizedTable.ProviderModelHealthPersistDebounce)
-		require.Equal(t, fileDebounceDuration, *normalizedModelCatalog.ProviderModelHealthPersistDebounce)
 	})
 
 	t.Run("fallback to defaults when db and file are missing", func(t *testing.T) {
@@ -16263,8 +16149,6 @@ func TestResolveFrameworkPricingConfig(t *testing.T) {
 		require.Equal(t, defaultSyncSeconds, *normalizedTable.PricingSyncInterval)
 		require.Equal(t, defaultURL, *normalizedModelCatalog.PricingURL)
 		require.Equal(t, defaultSyncSeconds, *normalizedModelCatalog.PricingSyncInterval)
-		require.Equal(t, defaultDebounceMs, *normalizedTable.ProviderModelHealthPersistDebounce)
-		require.Equal(t, modelcatalog.DefaultProviderModelHealthPersistDebounce, *normalizedModelCatalog.ProviderModelHealthPersistDebounce)
 	})
 
 	t.Run("invalid db interval (zero) falls back and requests db update", func(t *testing.T) {
@@ -16408,9 +16292,11 @@ func TestResolveFrameworkPricingConfig(t *testing.T) {
 			require.NotNil(t, tableOut, "TableFrameworkConfig must never be nil")
 			require.NotNil(t, tableOut.PricingURL, "PricingURL must never be nil")
 			require.NotNil(t, tableOut.PricingSyncInterval, "PricingSyncInterval must never be nil")
+			require.NotNil(t, tableOut.ModelParametersURL, "ModelParametersURL must never be nil")
 			require.NotNil(t, catalogOut, "modelcatalog.Config must never be nil")
 			require.NotNil(t, catalogOut.PricingURL, "Config.PricingURL must never be nil")
 			require.NotNil(t, catalogOut.PricingSyncInterval, "Config.PricingSyncInterval must never be nil")
+			require.NotNil(t, catalogOut.ModelParametersURL, "Config.ModelParametersURL must never be nil")
 		}
 	})
 
@@ -17266,6 +17152,7 @@ func assertDefaultClientConfigValues(t *testing.T, cc configstore.ClientConfig) 
 	require.Equal(t, 100, cc.MaxRequestBodySizeMB, "MaxRequestBodySizeMB should default to 100")
 	require.Equal(t, 10, cc.MCPAgentDepth, "MCPAgentDepth should default to 10")
 	require.Equal(t, 30, cc.MCPToolExecutionTimeout, "MCPToolExecutionTimeout should default to 30")
+	require.Equal(t, false, cc.MCPEnableTempTokenAuth, "MCPEnableTempTokenAuth should default to false")
 	require.Equal(t, false, cc.Compat.ConvertTextToChat, "Compat.ConvertTextToChat should default to false")
 	require.Equal(t, false, cc.Compat.ConvertChatToResponses, "Compat.ConvertChatToResponses should default to false")
 	require.Equal(t, false, cc.Compat.ShouldDropParams, "Compat.ShouldDropParams should default to false")
@@ -18240,4 +18127,56 @@ func TestVersionField_Version2_NoCompat(t *testing.T) {
 	require.Len(t, anthropicCfg.Keys, 1)
 	require.Empty(t, anthropicCfg.Keys[0].Models,
 		"v2 semantics: empty models must NOT be normalised")
+}
+
+// =============================================================================
+// OtelPluginSpanFilter seeding tests
+// =============================================================================
+
+// TestLoadPlugins_OtelPluginSpanFilterPassthrough verifies that plugin_span_filter
+// set directly inside the OTEL plugin config (the standard config.json location)
+// is preserved unchanged through loadPlugins — no special handling needed.
+func TestLoadPlugins_OtelPluginSpanFilterPassthrough(t *testing.T) {
+	initTestLogger()
+	ctx := context.Background()
+
+	otelCfg := map[string]any{
+		"collector_url": "localhost:4317",
+		"trace_type":    "genai_extension",
+		"protocol":      "grpc",
+		"plugin_span_filter": map[string]any{
+			"mode":    "exclude",
+			"plugins": []any{"logging", "compat"},
+		},
+	}
+	configData := &ConfigData{
+		Plugins: []*schemas.PluginConfig{
+			{Name: otelPlugin.PluginName, Enabled: true, Config: otelCfg},
+		},
+	}
+
+	cfg := &Config{}
+	loadPlugins(ctx, cfg, configData)
+
+	var found *schemas.PluginConfig
+	for _, pc := range cfg.PluginConfigs {
+		if pc.Name == otelPlugin.PluginName {
+			found = pc
+			break
+		}
+	}
+	require.NotNil(t, found, "OTEL plugin should be present in PluginConfigs after loadPlugins")
+
+	pluginCfg, ok := found.Config.(map[string]any)
+	require.True(t, ok, "OTEL plugin Config should be map[string]any")
+
+	raw, ok := pluginCfg["plugin_span_filter"]
+	require.True(t, ok, "plugin_span_filter should be preserved in OTEL plugin config")
+
+	filterMap, ok := raw.(map[string]any)
+	require.True(t, ok, "plugin_span_filter should be a map")
+	require.Equal(t, "exclude", filterMap["mode"])
+	plugins, ok := filterMap["plugins"].([]any)
+	require.True(t, ok, "plugin_span_filter.plugins should be an array")
+	require.ElementsMatch(t, []any{"logging", "compat"}, plugins)
 }

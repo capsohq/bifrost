@@ -351,7 +351,7 @@ func TestPricingE2E_Step5C_EmbeddedEnvNotExpanded(t *testing.T) {
 // STEP 6 — Database precedence (real SQLite)
 // =============================================================================
 
-func TestPricingE2E_Step6A_DBOverridesFile(t *testing.T) {
+func TestPricingE2E_Step6A_FileOverridesDBWithoutStoredHash(t *testing.T) {
 	dir := t.TempDir()
 	store := makeStore(t, dir)
 	ctx := context.Background()
@@ -379,19 +379,18 @@ func TestPricingE2E_Step6A_DBOverridesFile(t *testing.T) {
 
 	tableOut, catalogOut, _ := resolveWithCapture(t, log, dbConfig, fileConfig)
 
-	// DB must win over file for both fields.
-	require.Equal(t, dbURL, *tableOut.PricingURL, "DB url must override file url")
-	require.Equal(t, int64(3600), *tableOut.PricingSyncInterval, "DB interval must override file interval")
+	// Without a stored config hash, the file is treated as the first
+	// authoritative config application and is written back to DB with a hash.
+	require.Equal(t, "https://file.example.com/pricing.json", *tableOut.PricingURL, "file url must override DB without a stored hash")
+	require.Equal(t, int64(7200), *tableOut.PricingSyncInterval, "file interval must override DB without a stored hash")
 	require.Equal(t, *tableOut.PricingURL, *catalogOut.PricingURL)
 	require.Equal(t, *tableOut.PricingSyncInterval, *catalogOut.PricingSyncInterval)
+	require.NotEmpty(t, tableOut.ConfigHash, "file application should produce a config hash")
 
-	// Resolution log must report DB as source. The merged resolver no longer emits
-	// a separate "overridden by DB" line; the authoritative source is encoded in
-	// the final resolved-config log.
-	assert.True(t, log.hasLog("resolved pricing config", "source: db", "sync_interval=3600 seconds"),
-		"expected resolution log with 'source: db'\n%s", log.dump())
+	assert.True(t, log.hasLog("resolved pricing config", "source: file", "sync_interval=7200 seconds"),
+		"expected resolution log with 'source: file'\n%s", log.dump())
 
-	t.Logf("PASS — DB override: url=%q interval=%d s (both db)", *tableOut.PricingURL, *tableOut.PricingSyncInterval)
+	t.Logf("PASS — file override without stored hash: url=%q interval=%d s", *tableOut.PricingURL, *tableOut.PricingSyncInterval)
 }
 
 func TestPricingE2E_Step6B_DBCorruptedZero_FileWins_DBBackfilled(t *testing.T) {
@@ -633,7 +632,7 @@ func TestPricingE2E_Step8_RestartConsistency(t *testing.T) {
 	t.Logf("PASS — restart consistency: DB values survive restart, source=db, no spurious override log")
 }
 
-func TestPricingE2E_Step8_RestartConsistency_DBWinsOverChangedFile(t *testing.T) {
+func TestPricingE2E_Step8_RestartConsistency_FileWinsWithoutStoredHash(t *testing.T) {
 	dir := t.TempDir()
 	store := makeStore(t, dir)
 	ctx := context.Background()
@@ -660,18 +659,18 @@ func TestPricingE2E_Step8_RestartConsistency_DBWinsOverChangedFile(t *testing.T)
 
 	tableOut, _, _ := resolveWithCapture(t, log, dbConfig, fileConfig)
 
-	// DB is authoritative — file changes must NOT override.
-	require.Equal(t, dbURL, *tableOut.PricingURL,
-		"DB url must override changed file url after initial setup")
-	require.Equal(t, int64(3600), *tableOut.PricingSyncInterval,
-		"DB interval must override changed file interval after initial setup")
+	// DB rows without a stored hash are treated as legacy bootstrap state, so
+	// the file is applied and a hash is produced for future comparisons.
+	require.Equal(t, "https://new-file.example.com/pricing.json", *tableOut.PricingURL,
+		"file url must override DB without a stored hash")
+	require.Equal(t, int64(86400), *tableOut.PricingSyncInterval,
+		"file interval must override DB without a stored hash")
+	require.NotEmpty(t, tableOut.ConfigHash, "file application should produce a config hash")
 
-	// The merged resolver records DB precedence in the resolved-config log rather
-	// than a separate override line.
-	assert.True(t, log.hasLog("resolved pricing config", "source: db", "sync_interval=3600 seconds"),
-		"expected resolved config log with DB interval\n%s", log.dump())
+	assert.True(t, log.hasLog("resolved pricing config", "source: file", "sync_interval=86400 seconds"),
+		"expected resolved config log with file interval\n%s", log.dump())
 
-	t.Logf("PASS — DB wins over changed file config on restart")
+	t.Logf("PASS — file wins over legacy DB config without stored hash")
 }
 
 // =============================================================================
@@ -856,7 +855,7 @@ func TestPricingE2E_Step10_FullPipeline_WithRealSQLite(t *testing.T) {
 	assert.True(t, log2.hasLog("resolved pricing config", "source: db"),
 		"second boot must use DB as source\n%s", log2.dump())
 
-	// Boot 3: DB has 7200, file changed to 3600 — DB must still win.
+	// Boot 3: DB has 7200, file changed to 3600 — file must win because its hash changed.
 	log3 := newCapturingLogger()
 	cfg3 := &Config{ConfigStore: store}
 	changedFileConfig := &ConfigData{FrameworkConfig: &framework.FrameworkConfig{
@@ -873,9 +872,9 @@ func TestPricingE2E_Step10_FullPipeline_WithRealSQLite(t *testing.T) {
 		t.Cleanup(func() { cfg3.ModelCatalog.Cleanup() })
 	}
 
-	require.Equal(t, int64(7200), *cfg3.FrameworkConfig.Pricing.PricingSyncInterval,
-		"DB (7200 s) must win over changed file config (3600 s) on third boot")
-	assert.True(t, log3.hasLog("resolved pricing config", "source: db", "sync_interval=7200 seconds"),
+	require.Equal(t, int64(3600), *cfg3.FrameworkConfig.Pricing.PricingSyncInterval,
+		"changed file config (3600 s) must win over DB (7200 s) on third boot")
+	assert.True(t, log3.hasLog("resolved pricing config", "source: file", "sync_interval=3600 seconds"),
 		"expected resolved config log on third boot\n%s", log3.dump())
 
 	t.Logf("PASS — full pipeline (3 boots): file→DB backfill→DB authoritative→DB wins over changed file")

@@ -79,8 +79,18 @@ func (s *RedisStore) CreateNamespace(ctx context.Context, namespace string, dime
 	// Check if index already exists
 	infoResult := s.client.Do(ctx, "FT.INFO", namespace)
 	if infoResult.Err() == nil {
+		ftInfo, ftInfoErr := s.client.FTInfo(ctx, namespace).Result()
+		if ftInfoErr != nil {
+			s.logger.Warn(fmt.Sprintf("could not inspect existing index %q for dimension validation (check skipped): %v", namespace, ftInfoErr))
+		} else {
+			for _, attr := range ftInfo.Attributes {
+				if strings.EqualFold(attr.Type, "VECTOR") && attr.Dim > 0 && attr.Dim != dimension {
+					return fmt.Errorf("namespace %q already exists with dimension %d but config requires %d — update vector_store_namespace to a new name or drop the existing index manually", namespace, attr.Dim, dimension)
+				}
+			}
+		}
 		s.cacheNamespaceFieldTypes(namespace, properties)
-		return nil // Index already exists
+		return nil // Index already exists with matching dimension
 	}
 	if err := infoResult.Err(); err != nil && strings.Contains(strings.ToLower(err.Error()), "unknown command") {
 		return fmt.Errorf("search module not available: please use Redis Stack or a Valkey bundle with search support (FT.* commands required). original error: %w", err)
