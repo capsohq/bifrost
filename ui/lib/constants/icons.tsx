@@ -1,4 +1,4 @@
-import { Database, Landmark, Network, Shuffle } from "lucide-react";
+import { Bot, Database, Landmark, Network, Shuffle } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "../utils";
 
@@ -25,7 +25,20 @@ const resolveSize = (size: IconSize): number => {
 };
 
 // Provider Icons with theme awareness where applicable
+const GenericProviderIcon = ({ size = "md", className = "" }: IconProps) => {
+	const resolvedSize = resolveSize(size);
+	return <Bot width={resolvedSize} height={resolvedSize} className={className} />;
+};
+
 export const ProviderIcons = {
+	deepseek: GenericProviderIcon,
+	glm: GenericProviderIcon,
+	minimax: GenericProviderIcon,
+	modelark: GenericProviderIcon,
+	moonshot: GenericProviderIcon,
+	qwen: GenericProviderIcon,
+	volcengine: GenericProviderIcon,
+
 	anthropic: ({ size = "md", className = "", theme }: IconProps) => {
 		const resolvedSize = resolveSize(size);
 		return theme === "light" ? (
