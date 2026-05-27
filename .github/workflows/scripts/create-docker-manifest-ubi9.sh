@@ -12,24 +12,16 @@ ACCOUNT="${ACCOUNT:-capsohq}"
 IMAGE_NAME="bifrost"
 IMAGE="${REGISTRY}/${ACCOUNT}/${IMAGE_NAME}"
 
-AMD64_DIGEST=$(docker manifest inspect "${IMAGE}:v${VERSION}-ubi9-amd64" | jq -er '.manifests[0].digest')
-ARM64_DIGEST=$(docker manifest inspect "${IMAGE}:v${VERSION}-ubi9-arm64" | jq -er '.manifests[0].digest')
-
-echo "UBI9 AMD64 digest: ${AMD64_DIGEST}"
-echo "UBI9 ARM64 digest: ${ARM64_DIGEST}"
-
-docker manifest create \
-    "${IMAGE}:v${VERSION}-ubi9" \
-    "${IMAGE}@${AMD64_DIGEST}" \
-    "${IMAGE}@${ARM64_DIGEST}"
-
-docker manifest push "${IMAGE}:v${VERSION}-ubi9"
+echo "Creating UBI9 multi-arch manifest for ${IMAGE}:v${VERSION}-ubi9"
+docker buildx imagetools create \
+    --tag "${IMAGE}:v${VERSION}-ubi9" \
+    "${IMAGE}:v${VERSION}-ubi9-amd64" \
+    "${IMAGE}:v${VERSION}-ubi9-arm64"
 
 if [[ "$VERSION" != *-* ]]; then
-    docker manifest create \
-        "${IMAGE}:latest-ubi9" \
-        "${IMAGE}@${AMD64_DIGEST}" \
-        "${IMAGE}@${ARM64_DIGEST}"
-
-    docker manifest push "${IMAGE}:latest-ubi9"
+    echo "Creating stable latest UBI9 manifest for ${IMAGE}:latest-ubi9"
+    docker buildx imagetools create \
+        --tag "${IMAGE}:latest-ubi9" \
+        "${IMAGE}:v${VERSION}-ubi9-amd64" \
+        "${IMAGE}:v${VERSION}-ubi9-arm64"
 fi

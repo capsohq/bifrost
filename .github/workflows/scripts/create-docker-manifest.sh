@@ -13,27 +13,17 @@ ACCOUNT="${ACCOUNT:-capsohq}"
 IMAGE_NAME="bifrost"
 IMAGE="${REGISTRY}/${ACCOUNT}/${IMAGE_NAME}"
 
-# Get the actual image digests from the platform-specific builds
-AMD64_DIGEST=$(docker manifest inspect "${IMAGE}:v${VERSION}-amd64" | jq -er '.manifests[0].digest')
-ARM64_DIGEST=$(docker manifest inspect "${IMAGE}:v${VERSION}-arm64" | jq -er '.manifests[0].digest')
-
-echo "AMD64 digest: ${AMD64_DIGEST}"
-echo "ARM64 digest: ${ARM64_DIGEST}"
-
-# Create manifest for versioned tag using digests
-docker manifest create \
-    "${IMAGE}:v${VERSION}" \
-    "${IMAGE}@${AMD64_DIGEST}" \
-    "${IMAGE}@${ARM64_DIGEST}"
-
-docker manifest push "${IMAGE}:v${VERSION}"
+echo "Creating multi-arch manifest for ${IMAGE}:v${VERSION}"
+docker buildx imagetools create \
+    --tag "${IMAGE}:v${VERSION}" \
+    "${IMAGE}:v${VERSION}-amd64" \
+    "${IMAGE}:v${VERSION}-arm64"
 
 # Create latest manifest only for stable versions
 if [[ "$VERSION" != *-* ]]; then
-    docker manifest create \
-        "${IMAGE}:latest" \
-        "${IMAGE}@${AMD64_DIGEST}" \
-        "${IMAGE}@${ARM64_DIGEST}"
-    
-    docker manifest push "${IMAGE}:latest"
+    echo "Creating stable latest manifest for ${IMAGE}:latest"
+    docker buildx imagetools create \
+        --tag "${IMAGE}:latest" \
+        "${IMAGE}:v${VERSION}-amd64" \
+        "${IMAGE}:v${VERSION}-arm64"
 fi
