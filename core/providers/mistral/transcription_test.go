@@ -1317,6 +1317,9 @@ func TestTranscriptionStreamEdgeCases(t *testing.T) {
 // TestTranscriptionStreamContextCancellation tests context cancellation during streaming.
 func TestTranscriptionStreamContextCancellation(t *testing.T) {
 	t.Parallel()
+	if raceEnabled {
+		t.Skip("fasthttp BodyStream cancellation uses concurrent CloseWithError to unblock reads; race detector flags fasthttp internals")
+	}
 
 	// Create a server that sends events slowly
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -174,6 +174,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	}
 	defer lock.release(ctx)
 
+	if err := ensureMigrationTrackingTable(ctx, db); err != nil {
+		return err
+	}
 	if err := migrationInit(ctx, db); err != nil {
 		return err
 	}
@@ -342,6 +345,10 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	// exist" during rolling deploys. A follow-up release wires it in once
 	// this one is fully rolled out. See the function's docstring.
 	return nil
+}
+
+func ensureMigrationTrackingTable(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Exec("CREATE TABLE IF NOT EXISTS migrations (id VARCHAR(255) PRIMARY KEY)").Error
 }
 
 // migrationInit creates the logs table if it does not exist.

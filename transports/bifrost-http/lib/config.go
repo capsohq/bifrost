@@ -3075,17 +3075,23 @@ func ResolveFrameworkPricingConfig(
 	resolvedPricingURL := &defaultPricingURL
 	resolvedModelParametersURL := &defaultModelParametersURL
 	resolvedSyncSeconds := &defaultSyncSeconds
+	pricingURLSource := "default"
+	modelParametersURLSource := "default"
+	syncIntervalSource := "default"
 
 	if filePricingURL != nil {
 		resolvedPricingURL = filePricingURL
+		pricingURLSource = "file"
 		logger.Debug("pricing_url resolved from file")
 	}
 	if fileModelParametersURL != nil {
 		resolvedModelParametersURL = fileModelParametersURL
+		modelParametersURLSource = "file"
 		logger.Debug("model_parameters_url resolved from file")
 	}
 	if fileSyncSeconds != nil {
 		resolvedSyncSeconds = fileSyncSeconds
+		syncIntervalSource = "file"
 		logger.Debug("pricing_sync_interval resolved from file: %d seconds", *fileSyncSeconds)
 	}
 
@@ -3120,12 +3126,14 @@ func ResolveFrameworkPricingConfig(
 				needsDBUpdate = true
 			} else {
 				resolvedPricingURL = dbConfig.PricingURL
+				pricingURLSource = "db"
 			}
 		} else if !skipURLBackfill {
 			needsDBUpdate = true
 		}
 		if dbConfig.ModelParametersURL != nil && *dbConfig.ModelParametersURL != "" {
 			resolvedModelParametersURL = dbConfig.ModelParametersURL
+			modelParametersURLSource = "db"
 		} else if !skipModelParamsURLBackfill {
 			needsDBUpdate = true
 		}
@@ -3147,6 +3155,7 @@ func ResolveFrameworkPricingConfig(
 				needsDBUpdate = true
 			} else {
 				resolvedSyncSeconds = dbConfig.PricingSyncInterval
+				syncIntervalSource = "db"
 			}
 		} else {
 			needsDBUpdate = true
@@ -3176,6 +3185,17 @@ func ResolveFrameworkPricingConfig(
 	if fileChanged {
 		persistedHash = fileHash
 	}
+
+	logger.Info(
+		"resolved pricing config: url=%s (source: %s), model_parameters_url=%s (source: %s), sync_interval=%d seconds (source: %s), needs_db_update=%t",
+		*resolvedPricingURL,
+		pricingURLSource,
+		*resolvedModelParametersURL,
+		modelParametersURLSource,
+		*resolvedSyncSeconds,
+		syncIntervalSource,
+		needsDBUpdate,
+	)
 
 	return &configstoreTables.TableFrameworkConfig{
 			ID:                  configID,

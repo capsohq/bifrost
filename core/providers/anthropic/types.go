@@ -159,23 +159,22 @@ var ProviderFeatures = map[schemas.ModelProvider]ProviderFeatureSupport{
 	// InferenceGeo, FastMode, TaskBudgets, AdvisorTool, StructuredOutputs,
 	// PromptCachingScope is not yet rolled out to Vertex.
 	// Context editing beta-header forwarding is enabled, but the raw
-	// context_management body field remains gated off until live Vertex API
-	// acceptance is verified consistently. The two flags are intentionally
-	// independent: one controls header forwarding, the other controls body shape.
+	// context_management body field is allowed for the edit types Vertex
+	// documents. Per-edit feature flags below still strip unsupported edits.
 	// FilesAPI, WebFetch, CodeExecution, AdvancedToolUse, RedactThinking.
 	//
 	// Anthropic documents context editing and compaction on Vertex beta, so the
-	// beta headers are allowed. The request body field remains disabled here
-	// because live Vertex responses have rejected context_management payloads.
+	// beta headers and compatible context_management edits are allowed.
 	schemas.Vertex: {
 		WebSearch:   true, // web search GA on Vertex per A; earlier code restricted to web_search_20250305 — A doesn't qualify
 		ComputerUse: true, Bash: true, Memory: true, TextEditor: true, ToolSearch: true,
-		ContainerBasic:      true,
-		Compaction:          true,
-		ContextEditing:      true,
-		InterleavedThinking: true, // V-platform confirms; fails on non-allowlisted 4-series
-		Context1M:           true,
-		EagerInputStreaming: true, // fine-grained-tool-streaming GA per A
+		ContainerBasic:         true,
+		Compaction:             true,
+		ContextEditing:         true,
+		ContextManagementField: true,
+		InterleavedThinking:    true, // V-platform confirms; fails on non-allowlisted 4-series
+		Context1M:              true,
+		EagerInputStreaming:    true, // fine-grained-tool-streaming GA per A
 	},
 	// AWS Bedrock — cite: A + B-header (definitive beta-header list).
 	// Notably NOT supported per docs: MCP, Skills, FilesAPI, WebFetch,

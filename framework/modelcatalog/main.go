@@ -28,6 +28,8 @@ type ModelCatalog struct {
 	lastSyncedAt       time.Time
 	syncMu             sync.RWMutex
 
+	// syncMu also protects these hooks. Tests and enterprise integrations can
+	// install hooks while startup sync goroutines are already running.
 	shouldSyncGate func(ctx context.Context) bool
 	afterSyncHook  func(ctx context.Context)
 
@@ -269,12 +271,16 @@ func Init(ctx context.Context, config *Config, configStore configstore.ConfigSto
 }
 
 func (mc *ModelCatalog) SetShouldSyncGate(shouldSyncGate func(ctx context.Context) bool) {
+	mc.syncMu.Lock()
+	defer mc.syncMu.Unlock()
 	mc.shouldSyncGate = shouldSyncGate
 }
 
 // SetAfterSyncHook registers a callback invoked after every successful URL → DB pricing sync.
 // In enterprise this is used to broadcast a gossip message so other pods reload from DB.
 func (mc *ModelCatalog) SetAfterSyncHook(fn func(ctx context.Context)) {
+	mc.syncMu.Lock()
+	defer mc.syncMu.Unlock()
 	mc.afterSyncHook = fn
 }
 

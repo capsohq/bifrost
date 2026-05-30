@@ -24,8 +24,11 @@ const (
 
 // syncPricing syncs pricing data from URL to database and updates cache
 func (mc *ModelCatalog) syncPricing(ctx context.Context) error {
-	if mc.shouldSyncGate != nil {
-		if !mc.shouldSyncGate(ctx) {
+	mc.syncMu.RLock()
+	shouldSyncGate := mc.shouldSyncGate
+	mc.syncMu.RUnlock()
+	if shouldSyncGate != nil {
+		if !shouldSyncGate(ctx) {
 			return nil
 		}
 	}
@@ -313,8 +316,11 @@ func (mc *ModelCatalog) syncTick(ctx context.Context) {
 			wg.Wait()
 
 			if pricingErr == nil && paramsErr == nil {
-				if mc.afterSyncHook != nil {
-					mc.afterSyncHook(ctx)
+				mc.syncMu.RLock()
+				afterSyncHook := mc.afterSyncHook
+				mc.syncMu.RUnlock()
+				if afterSyncHook != nil {
+					afterSyncHook(ctx)
 				}
 				mc.syncMu.Lock()
 				mc.lastSyncedAt = time.Now()
@@ -434,8 +440,11 @@ func (mc *ModelCatalog) loadModelParametersIntoMemoryFromURL(ctx context.Context
 
 // syncModelParameters syncs model parameters data from URL into memory cache
 func (mc *ModelCatalog) syncModelParameters(ctx context.Context) error {
-	if mc.shouldSyncGate != nil {
-		if !mc.shouldSyncGate(ctx) {
+	mc.syncMu.RLock()
+	shouldSyncGate := mc.shouldSyncGate
+	mc.syncMu.RUnlock()
+	if shouldSyncGate != nil {
+		if !shouldSyncGate(ctx) {
 			mc.logger.Debug("model parameters sync cancelled by custom gate")
 			return nil
 		}
