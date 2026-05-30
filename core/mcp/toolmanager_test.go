@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/mark3labs/mcp-go/client"
 )
 
 // =============================================================================
@@ -44,6 +45,16 @@ func (m *mockToolClientManager) GetToolPerClient(ctx context.Context) map[string
 
 func (m *mockToolClientManager) GetPluginPipeline() PluginPipeline             { return nil }
 func (m *mockToolClientManager) ReleasePluginPipeline(pipeline PluginPipeline) {}
+func (m *mockToolClientManager) AcquireClientConn(ctx *schemas.BifrostContext, state *schemas.MCPClientState) (*client.Client, func(), error) {
+	return nil, func() {}, nil
+}
+func (m *mockToolClientManager) RunWithPluginPipeline(ctx *schemas.BifrostContext, req *schemas.BifrostMCPRequest, op MCPOpFunc) (*schemas.BifrostMCPResponse, *schemas.BifrostError) {
+	resp, err := op(req)
+	if err != nil {
+		return nil, &schemas.BifrostError{IsBifrostError: false, Error: &schemas.ErrorField{Message: err.Error()}}
+	}
+	return resp, nil
+}
 
 // makeTool is a convenience constructor for test tool fixtures.
 func makeTool(name string) schemas.ChatTool {

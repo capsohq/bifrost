@@ -22,6 +22,7 @@ import (
 	"github.com/bytedance/sonic"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/mcp"
+	mcputils "github.com/capsohq/bifrost/core/mcp/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework"
 	"github.com/capsohq/bifrost/framework/configstore"
@@ -31,6 +32,7 @@ import (
 	"github.com/capsohq/bifrost/framework/featureflags"
 	"github.com/capsohq/bifrost/framework/kvstore"
 	"github.com/capsohq/bifrost/framework/logstore"
+	"github.com/capsohq/bifrost/framework/mcp_headers"
 	"github.com/capsohq/bifrost/framework/mcpcatalog"
 	"github.com/capsohq/bifrost/framework/modelcatalog"
 	"github.com/capsohq/bifrost/framework/oauth2"
@@ -82,6 +84,8 @@ type HandlerStore interface {
 	ShouldAllowPerRequestStorageOverride() bool
 	// ShouldAllowPerRequestRawOverride returns whether per-request overrides for raw request/response visibility are permitted
 	ShouldAllowPerRequestRawOverride() bool
+	// ShouldAllowDirectKeys returns whether callers may bypass the registered key pool via x-bf-direct-key header
+	ShouldAllowDirectKeys() bool
 	// GetMCPExternalClientURL returns the configured external base URL Bifrost uses as the
 	// redirect_uri when acting as an OAuth client to upstream MCP servers, or empty string
 	// if not configured (falls back to dynamic Host-header-based URL).
@@ -352,6 +356,13 @@ type Config struct {
 	OAuthProvider      *oauth2.OAuth2Provider
 	TokenRefreshWorker *oauth2.TokenRefreshWorker
 	OAuthSweepWorker   *oauth2.PerUserOAuthSweepWorker
+
+	// MCPHeadersProvider backs MCPAuthTypePerUserHeaders credential storage.
+	// Constructed alongside OAuthProvider and passed into the Bifrost core
+	// init so the per-user-headers resolver can resolve / persist values
+	// scoped by (auth_mode, identity, mcp_client).
+	MCPHeadersProvider    *mcp_headers.Provider
+	MCPHeadersSweepWorker *mcp_headers.CredentialSweepWorker
 
 	// Async job executor (initialized during setup if LogsStore + governance are available)
 	AsyncJobExecutor *logstore.AsyncJobExecutor
@@ -1458,6 +1469,7 @@ func mcpClientConfigToTable(clientConfig *schemas.MCPClientConfig) (configstoreT
 		Disabled:                  clientConfig.Disabled,
 		DiscoveredTools:           clientConfig.DiscoveredTools,
 		DiscoveredToolNameMapping: clientConfig.DiscoveredToolNameMapping,
+		PerUserHeaderKeys:         mcputils.CanonicalizeHeaderKeys(clientConfig.PerUserHeaderKeys),
 		ConfigHash:                clientConfig.ConfigHash,
 	}, nil
 }
@@ -3063,23 +3075,17 @@ func ResolveFrameworkPricingConfig(
 	resolvedPricingURL := &defaultPricingURL
 	resolvedModelParametersURL := &defaultModelParametersURL
 	resolvedSyncSeconds := &defaultSyncSeconds
-	pricingURLSource := "default"
-	modelParametersURLSource := "default"
-	syncIntervalSource := "default"
 
 	if filePricingURL != nil {
 		resolvedPricingURL = filePricingURL
-		pricingURLSource = "file"
 		logger.Debug("pricing_url resolved from file")
 	}
 	if fileModelParametersURL != nil {
 		resolvedModelParametersURL = fileModelParametersURL
-		modelParametersURLSource = "file"
 		logger.Debug("model_parameters_url resolved from file")
 	}
 	if fileSyncSeconds != nil {
 		resolvedSyncSeconds = fileSyncSeconds
-		syncIntervalSource = "file"
 		logger.Debug("pricing_sync_interval resolved from file: %d seconds", *fileSyncSeconds)
 	}
 
@@ -3114,14 +3120,12 @@ func ResolveFrameworkPricingConfig(
 				needsDBUpdate = true
 			} else {
 				resolvedPricingURL = dbConfig.PricingURL
-				pricingURLSource = "db"
 			}
 		} else if !skipURLBackfill {
 			needsDBUpdate = true
 		}
 		if dbConfig.ModelParametersURL != nil && *dbConfig.ModelParametersURL != "" {
 			resolvedModelParametersURL = dbConfig.ModelParametersURL
-			modelParametersURLSource = "db"
 		} else if !skipModelParamsURLBackfill {
 			needsDBUpdate = true
 		}
@@ -3136,7 +3140,6 @@ func ResolveFrameworkPricingConfig(
 				if !fileChanged || fileSyncSeconds == nil {
 					clamped := modelcatalog.MinimumPricingSyncIntervalSec
 					resolvedSyncSeconds = &clamped
-					syncIntervalSource = "db"
 				}
 				needsDBUpdate = true
 			} else if fileChanged && fileSyncSeconds != nil {
@@ -3144,7 +3147,6 @@ func ResolveFrameworkPricingConfig(
 				needsDBUpdate = true
 			} else {
 				resolvedSyncSeconds = dbConfig.PricingSyncInterval
-				syncIntervalSource = "db"
 			}
 		} else {
 			needsDBUpdate = true
@@ -3155,28 +3157,15 @@ func ResolveFrameworkPricingConfig(
 	if resolvedPricingURL == nil {
 		logger.Warn("invariant violation: pricing_url resolved to nil — falling back to default %q", defaultPricingURL)
 		resolvedPricingURL = &defaultPricingURL
-		pricingURLSource = "default"
 	}
 	if resolvedModelParametersURL == nil {
 		logger.Warn("invariant violation: model_parameters_url resolved to nil — falling back to default %q", defaultModelParametersURL)
 		resolvedModelParametersURL = &defaultModelParametersURL
-		modelParametersURLSource = "default"
 	}
 	if resolvedSyncSeconds == nil {
 		logger.Warn("invariant violation: pricing_sync_interval resolved to nil — falling back to default %d seconds", defaultSyncSeconds)
 		resolvedSyncSeconds = &defaultSyncSeconds
-		syncIntervalSource = "default"
 	}
-
-	logger.Debug(
-		"resolved pricing config: url=%s source: %s model_parameters_url=%s model_parameters_source: %s sync_interval=%d seconds source: %s",
-		*resolvedPricingURL,
-		pricingURLSource,
-		*resolvedModelParametersURL,
-		modelParametersURLSource,
-		*resolvedSyncSeconds,
-		syncIntervalSource,
-	)
 
 	// Only update the stored hash when the file actually changed; preserve the
 	// existing hash for correction-only DB updates (null backfill, corruption fix).
@@ -3226,6 +3215,9 @@ func initFrameworkConfig(ctx context.Context, config *Config, configData *Config
 
 	// Initialize OAuth provider
 	config.OAuthProvider = oauth2.NewOAuth2Provider(config.ConfigStore, logger)
+	// Initialize per-user-headers credential provider. Storage parallel of
+	// OAuthProvider for MCPAuthTypePerUserHeaders clients.
+	config.MCPHeadersProvider = mcp_headers.NewProvider(config.ConfigStore, logger)
 
 	// Start token refresh worker for automatic OAuth token refresh
 	config.TokenRefreshWorker = oauth2.NewTokenRefreshWorker(config.OAuthProvider, logger)
@@ -3238,6 +3230,15 @@ func initFrameworkConfig(ctx context.Context, config *Config, configData *Config
 	config.OAuthSweepWorker = oauth2.NewPerUserOAuthSweepWorker(config.OAuthProvider, 30*24*time.Hour, logger)
 	if config.OAuthSweepWorker != nil {
 		config.OAuthSweepWorker.Start(ctx)
+	}
+
+	// Start per-user headers credential sweep worker. Parallel of the OAuth
+	// sweep but only reaps orphaned credential rows (no flow table to sweep).
+	// Same 30-day retention so admin expectations stay uniform across the two
+	// per-user auth surfaces.
+	config.MCPHeadersSweepWorker = mcp_headers.NewCredentialSweepWorker(config.MCPHeadersProvider, 30*24*time.Hour, logger)
+	if config.MCPHeadersSweepWorker != nil {
+		config.MCPHeadersSweepWorker.Start(ctx)
 	}
 
 	config.FrameworkConfig = &framework.FrameworkConfig{
@@ -3527,6 +3528,11 @@ func (c *Config) ShouldAllowPerRequestRawOverride() bool {
 	return c.ClientConfig.AllowPerRequestRawOverride
 }
 
+// ShouldAllowDirectKeys returns whether callers may bypass the registered key pool via x-bf-direct-key header.
+func (c *Config) ShouldAllowDirectKeys() bool {
+	return c.ClientConfig.AllowDirectKeys
+}
+
 // GetMCPExternalClientURL returns the configured external base URL Bifrost uses as the
 // redirect_uri when acting as an OAuth client to upstream MCP servers, or empty string
 // if not configured. Resolves env var references automatically.
@@ -3704,6 +3710,9 @@ func (c *Config) Close(ctx context.Context) {
 	}
 	if c.OAuthSweepWorker != nil {
 		c.OAuthSweepWorker.Stop()
+	}
+	if c.MCPHeadersSweepWorker != nil {
+		c.MCPHeadersSweepWorker.Stop()
 	}
 	if c.KVStore != nil {
 		c.KVStore.Close()
@@ -4758,7 +4767,7 @@ func (c *Config) AddMCPClient(ctx context.Context, clientConfig *schemas.MCPClie
 	// Track new environment variables
 	c.MCPConfig.ClientConfigs = append(c.MCPConfig.ClientConfigs, clientConfig)
 	// Config with processed env vars
-	if err := c.client.AddMCPClient(clientConfig); err != nil {
+	if err := c.client.AddMCPClient(ctx, clientConfig); err != nil {
 		c.MCPConfig.ClientConfigs = c.MCPConfig.ClientConfigs[:len(c.MCPConfig.ClientConfigs)-1]
 		return fmt.Errorf("failed to connect MCP client: %w", err)
 	}
@@ -4861,6 +4870,7 @@ func (c *Config) UpdateMCPClient(ctx context.Context, id string, updatedConfig *
 	c.MCPConfig.ClientConfigs[configIndex].ToolSyncInterval = updatedConfig.ToolSyncInterval
 	c.MCPConfig.ClientConfigs[configIndex].AllowOnAllVirtualKeys = updatedConfig.AllowOnAllVirtualKeys
 	c.MCPConfig.ClientConfigs[configIndex].Disabled = updatedConfig.Disabled
+	c.MCPConfig.ClientConfigs[configIndex].PerUserHeaderKeys = updatedConfig.PerUserHeaderKeys
 
 	// Handle disable/enable lifecycle when the Disabled flag toggles and the client
 	// is registered at runtime. We call the core bifrost methods directly (not the
@@ -5079,6 +5089,15 @@ func (c *Config) RedactMCPClientConfig(config *schemas.MCPClientConfig) *schemas
 	}
 	if config.OauthClientSecret != nil {
 		configCopy.OauthClientSecret = config.OauthClientSecret.Redacted()
+	}
+
+	// Redact TLS CA cert PEM if present
+	if config.TLSConfig != nil {
+		tlsCopy := *config.TLSConfig
+		if config.TLSConfig.CACertPEM != nil {
+			tlsCopy.CACertPEM = config.TLSConfig.CACertPEM.Redacted()
+		}
+		configCopy.TLSConfig = &tlsCopy
 	}
 
 	return &configCopy

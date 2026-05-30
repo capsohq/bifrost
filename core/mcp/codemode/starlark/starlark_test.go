@@ -11,6 +11,7 @@ import (
 	"github.com/bytedance/sonic"
 	codemcp "github.com/capsohq/bifrost/core/mcp"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/mark3labs/mcp-go/client"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 )
@@ -44,6 +45,16 @@ func (m *testClientManager) GetPluginPipeline() codemcp.PluginPipeline {
 }
 
 func (m *testClientManager) ReleasePluginPipeline(pipeline codemcp.PluginPipeline) {}
+func (m *testClientManager) AcquireClientConn(ctx *schemas.BifrostContext, state *schemas.MCPClientState) (*client.Client, func(), error) {
+	return nil, func() {}, nil
+}
+func (m *testClientManager) RunWithPluginPipeline(ctx *schemas.BifrostContext, req *schemas.BifrostMCPRequest, op codemcp.MCPOpFunc) (*schemas.BifrostMCPResponse, *schemas.BifrostError) {
+	resp, err := op(req)
+	if err != nil {
+		return nil, &schemas.BifrostError{IsBifrostError: false, Error: &schemas.ErrorField{Message: err.Error()}}
+	}
+	return resp, nil
+}
 
 func TestStarlarkToGo(t *testing.T) {
 	t.Run("Convert None", func(t *testing.T) {
