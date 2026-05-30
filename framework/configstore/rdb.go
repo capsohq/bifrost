@@ -36,6 +36,15 @@ type RDBConfigStore struct {
 	refreshPoolFn    func(ctx context.Context) error
 }
 
+const providerGraphMutationAdvisoryLockKey = 1000003
+
+func acquireProviderGraphMutationLock(ctx context.Context, txDB *gorm.DB) error {
+	if txDB.Dialector.Name() != "postgres" {
+		return nil
+	}
+	return txDB.WithContext(ctx).Exec("SELECT pg_advisory_xact_lock(?)", providerGraphMutationAdvisoryLockKey).Error
+}
+
 // getWeight safely dereferences a *float64 weight pointer, returning 1.0 as default if nil.
 // This allows distinguishing between "not set" (nil -> 1.0) and "explicitly set to 0" (0.0).
 func getWeight(w *float64) float64 {
@@ -840,6 +849,9 @@ func (s *RDBConfigStore) UpdateProvider(ctx context.Context, provider schemas.Mo
 
 	var txDB *gorm.DB
 	txDB = tx[0]
+	if err := acquireProviderGraphMutationLock(ctx, txDB); err != nil {
+		return err
+	}
 	// Find the existing provider
 	var dbProvider tables.TableProvider
 	if err := dbForUpdate(txDB.WithContext(ctx)).Where("name = ?", string(provider)).First(&dbProvider).Error; err != nil {
@@ -1117,6 +1129,9 @@ func (s *RDBConfigStore) DeleteProvider(ctx context.Context, provider schemas.Mo
 
 	var txDB *gorm.DB
 	txDB = tx[0]
+	if err := acquireProviderGraphMutationLock(ctx, txDB); err != nil {
+		return err
+	}
 	// Find the existing provider
 	var dbProvider tables.TableProvider
 	if err := dbForUpdate(txDB.WithContext(ctx)).Where("name = ?", string(provider)).First(&dbProvider).Error; err != nil {
@@ -3040,6 +3055,9 @@ func (s *RDBConfigStore) UpdateVirtualKeyProviderConfig(ctx context.Context, vir
 
 	var txDB *gorm.DB
 	txDB = tx[0]
+	if err := acquireProviderGraphMutationLock(ctx, txDB); err != nil {
+		return err
+	}
 	if virtualKeyProviderConfig.ID != 0 {
 		var existing tables.TableVirtualKeyProviderConfig
 		if err := dbForUpdate(txDB.WithContext(ctx)).First(&existing, "id = ?", virtualKeyProviderConfig.ID).Error; err != nil {
