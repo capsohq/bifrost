@@ -21,8 +21,24 @@ if [[ ! -d "./dist" ]]; then
   echo "❌ ./dist not found. Build artifacts must be present before upload."
   exit 1
 fi
-: "${R2_ENDPOINT:?R2_ENDPOINT env var is required}"
-: "${R2_BUCKET:?R2_BUCKET env var is required}"
+if [ -z "${R2_ENDPOINT:-}" ] || [ -z "${R2_BUCKET:-}" ]; then
+  if [ "${R2_REQUIRED:-false}" = "true" ]; then
+    echo "❌ R2_ENDPOINT and R2_BUCKET env vars are required"
+    exit 1
+  fi
+  echo "⚠️ R2 endpoint or bucket is not configured; skipping binary upload"
+  exit 0
+fi
+
+if ! command -v aws >/dev/null 2>&1 || \
+   ! aws configure get aws_access_key_id --profile "${R2_AWS_PROFILE:-R2}" >/dev/null 2>&1; then
+  if [ "${R2_REQUIRED:-false}" = "true" ]; then
+    echo "❌ AWS CLI or R2 profile is not configured"
+    exit 1
+  fi
+  echo "⚠️ AWS CLI or R2 profile is not configured; skipping binary upload"
+  exit 0
+fi
 
 # Strip 'transports/' prefix from version
 VERSION_ONLY=${TRANSPORT_VERSION#transports/v}
