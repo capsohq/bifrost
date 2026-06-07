@@ -3,7 +3,7 @@ module github.com/capsohq/bifrost/plugins/mocker
 go 1.26.3
 
 require (
-	github.com/capsohq/bifrost/core v1.5.15
+	github.com/capsohq/bifrost/core v1.5.16
 	github.com/jaswdr/faker/v2 v2.8.0
 )
 
@@ -74,5 +74,3 @@ require (
 )
 
 replace github.com/capsohq/bifrost/core => ../../core
-
-replace github.com/capsohq/bifrost/framework => ../../framework

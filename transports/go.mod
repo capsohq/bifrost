@@ -6,16 +6,16 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.5.15
-	github.com/capsohq/bifrost/framework v1.3.15
-	github.com/capsohq/bifrost/plugins/compat v0.1.14
-	github.com/capsohq/bifrost/plugins/governance v1.5.15
-	github.com/capsohq/bifrost/plugins/logging v1.5.15
-	github.com/capsohq/bifrost/plugins/maxim v1.6.15
-	github.com/capsohq/bifrost/plugins/otel v1.2.15
-	github.com/capsohq/bifrost/plugins/prompts v1.0.15
-	github.com/capsohq/bifrost/plugins/semanticcache v1.5.15
-	github.com/capsohq/bifrost/plugins/telemetry v1.5.15
+	github.com/capsohq/bifrost/core v1.5.16
+	github.com/capsohq/bifrost/framework v1.3.16
+	github.com/capsohq/bifrost/plugins/compat v0.1.15
+	github.com/capsohq/bifrost/plugins/governance v1.5.16
+	github.com/capsohq/bifrost/plugins/logging v1.5.16
+	github.com/capsohq/bifrost/plugins/maxim v1.6.16
+	github.com/capsohq/bifrost/plugins/otel v1.2.16
+	github.com/capsohq/bifrost/plugins/prompts v1.0.16
+	github.com/capsohq/bifrost/plugins/semanticcache v1.5.16
+	github.com/capsohq/bifrost/plugins/telemetry v1.5.16
 	github.com/fasthttp/router v1.5.4
 	github.com/fasthttp/websocket v1.5.12
 	github.com/google/pprof v0.0.0-20251213031049-b05bdaca462f
@@ -77,7 +77,7 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
-	github.com/capsohq/bifrost/plugins/mocker v1.5.15 // indirect
+	github.com/capsohq/bifrost/plugins/mocker v1.5.16 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect

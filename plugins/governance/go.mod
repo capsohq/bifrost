@@ -6,8 +6,8 @@ require gorm.io/gorm v1.31.1
 
 require (
 	github.com/bytedance/sonic v1.15.0
-	github.com/capsohq/bifrost/core v1.5.15
-	github.com/capsohq/bifrost/framework v1.3.15
+	github.com/capsohq/bifrost/core v1.5.16
+	github.com/capsohq/bifrost/framework v1.3.16
 	github.com/google/cel-go v0.26.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
