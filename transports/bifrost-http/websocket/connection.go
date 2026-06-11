@@ -201,13 +201,12 @@ func (c *UpstreamConn) ValidateIdleHeartbeat(timeout time.Duration) bool {
 		_ = c.SetReadDeadline(time.Now().Add(d))
 		_, _, err := c.ReadMessage()
 
-		if gotPong.Load() {
-			_ = c.SetReadDeadline(time.Time{})
-			return true
-		}
-
 		if err != nil {
 			if isHeartbeatTimeout(err) {
+				if gotPong.Load() {
+					_ = c.SetReadDeadline(time.Time{})
+					return true
+				}
 				continue // poll again until total deadline
 			}
 			// Non-timeout error (close frame, EOF, etc.)
