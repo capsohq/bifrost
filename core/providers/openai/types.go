@@ -9,6 +9,7 @@ import (
 	"github.com/bytedance/sonic"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/tidwall/sjson"
 )
 
 const MinMaxCompletionTokens = 16
@@ -277,12 +278,15 @@ func (req *OpenAIChatRequest) MarshalJSON() ([]byte, error) {
 func (req *OpenAIChatRequest) UnmarshalJSON(data []byte) error {
 	// Unmarshal the request-specific fields directly
 	type baseFields struct {
-		Model                   string          `json:"model"`
-		Messages                []OpenAIMessage `json:"messages"`
-		Stream                  *bool           `json:"stream,omitempty"`
-		MaxTokens               *int            `json:"max_tokens,omitempty"`
-		PromptCacheIsolationKey *string         `json:"prompt_cache_isolation_key,omitempty"`
-		Fallbacks               []string        `json:"fallbacks,omitempty"`
+		Model                   string              `json:"model"`
+		Messages                []OpenAIMessage     `json:"messages"`
+		Stream                  *bool               `json:"stream,omitempty"`
+		MaxTokens               *int                `json:"max_tokens,omitempty"`
+		PromptCacheIsolationKey *string             `json:"prompt_cache_isolation_key,omitempty"`
+		Thinking                *OpenAIThinkingMode `json:"thinking,omitempty"`
+		EnableThinking          *bool               `json:"enable_thinking,omitempty"`
+		ThinkingBudget          *int                `json:"thinking_budget,omitempty"`
+		Fallbacks               []string            `json:"fallbacks,omitempty"`
 	}
 	var base baseFields
 	if err := sonic.Unmarshal(data, &base); err != nil {
@@ -293,6 +297,9 @@ func (req *OpenAIChatRequest) UnmarshalJSON(data []byte) error {
 	req.Stream = base.Stream
 	req.MaxTokens = base.MaxTokens
 	req.PromptCacheIsolationKey = base.PromptCacheIsolationKey
+	req.Thinking = base.Thinking
+	req.EnableThinking = base.EnableThinking
+	req.ThinkingBudget = base.ThinkingBudget
 	req.Fallbacks = base.Fallbacks
 
 	// Unmarshal ChatParameters (which has its own custom unmarshaller)
@@ -350,7 +357,11 @@ func (r *OpenAIResponsesRequestInput) MarshalJSON() ([]byte, error) {
 
 		// If no CacheControl found anywhere, marshal as-is
 		if !needsCopy {
-			return providerUtils.MarshalSorted(r.OpenAIResponsesRequestInputArray)
+			data, err := providerUtils.MarshalSorted(r.OpenAIResponsesRequestInputArray)
+			if err != nil {
+				return nil, err
+			}
+			return stripCompactionItemSummary(data, r.OpenAIResponsesRequestInputArray), nil
 		}
 
 		// Only copy messages that have CacheControl
@@ -508,9 +519,29 @@ func (r *OpenAIResponsesRequestInput) MarshalJSON() ([]byte, error) {
 				}
 			}
 		}
-		return providerUtils.MarshalSorted(messagesCopy)
+		data, err := providerUtils.MarshalSorted(messagesCopy)
+		if err != nil {
+			return nil, err
+		}
+		return stripCompactionItemSummary(data, messagesCopy), nil
 	}
 	return providerUtils.MarshalSorted(nil)
+}
+
+// stripCompactionItemSummary removes the "summary" field from compaction input items.
+// OpenAI's Responses API rejects "summary" on a compaction item ("Unknown parameter:
+// input[N].summary"). Bifrost has no first-class compaction item model, so the item's
+// encrypted_content rides the embedded *ResponsesReasoning, whose (no-omitempty) Summary
+// re-injects "summary": null. Reasoning items legitimately carry summary and are left intact.
+func stripCompactionItemSummary(data []byte, items []schemas.ResponsesMessage) []byte {
+	for i, msg := range items {
+		if msg.Type != nil && *msg.Type == schemas.ResponsesMessageTypeCompaction {
+			if updated, err := sjson.DeleteBytes(data, fmt.Sprintf("%d.summary", i)); err == nil {
+				data = updated
+			}
+		}
+	}
+	return data
 }
 
 // Helper function to check if a chat message has any CacheControl fields or FileType in file blocks
@@ -716,7 +747,8 @@ type OpenAIResponsesRequest struct {
 	schemas.ResponsesParameters
 	Stream *bool `json:"stream,omitempty"`
 
-	// Bifrost specific field (only parsed when converting from Provider -> Bifrost request)
+	// Bifrost specific fields (not serialized to wire)
+	Provider    schemas.ModelProvider  `json:"-"` // originating provider, used for provider-specific filtering
 	Fallbacks   []string               `json:"fallbacks,omitempty"`
 	ExtraParams map[string]interface{} `json:"-"` // Optional: Extra parameters
 }

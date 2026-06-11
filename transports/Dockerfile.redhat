@@ -17,7 +17,7 @@ RUN npm run build-enterprise
 # Skip the copy-build step since we'll copy the files in the Go build stage
 
 # --- Go Build Stage: Compile the Go binary ---
-FROM golang:1.26.3-alpine3.23@sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d AS builder
+FROM golang:1.26.4-alpine3.23@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS builder
 WORKDIR /app/transports
 
 # Install dependencies including gcc for CGO and sqlite (with latest security patches)
@@ -99,13 +99,11 @@ ENV APP_PORT=$ARG_APP_PORT \
 #       Default: 100. For high-throughput with available memory, try 200-400.
 # GOMEMLIMIT: Soft memory limit for Go runtime. Set to ~90% of container memory limit.
 #             Example: "1800MiB" for a 2GB container, "3600MiB" for 4GB.
+#             When set, Go will be more aggressive about GC as it approaches this limit.
 # Note: GOMAXPROCS is automatically detected from cgroup CPU limits via automaxprocs.
 ENV GOGC="" \
   GOMEMLIMIT=""
 
-# UID 1001 is the Red Hat recommended non-root numeric UID for certified containers.
-# We avoid creating a named user (adduser) since UBI minimal may not have useradd,
-# and Red Hat Preflight expects a numeric USER instruction.
 RUN mkdir -p $APP_DIR/logs && \
   chown -R 1001:0 /app /licenses && \
   { [ "$APP_DIR" = "/app" ] || [ "${APP_DIR#/app/}" != "$APP_DIR" ] || chown -R 1001:0 "$APP_DIR"; } && \
@@ -123,6 +121,5 @@ EXPOSE $APP_PORT
 # before the first liveness probe fires.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD curl-minimal -f -s http://127.0.0.1:${APP_PORT}/health || exit 1
-
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/app/main"]

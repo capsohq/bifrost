@@ -23,27 +23,34 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// dropSharedTestNamespace removes the shared test namespace from EVERY vector
+// store backend the suite exercises - not just Weaviate. Redis, Qdrant, and
+// Pinecone are persistent external services, so a deterministic per-t.Name()
+// cache_key written by one run is still present on the next run (within TTL)
+// and surfaces as a spurious cache hit on the first request. Sweeping all
+// backends here is the suite's only cleanup, since clearTestKeysWithStore is a
+// no-op. Stores that aren't configured/reachable in this environment are
+// skipped silently.
 func dropSharedTestNamespace() {
 	logger := bifrost.NewDefaultLogger(schemas.LogLevelError)
-	stores := []struct {
-		storeType vectorstore.VectorStoreType
-		config    interface{}
-	}{
-		{vectorstore.VectorStoreTypeWeaviate, getWeaviateConfigFromEnv()},
-		{vectorstore.VectorStoreTypeRedis, getRedisConfigFromEnv()},
-		{vectorstore.VectorStoreTypeQdrant, getQdrantConfigFromEnv()},
-	}
-	for _, candidate := range stores {
-		store, err := vectorstore.NewVectorStore(context.Background(), &vectorstore.Config{
-			Type:    candidate.storeType,
-			Config:  candidate.config,
-			Enabled: true,
-		}, logger)
-		if err != nil {
+	for _, tc := range getVectorStoreTestCases() {
+		storeConfig, ok := storeConfigForType(tc.StoreType)
+		if !ok {
 			continue
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		_ = store.DeleteNamespace(ctx, SharedTestNamespace)
-		cancel()
+		func() {
+			store, err := vectorstore.NewVectorStore(context.Background(), &vectorstore.Config{
+				Type:    tc.StoreType,
+				Config:  storeConfig,
+				Enabled: true,
+			}, logger)
+			if err != nil {
+				return // backend not configured/available in this environment
+			}
+			defer store.Close(context.Background(), SharedTestNamespace)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = store.DeleteNamespace(ctx, SharedTestNamespace)
+		}()
 	}
 }

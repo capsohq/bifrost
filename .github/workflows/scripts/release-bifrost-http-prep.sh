@@ -83,12 +83,18 @@ echo "🔧 Using plugin versions from version files for transport..."
 
 # Track which plugins are actually used by the transport
 cd transports
+
+# Normalize the local go.mod directive up front so prior-release artifacts
+# (e.g. `go 1.26.2` written by earlier `go get` runs) don't trip GOTOOLCHAIN=local.
+go mod edit -go=1.26.4 -toolchain=none
+
 for plugin_name in "${!PLUGIN_VERSIONS[@]}"; do
   plugin_version="${PLUGIN_VERSIONS[$plugin_name]}"
 
   # Check if transport depends on this plugin
   if grep -q "${MODULE_ROOT}/plugins/$plugin_name" go.mod; then
     echo "  📦 Using $plugin_name plugin $plugin_version"
+    # Textual require bump — skips loading the currently-declared version's go.mod
     set_internal_module_version "${MODULE_ROOT}/plugins/$plugin_name" "$plugin_version"
   fi
 done
@@ -101,6 +107,9 @@ set_internal_module_version "${MODULE_ROOT}/core" "$CORE_VERSION"
 echo "  📦 Updating framework to $FRAMEWORK_VERSION"
 set_internal_module_version "${MODULE_ROOT}/framework" "$FRAMEWORK_VERSION"
 
+# Re-normalize before tidy in case any edit reintroduced a toolchain line
+go mod edit -go=1.26.4 -toolchain=none
+go mod tidy
 
 cd ..
 
