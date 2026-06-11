@@ -2692,7 +2692,7 @@ func updateGovernanceConfigInStore(
 				// budget_id removed — unlink any budget previously owned via this path.
 				if err := tx.Model(&configstoreTables.TableBudget{}).
 					Where("customer_id = ?", customer.ID).
-					Update("customer_id", nil).Error; err != nil {
+					UpdateColumn("customer_id", nil).Error; err != nil {
 					return fmt.Errorf("failed to unlink stale budgets from customer %s: %w", customer.ID, err)
 				}
 				continue
@@ -2965,13 +2965,13 @@ func linkCustomerBudgetID(tx *gorm.DB, customerID, budgetID string, clearStale b
 	if clearStale {
 		if err := tx.Model(&configstoreTables.TableBudget{}).
 			Where("customer_id = ? AND id != ?", customerID, budgetID).
-			Update("customer_id", nil).Error; err != nil {
+			UpdateColumn("customer_id", nil).Error; err != nil {
 			return fmt.Errorf("failed to unlink stale budget from customer %s: %w", customerID, err)
 		}
 	}
 	result := tx.Model(&configstoreTables.TableBudget{}).
 		Where("id = ?", budgetID).
-		Update("customer_id", customerID)
+		UpdateColumn("customer_id", customerID)
 	if result.Error != nil {
 		return fmt.Errorf("failed to link budget %s to customer %s: %w", budgetID, customerID, result.Error)
 	}

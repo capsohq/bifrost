@@ -16073,6 +16073,7 @@ var excludedSchemaFields = map[string]map[string]bool{
 	},
 	"governance": {
 		"business_units": true, // Enterprise feature; not in OSS GovernanceConfig
+		"roles":          true, // Enterprise RBAC role definitions; not in OSS GovernanceConfig
 	},
 	"governance.teams": {
 		"budget_id":        true, // Replaced by budgets[] relationship with team_id FK on TableBudget
