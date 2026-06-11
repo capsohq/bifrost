@@ -1,16 +1,16 @@
-module github.com/maximhq/bifrost/tests/cmd/seedvks
+module github.com/capsohq/bifrost/tests/cmd/seedvks
 
 go 1.26.4
 
 replace (
-	github.com/maximhq/bifrost/core => ../../../core
-	github.com/maximhq/bifrost/framework => ../../../framework
+	github.com/capsohq/bifrost/core => ../../../core
+	github.com/capsohq/bifrost/framework => ../../../framework
 )
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/maximhq/bifrost/core v1.5.18
-	github.com/maximhq/bifrost/framework v1.3.16
+	github.com/capsohq/bifrost/core v1.5.18
+	github.com/capsohq/bifrost/framework v1.3.16
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )

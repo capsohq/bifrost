@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/bytedance/sonic"
-	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
-	"github.com/maximhq/bifrost/core/schemas"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
+	"github.com/capsohq/bifrost/core/schemas"
 )
 
 // ExtractGeminiPassthroughUsage extracts usage from a completed Gemini/Vertex

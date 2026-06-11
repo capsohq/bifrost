@@ -35,11 +35,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/maximhq/bifrost/core/schemas"
-	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
-	"github.com/maximhq/bifrost/framework/encrypt"
+	"github.com/capsohq/bifrost/core/schemas"
+	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
+	"github.com/capsohq/bifrost/framework/encrypt"
 
-	bifrost "github.com/maximhq/bifrost/core"
+	bifrost "github.com/capsohq/bifrost/core"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
