@@ -227,6 +227,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
@@ -352,6 +354,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           BIFROST_ENCRYPTION_KEY: ${{ secrets.BIFROST_ENCRYPTION_KEY }}
@@ -452,6 +456,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           BIFROST_ENCRYPTION_KEY: ${{ secrets.BIFROST_ENCRYPTION_KEY }}
@@ -728,6 +734,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           GOOGLE_LOCATION: ${{ secrets.GOOGLE_LOCATION }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
@@ -835,7 +843,7 @@ jobs:
           node-version: "25"
 
       - name: Install Newman
-        run: npm install -g newman newman-reporter-htmlextra
+        run: npm install -g newman@6.2.1 newman-reporter-htmlextra@1.23.1
 
       - name: Setup Docker Buildx
         uses: step-security/setup-buildx-action@f931205d68723ad9589fd2a7e2ece238bf9de341 # v4.0.0
@@ -848,6 +856,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           GOOGLE_LOCATION: ${{ secrets.GOOGLE_LOCATION }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
@@ -955,7 +965,7 @@ jobs:
           node-version: "25"
 
       - name: Install Newman
-        run: npm install -g newman newman-reporter-htmlextra
+        run: npm install -g newman@6.2.1 newman-reporter-htmlextra@1.23.1
 
       - name: Setup Docker Buildx
         uses: step-security/setup-buildx-action@f931205d68723ad9589fd2a7e2ece238bf9de341 # v4.0.0
@@ -968,6 +978,8 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           GOOGLE_LOCATION: ${{ secrets.GOOGLE_LOCATION }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
@@ -1090,6 +1102,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
@@ -1202,6 +1216,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           REPLICATE_API_KEY: ${{ secrets.REPLICATE_API_KEY }}
@@ -1326,6 +1342,8 @@ jobs:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           VERTEX_CREDENTIALS: ${{ secrets.VERTEX_CREDENTIALS }}
           VERTEX_PROJECT_ID: ${{ secrets.VERTEX_PROJECT_ID }}
+          VERTEX_GCS_BUCKET: ${{ secrets.VERTEX_GCS_BUCKET }}
+          VERTEX_GCS_PREFIX: ${{ secrets.VERTEX_GCS_PREFIX }}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           HUGGING_FACE_API_KEY: ${{ secrets.HUGGING_FACE_API_KEY }}
           REPLICATE_API_KEY: ${{ secrets.REPLICATE_API_KEY }}
@@ -1636,8 +1654,8 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            github.com:443
             ghcr.io:443
+            github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             production.cloudfront.docker.com:443
@@ -1671,13 +1689,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Log in to GitHub Container Registry
+        uses: step-security/docker-login-action@870af644803bf9f204aed474adbad2958fec048b # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Determine Docker tags
         id: tags
         run: |
           git pull origin ${{ github.ref_name }}
           VERSION="${{ needs.detect-changes.outputs.transport-version }}"
           BASE_TAG="${{ env.REGISTRY }}/${{ env.ACCOUNT }}/${{ env.IMAGE_NAME }}:v${VERSION}-amd64"
+          GHCR_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          GHCR_TAG="ghcr.io/${GHCR_REPO}:v${VERSION}-amd64"
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "dockerhub-tag=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "ghcr-tag=${GHCR_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push AMD64 Docker image
         uses: step-security/docker-build-push-action@846549baaf047e867d038826129a64d81df0f704 # v7.1.0
@@ -1689,6 +1718,16 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           platforms: linux/amd64
+
+      # Mirror the just-pushed Docker Hub image to GitHub Container Registry (ghcr.io)
+      # by copying it with buildx imagetools (no rebuild). Best-effort: a ghcr.io
+      # failure must not fail the Docker Hub release.
+      - name: Mirror AMD64 image to GitHub Container Registry
+        continue-on-error: true
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.ghcr-tag }}" \
+            "${{ steps.tags.outputs.dockerhub-tag }}"
 
   # Docker build arm64
   docker-build-arm64:
@@ -1728,8 +1767,8 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            github.com:443
             ghcr.io:443
+            github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             production.cloudfront.docker.com:443
@@ -1763,13 +1802,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Log in to GitHub Container Registry
+        uses: step-security/docker-login-action@870af644803bf9f204aed474adbad2958fec048b # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Determine Docker tags
         id: tags
         run: |
           git pull origin ${{ github.ref_name }}
           VERSION="${{ needs.detect-changes.outputs.transport-version }}"
           BASE_TAG="${{ env.REGISTRY }}/${{ env.ACCOUNT }}/${{ env.IMAGE_NAME }}:v${VERSION}-arm64"
+          GHCR_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          GHCR_TAG="ghcr.io/${GHCR_REPO}:v${VERSION}-arm64"
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "dockerhub-tag=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "ghcr-tag=${GHCR_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push ARM64 Docker image
         uses: step-security/docker-build-push-action@846549baaf047e867d038826129a64d81df0f704 # v7.1.0
@@ -1781,6 +1831,16 @@ jobs:
             VERSION=${{ needs.detect-changes.outputs.transport-version }}
           tags: ${{ steps.tags.outputs.tags }}
           platforms: linux/arm64
+
+      # Mirror the just-pushed Docker Hub image to GitHub Container Registry (ghcr.io)
+      # by copying it with buildx imagetools (no rebuild). Best-effort: a ghcr.io
+      # failure must not fail the Docker Hub release.
+      - name: Mirror ARM64 image to GitHub Container Registry
+        continue-on-error: true
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.ghcr-tag }}" \
+            "${{ steps.tags.outputs.dockerhub-tag }}"
 
   # Docker manifest
   docker-manifest:
@@ -1801,8 +1861,8 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             auth.docker.io:443
-            github.com:443
             ghcr.io:443
+            github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             production.cloudfront.docker.com:443
@@ -1817,6 +1877,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
+      - name: Log in to GitHub Container Registry
+        uses: step-security/docker-login-action@870af644803bf9f204aed474adbad2958fec048b # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push multi-arch manifest
         run: |
@@ -1860,8 +1927,8 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            github.com:443
             ghcr.io:443
+            github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             production.cloudfront.docker.com:443
@@ -1897,13 +1964,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Log in to GitHub Container Registry
+        uses: step-security/docker-login-action@870af644803bf9f204aed474adbad2958fec048b # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Determine Docker tags
         id: tags
         run: |
           git pull origin ${{ github.ref_name }}
           VERSION="${{ needs.detect-changes.outputs.transport-version }}"
           BASE_TAG="${{ env.REGISTRY }}/${{ env.ACCOUNT }}/${{ env.IMAGE_NAME }}:v${VERSION}-ubi9-amd64"
+          GHCR_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          GHCR_TAG="ghcr.io/${GHCR_REPO}:v${VERSION}-ubi9-amd64"
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "dockerhub-tag=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "ghcr-tag=${GHCR_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push UBI9 AMD64 Docker image
         uses: step-security/docker-build-push-action@846549baaf047e867d038826129a64d81df0f704 # v7.1.0
@@ -1917,6 +1995,16 @@ jobs:
           platforms: linux/amd64
           cache-from: type=gha,scope=docker-ubi9-amd64
           cache-to: type=gha,mode=max,scope=docker-ubi9-amd64
+
+      # Mirror the just-pushed Docker Hub image to GitHub Container Registry (ghcr.io)
+      # by copying it with buildx imagetools (no rebuild). Best-effort: a ghcr.io
+      # failure must not fail the Docker Hub release.
+      - name: Mirror UBI9 AMD64 image to GitHub Container Registry
+        continue-on-error: true
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.ghcr-tag }}" \
+            "${{ steps.tags.outputs.dockerhub-tag }}"
 
   # Docker build UBI9 arm64
   docker-build-ubi9-arm64:
@@ -1956,8 +2044,8 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
-            github.com:443
             ghcr.io:443
+            github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             production.cloudfront.docker.com:443
@@ -1993,13 +2081,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Log in to GitHub Container Registry
+        uses: step-security/docker-login-action@870af644803bf9f204aed474adbad2958fec048b # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Determine Docker tags
         id: tags
         run: |
           git pull origin ${{ github.ref_name }}
           VERSION="${{ needs.detect-changes.outputs.transport-version }}"
           BASE_TAG="${{ env.REGISTRY }}/${{ env.ACCOUNT }}/${{ env.IMAGE_NAME }}:v${VERSION}-ubi9-arm64"
+          GHCR_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          GHCR_TAG="ghcr.io/${GHCR_REPO}:v${VERSION}-ubi9-arm64"
           echo "tags=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "dockerhub-tag=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "ghcr-tag=${GHCR_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push UBI9 ARM64 Docker image
         uses: step-security/docker-build-push-action@846549baaf047e867d038826129a64d81df0f704 # v7.1.0
@@ -2013,6 +2112,16 @@ jobs:
           platforms: linux/arm64
           cache-from: type=gha,scope=docker-ubi9-arm64
           cache-to: type=gha,mode=max,scope=docker-ubi9-arm64
+
+      # Mirror the just-pushed Docker Hub image to GitHub Container Registry (ghcr.io)
+      # by copying it with buildx imagetools (no rebuild). Best-effort: a ghcr.io
+      # failure must not fail the Docker Hub release.
+      - name: Mirror UBI9 ARM64 image to GitHub Container Registry
+        continue-on-error: true
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.tags.outputs.ghcr-tag }}" \
+            "${{ steps.tags.outputs.dockerhub-tag }}"
 
   # Docker UBI9 manifest — merges amd64 + arm64 into a single multi-arch tag
   docker-manifest-ubi9:
@@ -2033,8 +2142,8 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             auth.docker.io:443
-            github.com:443
             ghcr.io:443
+            github.com:443
             pkg-containers.githubusercontent.com:443
             production.cloudflare.docker.com:443
             production.cloudfront.docker.com:443
@@ -2049,6 +2158,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
+      - name: Log in to GitHub Container Registry
+        uses: step-security/docker-login-action@870af644803bf9f204aed474adbad2958fec048b # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push UBI9 multi-arch manifest
         run: |

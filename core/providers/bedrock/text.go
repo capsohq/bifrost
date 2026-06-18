@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/capsohq/bifrost/core/providers/anthropic"
-	"github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )
 
@@ -80,7 +79,7 @@ func (request *BedrockTextCompletionRequest) ToBifrostTextCompletionRequest(ctx 
 		prompt = strings.Join(parts, "\n\n")
 	}
 
-	provider, model := schemas.ParseModelString(request.ModelID, utils.CheckAndSetDefaultProvider(ctx, schemas.Bedrock))
+	provider, model := schemas.ParseModelString(request.ModelID, "")
 
 	bifrostReq := &schemas.BifrostTextCompletionRequest{
 		Provider: provider,

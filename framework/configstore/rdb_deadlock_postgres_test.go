@@ -21,32 +21,16 @@ import (
 func setupPostgresDeadlockStore(t *testing.T) *RDBConfigStore {
 	t.Helper()
 
-	adminDB, err := gorm.Open(postgres.Open(postgresDSN), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(postgresDSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		t.Skipf("postgres not available: %v", err)
 	}
 
-	schemaName := fmt.Sprintf("deadlock_%d", time.Now().UnixNano())
-	require.NoError(t, adminDB.Exec("CREATE SCHEMA "+schemaName).Error)
-	t.Cleanup(func() {
-		_ = adminDB.Exec("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE").Error
-		if sqlDB, err := adminDB.DB(); err == nil {
-			_ = sqlDB.Close()
-		}
-	})
-
-	db, err := gorm.Open(postgres.Open(postgresDSN+" options='-c search_path="+schemaName+"'"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	require.NoError(t, err)
-	require.NoError(t, triggerMigrations(context.Background(), db))
-	t.Cleanup(func() {
-		if sqlDB, err := db.DB(); err == nil {
-			_ = sqlDB.Close()
-		}
-	})
+	require.NoError(t, db.Exec("DROP SCHEMA public CASCADE").Error)
+	require.NoError(t, db.Exec("CREATE SCHEMA public").Error)
+	require.NoError(t, triggerMigrations(context.Background(), db, testMigrationLogger))
 
 	store := &RDBConfigStore{logger: bifrost.NewDefaultLogger(schemas.LogLevelInfo)}
 	store.db.Store(db)

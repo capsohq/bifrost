@@ -221,7 +221,7 @@ func (c *TableMCPClient) BeforeSave(tx *gorm.DB) error {
 // AfterFind is a GORM hook that decrypts the connection string and headers (if encrypted)
 // and deserializes JSON columns back into runtime structs after reading from the database.
 func (c *TableMCPClient) AfterFind(tx *gorm.DB) error {
-	if c.EncryptionStatus == "encrypted" {
+	if c.EncryptionStatus == EncryptionStatusEncrypted {
 		if c.HeadersJSON != "" && c.HeadersJSON != "{}" {
 			decrypted, err := encrypt.Decrypt(c.HeadersJSON)
 			if err != nil {

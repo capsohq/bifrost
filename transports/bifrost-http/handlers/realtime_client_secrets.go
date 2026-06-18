@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fasthttp/router"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/plugins/governance"
+	"github.com/capsohq/bifrost/plugins/modelcatalogresolver"
 	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
-	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
 )
 
@@ -231,14 +232,14 @@ func resolveRealtimeClientSecretTarget(ctx *fasthttp.RequestCtx, config *lib.Con
 	providerKey, model := schemas.ParseModelString(rawModel, defaultProvider)
 	// Model catalog auto-resolution for bare model names on /v1 client secret routes
 	if defaultProvider == "" && providerKey == "" && model != "" {
-		providers := config.GetProvidersForModel(model)
-		if len(providers) > 0 {
+		selected, candidates := modelcatalogresolver.ResolveProviderFromCatalog(nil, config.ModelCatalog, model)
+		if selected != "" {
 			ctx.SetUserValue(lib.FastHTTPUserValueModelCatalogResolution, &lib.ModelCatalogResolution{
 				Model:            model,
-				ResolvedProvider: providers[0],
-				AllProviders:     providers,
+				ResolvedProvider: selected,
+				AllProviders:     candidates,
 			})
-			providerKey = providers[0]
+			providerKey = selected
 		}
 	}
 	if defaultProvider == "" && providerKey == "" {

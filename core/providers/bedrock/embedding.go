@@ -3,10 +3,32 @@ package bedrock
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/capsohq/bifrost/core/schemas"
 )
+
+// bedrockInputTokenCountHeader is the HTTP response header Bedrock uses to report input
+// token counts for models — notably Cohere embed and rerank — that omit token usage from
+// the response body.
+const bedrockInputTokenCountHeader = "X-Amzn-Bedrock-Input-Token-Count"
+
+// inputTokensFromHeaders extracts the X-Amzn-Bedrock-Input-Token-Count value from a provider
+// response-headers map (case-insensitive, since header casing depends on the transport).
+// It returns (count, true) only when the header is present and parses as a non-negative int.
+func inputTokensFromHeaders(headers map[string]string) (int, bool) {
+	for k, v := range headers {
+		if strings.EqualFold(k, bedrockInputTokenCountHeader) {
+			n, err := strconv.Atoi(strings.TrimSpace(v))
+			if err != nil || n < 0 {
+				return 0, false
+			}
+			return n, true
+		}
+	}
+	return 0, false
+}
 
 // ToBedrockTitanEmbeddingRequest converts a Bifrost embedding request to Bedrock Titan format
 func ToBedrockTitanEmbeddingRequest(bifrostReq *schemas.BifrostEmbeddingRequest) (*BedrockTitanEmbeddingRequest, error) {
@@ -159,12 +181,16 @@ func ToBedrockCohereEmbeddingRequest(bifrostReq *schemas.BifrostEmbeddingRequest
 	return req, nil
 }
 
-// DetermineEmbeddingModelType determines the embedding model type from the model name
-func DetermineEmbeddingModelType(model string) (string, error) {
+// DetermineEmbeddingModelType determines the embedding model type for the
+// current attempt. It consults the resolved alias family first
+// (model_family / model_name / model_id / alias key) and falls back to the
+// substring detectors against the wire model — so an alias to an opaque
+// Bedrock deployment that's tagged with the right family routes correctly.
+func DetermineEmbeddingModelType(ctx *schemas.BifrostContext, model string) (string, error) {
 	switch {
-	case strings.Contains(model, "amazon.titan-embed-text"):
+	case schemas.IsTitanModelFamily(ctx, model):
 		return "titan", nil
-	case strings.Contains(model, "cohere.embed"):
+	case schemas.IsCohereModelFamily(ctx, model):
 		return "cohere", nil
 	default:
 		return "", fmt.Errorf("unsupported embedding model: %s", model)

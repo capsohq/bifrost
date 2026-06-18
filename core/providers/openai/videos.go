@@ -6,7 +6,6 @@ import (
 	"mime/multipart"
 	"net/http"
 
-	"github.com/capsohq/bifrost/core/providers/utils"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )
@@ -101,16 +100,7 @@ func (req *OpenAIVideoGenerationRequest) ToBifrostVideoGenerationRequest(ctx *sc
 		return nil
 	}
 
-	defaultProvider := schemas.OpenAI
-
-	// for requests coming from azure sdk without provider prefix, we need to set the default provider to azure
-	if ctx != nil {
-		if isAzureUser, ok := ctx.Value(schemas.BifrostContextKeyIsAzureUserAgent).(bool); ok && isAzureUser {
-			defaultProvider = schemas.Azure
-		}
-	}
-
-	provider, model := schemas.ParseModelString(req.Model, utils.CheckAndSetDefaultProvider(ctx, defaultProvider))
+	provider, model := schemas.ParseModelString(req.Model, "")
 
 	input := &schemas.VideoGenerationInput{
 		Prompt: req.Prompt,

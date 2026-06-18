@@ -10,6 +10,7 @@ use (
 	./plugins/logging
 	./plugins/maxim
 	./plugins/mocker
+	./plugins/modelcatalogresolver
 	./plugins/otel
 	./plugins/prompts
 	./plugins/semanticcache

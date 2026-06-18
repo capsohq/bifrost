@@ -183,11 +183,8 @@ func (mc *ModelCatalog) GetProviderModelSnapshotHealthReport() ProviderModelSnap
 
 	mc.mu.RLock()
 	providerSet := make(map[schemas.ModelProvider]struct{})
-	for provider := range mc.modelPool {
-		providerSet[provider] = struct{}{}
-	}
-	for provider := range mc.unfilteredModelPool {
-		providerSet[provider] = struct{}{}
+	for key := range mc.live.Snapshot() {
+		providerSet[key.Provider] = struct{}{}
 	}
 	for provider := range mc.providerModelSnapshots {
 		providerSet[provider] = struct{}{}
@@ -231,8 +228,8 @@ func (mc *ModelCatalog) GetProviderModelSnapshotHealthReport() ProviderModelSnap
 			Provider:             provider,
 			Status:               status,
 			SnapshotModelCount:   len(mc.providerModelSnapshots[provider]),
-			FilteredModelCount:   len(mc.modelPool[provider]),
-			UnfilteredModelCount: len(mc.unfilteredModelPool[provider]),
+			FilteredModelCount:   len(mc.GetModelsForProvider(provider)),
+			UnfilteredModelCount: len(mc.GetUnfilteredModelsForProvider(provider)),
 			FilteredSource:       filteredSource,
 			UnfilteredSource:     unfilteredSource,
 			FilteredDiscovery:    filteredDiscovery,

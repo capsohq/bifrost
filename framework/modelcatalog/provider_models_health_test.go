@@ -12,7 +12,7 @@ import (
 )
 
 func TestProviderModelSnapshotHealthReportHealthy(t *testing.T) {
-	mc := newTestCatalog(nil, nil)
+	mc := NewTestCatalog(nil)
 	provider := schemas.GLM
 	modelData := &schemas.BifrostListModelsResponse{
 		Data: []schemas.Model{
@@ -48,7 +48,7 @@ func TestProviderModelSnapshotHealthReportHealthy(t *testing.T) {
 }
 
 func TestProviderModelSnapshotHealthReportError(t *testing.T) {
-	mc := newTestCatalog(nil, nil)
+	mc := NewTestCatalog(nil)
 	provider := schemas.Minimax
 	successData := &schemas.BifrostListModelsResponse{
 		Data: []schemas.Model{
@@ -76,7 +76,7 @@ func TestProviderModelSnapshotHealthReportError(t *testing.T) {
 }
 
 func TestProviderModelSnapshotHealthReportStale(t *testing.T) {
-	mc := newTestCatalog(nil, nil)
+	mc := NewTestCatalog(nil)
 	provider := schemas.Moonshot
 	successData := &schemas.BifrostListModelsResponse{
 		Data: []schemas.Model{
@@ -106,7 +106,7 @@ func TestProviderModelSnapshotHealthReportStale(t *testing.T) {
 }
 
 func TestGetPersistedProviderModelHealthState_IncludesSourceOnlyEntries(t *testing.T) {
-	mc := newTestCatalog(nil, nil)
+	mc := NewTestCatalog(nil)
 	provider := schemas.GLM
 
 	mc.providerModelSources[provider] = ProviderModelSourceDefaultSeed
@@ -120,7 +120,7 @@ func TestGetPersistedProviderModelHealthState_IncludesSourceOnlyEntries(t *testi
 }
 
 func TestGetPersistedProviderModelHealthState_IncludesDiscoveryState(t *testing.T) {
-	mc := newTestCatalog(nil, nil)
+	mc := NewTestCatalog(nil)
 	provider := schemas.Minimax
 	modelData := &schemas.BifrostListModelsResponse{
 		Data: []schemas.Model{
@@ -139,7 +139,7 @@ func TestGetPersistedProviderModelHealthState_IncludesDiscoveryState(t *testing.
 }
 
 func TestProviderModelHealthPersistenceDebounced(t *testing.T) {
-	mc := newTestCatalog(nil, nil)
+	mc := NewTestCatalog(nil)
 	mc.done = make(chan struct{})
 	mc.providerModelHealthPersistDebounce = 25 * time.Millisecond
 

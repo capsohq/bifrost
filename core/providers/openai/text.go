@@ -3,7 +3,6 @@ package openai
 import (
 	"maps"
 
-	"github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 )
 
@@ -63,7 +62,7 @@ func (req *OpenAITextCompletionRequest) ToBifrostTextCompletionRequest(ctx *sche
 		return nil
 	}
 
-	provider, model := schemas.ParseModelString(req.Model, utils.CheckAndSetDefaultProvider(ctx, schemas.OpenAI))
+	provider, model := schemas.ParseModelString(req.Model, "")
 
 	return &schemas.BifrostTextCompletionRequest{
 		Provider:  provider,

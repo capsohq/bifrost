@@ -42,6 +42,16 @@ func (baseAccount *BaseAccount) GetConfigForProvider(providerKey schemas.ModelPr
 	}, nil
 }
 
+func skipUnlessJsonParserLiveTestEnabled(t *testing.T) {
+	t.Helper()
+	if os.Getenv("RUN_JSONPARSER_LIVE_TESTS") != "1" {
+		t.Skip("RUN_JSONPARSER_LIVE_TESTS=1 is not set, skipping live OpenAI test")
+	}
+	if os.Getenv("OPENAI_API_KEY") == "" {
+		t.Skip("OPENAI_API_KEY is not set, skipping live OpenAI test")
+	}
+}
+
 // TestJsonParserPluginEndToEnd tests the integration of the JSON parser plugin with Bifrost.
 // It performs the following steps:
 // 1. Initializes the JSON parser plugin with AllRequests usage
@@ -53,10 +63,7 @@ func (baseAccount *BaseAccount) GetConfigForProvider(providerKey schemas.ModelPr
 //   - OPENAI_API_KEY: Your OpenAI API key for the test request
 func TestJsonParserPluginEndToEnd(t *testing.T) {
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	// Check if OpenAI API key is set
-	if os.Getenv("OPENAI_API_KEY") == "" {
-		t.Skip("OPENAI_API_KEY is not set, skipping end-to-end test")
-	}
+	skipUnlessJsonParserLiveTestEnabled(t)
 
 	// Initialize the JSON parser plugin for all requests
 	plugin, err := Init(PluginConfig{
@@ -152,10 +159,7 @@ func TestJsonParserPluginEndToEnd(t *testing.T) {
 //   - OPENAI_API_KEY: Your OpenAI API key for the test request
 func TestJsonParserPluginPerRequest(t *testing.T) {
 	ctx := context.Background()
-	// Check if OpenAI API key is set
-	if os.Getenv("OPENAI_API_KEY") == "" {
-		t.Skip("OPENAI_API_KEY is not set, skipping per-request test")
-	}
+	skipUnlessJsonParserLiveTestEnabled(t)
 
 	// Initialize the JSON parser plugin for per-request usage
 	plugin, err := Init(PluginConfig{
@@ -430,9 +434,7 @@ func TestPostLLMHookResponsesStreamPerRequest(t *testing.T) {
 // TestJsonParserPluginResponsesStreamEndToEnd tests the full integration against OpenAI's
 // responses stream API. Skipped when OPENAI_API_KEY is not set.
 func TestJsonParserPluginResponsesStreamEndToEnd(t *testing.T) {
-	if os.Getenv("OPENAI_API_KEY") == "" {
-		t.Skip("OPENAI_API_KEY is not set, skipping end-to-end test")
-	}
+	skipUnlessJsonParserLiveTestEnabled(t)
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
 
