@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types"
 	"github.com/capsohq/bifrost/core/schemas"
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/plugins/governance/complexity"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 )
 
 // DefaultRoutingChainMaxDepth is the default maximum depth for routing rule chain evaluation.

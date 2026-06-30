@@ -30,9 +30,9 @@ func TestWithRetries_TableDriven(t *testing.T) {
 	errTransient := errors.New("transient")
 
 	tests := []struct {
-		name         string
-		maxRetries   int
-		maxBackoff   time.Duration
+		name       string
+		maxRetries int
+		maxBackoff time.Duration
 		// failCount is how many times op fails before succeeding.
 		// Set to -1 to always fail.
 		failCount    int
@@ -70,12 +70,12 @@ func TestWithRetries_TableDriven(t *testing.T) {
 			// from retryBackoffMin) outlasts the 20ms ctx timeout, forcing
 			// cancellation during the wait rather than after exhausting
 			// retries.
-			name:         "context cancelled before success",
-			maxRetries:   5,
-			maxBackoff:   time.Second,
-			failCount:    -1,
-			ctxTimeout:   20 * time.Millisecond,
-			wantErr:      context.DeadlineExceeded,
+			name:       "context cancelled before success",
+			maxRetries: 5,
+			maxBackoff: time.Second,
+			failCount:  -1,
+			ctxTimeout: 20 * time.Millisecond,
+			wantErr:    context.DeadlineExceeded,
 		},
 		{
 			name:         "backoff does not exceed cap",

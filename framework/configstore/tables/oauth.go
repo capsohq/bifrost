@@ -12,26 +12,26 @@ import (
 // TableOauthConfig represents an OAuth configuration in the database
 // This stores the OAuth client configuration and flow state
 type TableOauthConfig struct {
-	ID                  string          `gorm:"type:varchar(255);primaryKey" json:"id"`          // UUID
-	ClientID            *schemas.EnvVar `gorm:"type:varchar(512)" json:"client_id"`              // OAuth provider's client ID (optional for public clients)
-	ClientSecret        *schemas.EnvVar `gorm:"type:text" json:"-"`                              // Encrypted OAuth client secret (optional for public clients)
-	AuthorizeURL        string          `gorm:"type:text" json:"authorize_url"`                  // Provider's authorization endpoint (optional, can be discovered)
-	TokenURL            string          `gorm:"type:text" json:"token_url"`                      // Provider's token endpoint (optional, can be discovered)
-	RegistrationURL     *string         `gorm:"type:text" json:"registration_url,omitempty"`     // Provider's dynamic registration endpoint (optional, can be discovered)
-	RedirectURI         string          `gorm:"type:text;not null" json:"redirect_uri"`          // Callback URL
-	Scopes              string          `gorm:"type:text" json:"scopes"`                         // JSON array of scopes (optional, can be discovered)
-	State               string          `gorm:"type:varchar(255);uniqueIndex;not null" json:"-"` // CSRF state token
-	CodeVerifier        string          `gorm:"type:text" json:"-"`                              // PKCE code verifier (generated, kept secret)
-	CodeChallenge       string          `gorm:"type:varchar(255)" json:"code_challenge"`         // PKCE code challenge (sent to provider)
-	Status              string          `gorm:"type:varchar(50);not null;index" json:"status"`   // "pending", "authorized", "failed", "expired", "revoked"
-	TokenID             *string         `gorm:"type:varchar(255);index" json:"token_id"`         // Foreign key to oauth_tokens.ID (set after callback)
-	ServerURL           string          `gorm:"type:text" json:"server_url"`                     // MCP server URL for OAuth discovery
-	UseDiscovery        bool            `gorm:"default:false" json:"use_discovery"`              // Flag to enable OAuth discovery
-	MCPClientConfigJSON *string         `gorm:"type:text" json:"-"`                              // JSON serialized MCPClientConfig for multi-instance support (pending MCP client waiting for OAuth completion)
-	EncryptionStatus    string          `gorm:"type:varchar(20);default:'plain_text'" json:"-"`
-	CreatedAt           time.Time       `gorm:"index;not null" json:"created_at"`
-	UpdatedAt           time.Time       `gorm:"index;not null" json:"updated_at"`
-	ExpiresAt           time.Time       `gorm:"index;not null" json:"expires_at"` // State expiry (15 min)
+	ID                  string             `gorm:"type:varchar(255);primaryKey" json:"id"`          // UUID
+	ClientID            *schemas.SecretVar `gorm:"type:varchar(512)" json:"client_id"`              // OAuth provider's client ID (optional for public clients)
+	ClientSecret        *schemas.SecretVar `gorm:"type:text" json:"-"`                              // Encrypted OAuth client secret (optional for public clients)
+	AuthorizeURL        string             `gorm:"type:text" json:"authorize_url"`                  // Provider's authorization endpoint (optional, can be discovered)
+	TokenURL            string             `gorm:"type:text" json:"token_url"`                      // Provider's token endpoint (optional, can be discovered)
+	RegistrationURL     *string            `gorm:"type:text" json:"registration_url,omitempty"`     // Provider's dynamic registration endpoint (optional, can be discovered)
+	RedirectURI         string             `gorm:"type:text;not null" json:"redirect_uri"`          // Callback URL
+	Scopes              string             `gorm:"type:text" json:"scopes"`                         // JSON array of scopes (optional, can be discovered)
+	State               string             `gorm:"type:varchar(255);uniqueIndex;not null" json:"-"` // CSRF state token
+	CodeVerifier        string             `gorm:"type:text" json:"-"`                              // PKCE code verifier (generated, kept secret)
+	CodeChallenge       string             `gorm:"type:varchar(255)" json:"code_challenge"`         // PKCE code challenge (sent to provider)
+	Status              string             `gorm:"type:varchar(50);not null;index" json:"status"`   // "pending", "authorized", "failed", "expired", "revoked"
+	TokenID             *string            `gorm:"type:varchar(255);index" json:"token_id"`         // Foreign key to oauth_tokens.ID (set after callback)
+	ServerURL           string             `gorm:"type:text" json:"server_url"`                     // MCP server URL for OAuth discovery
+	UseDiscovery        bool               `gorm:"default:false" json:"use_discovery"`              // Flag to enable OAuth discovery
+	MCPClientConfigJSON *string            `gorm:"type:text" json:"-"`                              // JSON serialized MCPClientConfig for multi-instance support (pending MCP client waiting for OAuth completion)
+	EncryptionStatus    string             `gorm:"type:varchar(20);default:'plain_text'" json:"-"`
+	CreatedAt           time.Time          `gorm:"index;not null" json:"created_at"`
+	UpdatedAt           time.Time          `gorm:"index;not null" json:"updated_at"`
+	ExpiresAt           time.Time          `gorm:"index;not null" json:"expires_at"` // State expiry (15 min)
 }
 
 // TableName sets the table name
@@ -46,30 +46,9 @@ func (c *TableOauthConfig) BeforeSave(tx *gorm.DB) error {
 		c.Status = "pending"
 	}
 
-	if VaultIsEnabled() {
-		vaulted := false
-		if c.ClientSecret != nil && !c.ClientSecret.FromEnv && c.ClientSecret.Val != "" {
-			path := fmt.Sprintf("%s/%s/%s/%s", VaultPrefix(), c.TableName(), c.ID,
-				tx.Statement.DB.NamingStrategy.ColumnName("", "ClientSecret"))
-			if err := vaultEnvVar(tx.Statement.Context, path, c.ClientSecret); err != nil {
-				return fmt.Errorf("failed to vault oauth client secret: %w", err)
-			}
-			vaulted = true
-		}
-		if c.CodeVerifier != "" {
-			path := fmt.Sprintf("%s/%s/%s/%s", VaultPrefix(), c.TableName(), c.ID,
-				tx.Statement.DB.NamingStrategy.ColumnName("", "CodeVerifier"))
-			if err := vaultString(tx.Statement.Context, path, &c.CodeVerifier); err != nil {
-				return fmt.Errorf("failed to vault oauth code verifier: %w", err)
-			}
-			vaulted = true
-		}
-		if vaulted {
-			c.EncryptionStatus = EncryptionStatusVault
-		}
-	} else if encrypt.IsEnabled() {
+	if encrypt.IsEnabled() {
 		encrypted := false
-		if c.ClientSecret != nil && !c.ClientSecret.FromEnv && c.ClientSecret.Val != "" {
+		if c.ClientSecret != nil && !c.ClientSecret.IsFromSecret() && c.ClientSecret.Val != "" {
 			if err := encryptString(&c.ClientSecret.Val); err != nil {
 				return fmt.Errorf("failed to encrypt oauth client secret: %w", err)
 			}
@@ -91,15 +70,8 @@ func (c *TableOauthConfig) BeforeSave(tx *gorm.DB) error {
 // AfterFind hook to decrypt sensitive fields
 func (c *TableOauthConfig) AfterFind(tx *gorm.DB) error {
 	switch c.EncryptionStatus {
-	case EncryptionStatusVault:
-		if err := resolveVaultEnvVar(tx.Statement.Context, c.ClientSecret); err != nil {
-			return fmt.Errorf("failed to resolve vault oauth client secret: %w", err)
-		}
-		if err := resolveVaultString(tx.Statement.Context, &c.CodeVerifier); err != nil {
-			return fmt.Errorf("failed to resolve vault oauth code verifier: %w", err)
-		}
 	case EncryptionStatusEncrypted:
-		if c.ClientSecret != nil && !c.ClientSecret.FromEnv && c.ClientSecret.Val != "" {
+		if c.ClientSecret != nil && !c.ClientSecret.IsFromSecret() && c.ClientSecret.Val != "" {
 			if err := decryptString(&c.ClientSecret.Val); err != nil {
 				return fmt.Errorf("failed to decrypt oauth client secret: %w", err)
 			}
@@ -111,17 +83,9 @@ func (c *TableOauthConfig) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
-// AfterDelete hook for best-effort vault cleanup on row deletion.
-func (c *TableOauthConfig) AfterDelete(tx *gorm.DB) error {
-	if c.EncryptionStatus != EncryptionStatusVault || VaultHooks.Remove == nil {
-		return nil
-	}
-	secretField := tx.Statement.DB.NamingStrategy.ColumnName("", "ClientSecret")
-	verifierField := tx.Statement.DB.NamingStrategy.ColumnName("", "CodeVerifier")
-	_ = VaultHooks.Remove(tx.Statement.Context, fmt.Sprintf("%s/%s/%s/%s", VaultPrefix(), c.TableName(), c.ID, secretField))
-	_ = VaultHooks.Remove(tx.Statement.Context, fmt.Sprintf("%s/%s/%s/%s", VaultPrefix(), c.TableName(), c.ID, verifierField))
-	return nil
-}
+// VaultPathKey implements schemas.VaultPathKeyer so the global GORM vault
+// callback can compute the vault base path for this model automatically.
+func (c *TableOauthConfig) VaultPathKey() string { return c.ID }
 
 // GetResolvedClientID returns the resolved ClientID value, expanding env var references at runtime.
 func (c *TableOauthConfig) GetResolvedClientID() string {
@@ -133,8 +97,8 @@ func (c *TableOauthConfig) GetResolvedClientSecret() string {
 	return c.ClientSecret.GetValue()
 }
 
-// GetClientSecretAsEnvVar returns ClientSecret as an EnvVar (preserves env var reference metadata).
-func (c *TableOauthConfig) GetClientSecretAsEnvVar() *schemas.EnvVar {
+// GetClientSecretAsSecretVar returns ClientSecret as an SecretVar (preserves env var reference metadata).
+func (c *TableOauthConfig) GetClientSecretAsSecretVar() *schemas.SecretVar {
 	return c.ClientSecret
 }
 

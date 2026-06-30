@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fasthttp/router"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/providers/openai"
 	"github.com/capsohq/bifrost/core/schemas"
@@ -19,6 +18,7 @@ import (
 	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
 	bfws "github.com/capsohq/bifrost/transports/bifrost-http/websocket"
+	"github.com/fasthttp/router"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"github.com/valyala/fasthttp"
@@ -355,7 +355,7 @@ func (h *WebRTCRealtimeHandler) resolveRealtimeWebRTCKeys(
 		bifrostCtx.ClearValue(schemas.BifrostContextKeyAPIKeyName)
 		bifrostCtx.ClearValue(schemas.BifrostContextKeySelectedKeyID)
 		bifrostCtx.ClearValue(schemas.BifrostContextKeySelectedKeyName)
-		authKey := schemas.Key{Value: *schemas.NewEnvVar(inboundToken)}
+		authKey := schemas.Key{Value: *schemas.NewSecretVar(inboundToken)}
 		return authKey, nil, nil
 	}
 
@@ -370,7 +370,7 @@ func (h *WebRTCRealtimeHandler) resolveRealtimeWebRTCKeys(
 
 	authKey := selectedKey
 	if mapped && inboundToken != "" {
-		authKey.Value = *schemas.NewEnvVar(inboundToken)
+		authKey.Value = *schemas.NewSecretVar(inboundToken)
 	}
 	return authKey, &selectedKey, nil
 }

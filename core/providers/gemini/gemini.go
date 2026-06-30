@@ -288,7 +288,7 @@ func (provider *GeminiProvider) ChatCompletion(ctx *schemas.BifrostContext, key 
 		ctx,
 		request,
 		func() (providerUtils.RequestBodyWithExtraParams, error) {
-			return ToGeminiChatCompletionRequest(request)
+			return ToGeminiChatCompletionRequest(ctx, request)
 		})
 	if err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func (provider *GeminiProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 		ctx,
 		request,
 		func() (providerUtils.RequestBodyWithExtraParams, error) {
-			reqBody, err := ToGeminiChatCompletionRequest(request)
+			reqBody, err := ToGeminiChatCompletionRequest(ctx, request)
 			if err != nil {
 				return nil, err
 			}
@@ -459,7 +459,7 @@ func HandleGeminiChatCompletionStream(
 	// Large payload streaming passthrough — pipe raw upstream SSE to client
 	if providerUtils.SetupStreamingPassthrough(ctx, resp) {
 		responseChan := make(chan *schemas.BifrostStreamChunk)
-		close(responseChan)
+		providerUtils.CloseStream(ctx, responseChan)
 		return responseChan, nil
 	}
 
@@ -475,7 +475,7 @@ func HandleGeminiChatCompletionStream(
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, logger, postHookSpanFinalizer, jsonBody)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
 
@@ -518,6 +518,12 @@ func HandleGeminiChatCompletionStream(
 		var modelName string
 
 		streamState := NewGeminiStreamState()
+
+		// Running usage handle so a mid-stream cancel/timeout can bill for
+		// tokens already processed. Gemini's usageMetadata is cumulative, so the
+		// latest non-nil copy below is the running total.
+		streamUsage := &schemas.BifrostLLMUsage{}
+		ctx.SetValue(schemas.BifrostContextKeyStreamAccumulatedUsage, streamUsage)
 
 		for {
 			// If context was cancelled/timed out, let defer handle it
@@ -588,6 +594,10 @@ func HandleGeminiChatCompletionStream(
 				if modelName != "" {
 					response.Model = modelName
 				}
+				// keep the running usage handle current (cumulative).
+				if response.Usage != nil {
+					*streamUsage = *response.Usage
+				}
 				response.ExtraFields = schemas.BifrostResponseExtraFields{
 					ChunkIndex: chunkIndex,
 					Latency:    time.Since(lastChunkTime).Milliseconds(),
@@ -657,7 +667,7 @@ func (provider *GeminiProvider) Responses(ctx *schemas.BifrostContext, key schem
 			ctx,
 			request,
 			func() (providerUtils.RequestBodyWithExtraParams, error) {
-				reqBody, err := ToGeminiResponsesRequest(request)
+				reqBody, err := ToGeminiResponsesRequest(ctx, request)
 				if err != nil {
 					return nil, err
 				}
@@ -845,7 +855,7 @@ func (provider *GeminiProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 		ctx,
 		request,
 		func() (providerUtils.RequestBodyWithExtraParams, error) {
-			reqBody, err := ToGeminiResponsesRequest(request)
+			reqBody, err := ToGeminiResponsesRequest(ctx, request)
 			if err != nil {
 				return nil, err
 			}
@@ -958,7 +968,7 @@ func HandleGeminiResponsesStream(
 	// Large payload streaming passthrough — pipe raw upstream SSE to client
 	if providerUtils.SetupStreamingPassthrough(ctx, resp) {
 		responseChan := make(chan *schemas.BifrostStreamChunk)
-		close(responseChan)
+		providerUtils.CloseStream(ctx, responseChan)
 		return responseChan, nil
 	}
 
@@ -974,7 +984,7 @@ func HandleGeminiResponsesStream(
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, logger, postHookSpanFinalizer, jsonBody)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 
 		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
@@ -1028,6 +1038,11 @@ func HandleGeminiResponsesStream(
 
 		var lastUsageMetadata *GenerateContentResponseUsageMetadata
 
+		// Running usage handle so a mid-stream cancel/timeout can bill for
+		// tokens already processed. Gemini's usageMetadata is cumulative.
+		streamUsage := &schemas.BifrostLLMUsage{}
+		ctx.SetValue(schemas.BifrostContextKeyStreamAccumulatedUsage, streamUsage)
+
 		for {
 			// If context was cancelled/timed out, let defer handle it
 			if ctx.Err() != nil {
@@ -1079,6 +1094,10 @@ func HandleGeminiResponsesStream(
 			// Track usage metadata from the latest chunk
 			if geminiResponse.UsageMetadata != nil {
 				lastUsageMetadata = geminiResponse.UsageMetadata
+				// keep the running usage handle current (cumulative).
+				if converted := ConvertGeminiUsageMetadataToChatUsage(lastUsageMetadata); converted != nil {
+					*streamUsage = *converted
+				}
 			}
 
 			// Convert to Bifrost responses stream response
@@ -1432,7 +1451,11 @@ func (provider *GeminiProvider) SpeechStream(ctx *schemas.BifrostContext, postHo
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err), jsonBody, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 		}
-		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err), jsonBody, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
+		// Request failed before the first response byte (server closed an idle/pooled connection,
+		// broken pipe, connection refused, DNS failure, etc.). Surface as a retriable upstream
+		// connection error (502) so executeRequestWithRetries honors max_retries, matching the
+		// non-streaming path - see https://github.com/capsohq/bifrost/issues/4496.
+		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostUpstreamConnectionError(schemas.ErrProviderDoRequest, err), jsonBody, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 	}
 
 	// Extract provider response headers before status check so error responses also forward them
@@ -1447,7 +1470,7 @@ func (provider *GeminiProvider) SpeechStream(ctx *schemas.BifrostContext, postHo
 	// Large payload streaming passthrough — pipe raw upstream SSE to client
 	if providerUtils.SetupStreamingPassthrough(ctx, resp) {
 		responseChan := make(chan *schemas.BifrostStreamChunk)
-		close(responseChan)
+		providerUtils.CloseStream(ctx, responseChan)
 		return responseChan, nil
 	}
 
@@ -1465,7 +1488,7 @@ func (provider *GeminiProvider) SpeechStream(ctx *schemas.BifrostContext, postHo
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer, jsonBody)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 
 		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
@@ -1722,7 +1745,11 @@ func (provider *GeminiProvider) TranscriptionStream(ctx *schemas.BifrostContext,
 		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
 			return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err), jsonBody, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 		}
-		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostOperationError(schemas.ErrProviderDoRequest, err), jsonBody, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
+		// Request failed before the first response byte (server closed an idle/pooled connection,
+		// broken pipe, connection refused, DNS failure, etc.). Surface as a retriable upstream
+		// connection error (502) so executeRequestWithRetries honors max_retries, matching the
+		// non-streaming path - see https://github.com/capsohq/bifrost/issues/4496.
+		return nil, providerUtils.EnrichError(ctx, providerUtils.NewBifrostUpstreamConnectionError(schemas.ErrProviderDoRequest, err), jsonBody, nil, provider.sendBackRawRequest, provider.sendBackRawResponse)
 	}
 
 	// Extract provider response headers before status check so error responses also forward them
@@ -1737,7 +1764,7 @@ func (provider *GeminiProvider) TranscriptionStream(ctx *schemas.BifrostContext,
 	// Large payload streaming passthrough — pipe raw upstream SSE to client
 	if providerUtils.SetupStreamingPassthrough(ctx, resp) {
 		responseChan := make(chan *schemas.BifrostStreamChunk)
-		close(responseChan)
+		providerUtils.CloseStream(ctx, responseChan)
 		return responseChan, nil
 	}
 
@@ -1755,7 +1782,7 @@ func (provider *GeminiProvider) TranscriptionStream(ctx *schemas.BifrostContext,
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer, jsonBody)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 		defer providerUtils.ReleaseStreamingResponse(ctx, resp)
 		// Decompress gzip-encoded streams transparently (no-op for non-gzip)
@@ -3915,7 +3942,7 @@ func (provider *GeminiProvider) CountTokens(ctx *schemas.BifrostContext, key sch
 			ctx,
 			request,
 			func() (providerUtils.RequestBodyWithExtraParams, error) {
-				return ToGeminiResponsesRequest(request)
+				return ToGeminiResponsesRequest(ctx, request)
 			},
 		)
 		if bifrostErr != nil {

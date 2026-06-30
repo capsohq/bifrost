@@ -155,7 +155,7 @@ func TestMultiModalEmbedding_TextAndImage(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "test-key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("test-key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -229,7 +229,7 @@ func TestMultiModalEmbedding_VideoInput(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -320,7 +320,7 @@ func TestMultiModalEmbedding_FallsBackToTextEmbedding(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -380,7 +380,7 @@ func TestMultiModalEmbedding_ModelArkTextOnlyVisionUsesMultimodalEndpoint(t *tes
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "test-key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("test-key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -413,7 +413,7 @@ func TestMultiModalEmbedding_ServerError(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	_, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	_, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr == nil {
 		t.Fatal("expected error for server error response")
 	}
@@ -451,7 +451,7 @@ func TestMultiModalEmbedding_MixedInputs(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -498,7 +498,7 @@ func TestMultiModalEmbedding_RawRequestResponse(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -560,7 +560,7 @@ func TestMultiModalEmbedding_TextOnlySparse(t *testing.T) {
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -618,7 +618,7 @@ func TestMultiModalEmbedding_TextInputUsesMultimodalEndpointAndHelperConfig(t *t
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request)
+	resp, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request)
 	if bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
@@ -670,7 +670,7 @@ func TestMultiModalEmbedding_HelperConfigAcceptsRetrievalQueryAlias(t *testing.T
 	}
 
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
-	if _, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: schemas.EnvVar{Val: "key"}}, request); bifrostErr != nil {
+	if _, bifrostErr := provider.Embedding(ctx, schemas.Key{Value: *schemas.NewSecretVar("key")}, request); bifrostErr != nil {
 		t.Fatalf("Embedding returned error: %v", bifrostErr.Error)
 	}
 }

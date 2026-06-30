@@ -34,10 +34,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/capsohq/bifrost/core/schemas"
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/framework/encrypt"
+	"github.com/google/uuid"
 
 	bifrost "github.com/capsohq/bifrost/core"
 	"gorm.io/driver/postgres"

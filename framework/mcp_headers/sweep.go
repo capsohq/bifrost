@@ -26,13 +26,13 @@ import (
 // orphanRetention disables the orphan sweep entirely; the expired-flow sweep
 // always runs because flow rows have no semantic value past their expiry.
 type CredentialSweepWorker struct {
-	provider           *Provider
-	orphanSweepEvery   time.Duration
-	orphanRetention    time.Duration
-	expiredFlowEvery   time.Duration
-	stopCh             chan struct{}
-	stopOnce           sync.Once
-	logger             schemas.Logger
+	provider         *Provider
+	orphanSweepEvery time.Duration
+	orphanRetention  time.Duration
+	expiredFlowEvery time.Duration
+	stopCh           chan struct{}
+	stopOnce         sync.Once
+	logger           schemas.Logger
 }
 
 // NewCredentialSweepWorker creates a sweep worker with sensible defaults.

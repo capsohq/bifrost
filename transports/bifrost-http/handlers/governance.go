@@ -809,10 +809,6 @@ func applyVKGovernanceFromModelConfigs(vk *configstoreTables.TableVirtualKey, by
 		vk.Budgets = mc.Budgets
 		vk.RateLimit = mc.RateLimit
 		vk.RateLimitID = mc.RateLimitID
-	} else {
-		vk.Budgets = nil
-		vk.RateLimit = nil
-		vk.RateLimitID = nil
 	}
 	for i := range vk.ProviderConfigs {
 		pc := &vk.ProviderConfigs[i]
@@ -820,10 +816,6 @@ func applyVKGovernanceFromModelConfigs(vk *configstoreTables.TableVirtualKey, by
 			pc.Budgets = mc.Budgets
 			pc.RateLimit = mc.RateLimit
 			pc.RateLimitID = mc.RateLimitID
-		} else {
-			pc.Budgets = nil
-			pc.RateLimit = nil
-			pc.RateLimitID = nil
 		}
 	}
 }
@@ -1391,6 +1383,10 @@ func (h *GovernanceHandler) createVirtualKey(ctx *fasthttp.RequestCtx) {
 			SendError(ctx, 400, err.Error())
 			return
 		}
+		if errors.Is(err, configstore.ErrAlreadyExists) {
+			SendError(ctx, 409, "A virtual key with this name already exists")
+			return
+		}
 		SendError(ctx, 500, err.Error())
 		return
 	}
@@ -1824,10 +1820,12 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 		return nil
 	}); err != nil {
 		var badReqErr *badRequestError
-		if errors.As(err, &badReqErr) ||
-			strings.Contains(err.Error(), "already exists") ||
-			strings.Contains(err.Error(), "duplicate key") {
+		if errors.As(err, &badReqErr) {
 			SendError(ctx, 400, fmt.Sprintf("Failed to update virtual key: %v", err))
+			return
+		}
+		if errors.Is(err, configstore.ErrAlreadyExists) {
+			SendError(ctx, 409, "A virtual key with this name already exists")
 			return
 		}
 		SendError(ctx, 500, fmt.Sprintf("Failed to update virtual key: %v", err))
@@ -2139,6 +2137,10 @@ func (h *GovernanceHandler) createTeam(ctx *fasthttp.RequestCtx) {
 		var badReqErr *badRequestError
 		if errors.As(err, &badReqErr) {
 			SendError(ctx, 400, err.Error())
+			return
+		}
+		if errors.Is(err, configstore.ErrAlreadyExists) {
+			SendError(ctx, 409, "A team with this name already exists")
 			return
 		}
 		logger.Error("failed to create team: %v", err)
@@ -2565,6 +2567,10 @@ func (h *GovernanceHandler) createCustomer(ctx *fasthttp.RequestCtx) {
 		var badReqErr *badRequestError
 		if errors.As(err, &badReqErr) {
 			SendError(ctx, 400, err.Error())
+			return
+		}
+		if errors.Is(err, configstore.ErrAlreadyExists) {
+			SendError(ctx, 409, "A customer with this name already exists")
 			return
 		}
 		SendError(ctx, 500, "failed to create customer")
@@ -4625,6 +4631,9 @@ func (h *GovernanceHandler) buildVKBudgetsWithUsage(ctx context.Context, vk *con
 		entry := quotaBudget{TableBudget: *b, Models: []quotaModelSpend{}}
 		if h.logManager != nil {
 			start := b.LastReset
+			if b.CreatedAt.After(start) {
+				start = b.CreatedAt
+			}
 			ranking, err := h.logManager.GetModelRankings(ctx, &logstore.SearchFilters{
 				VirtualKeyIDs: []string{vk.ID},
 				StartTime:     &start,

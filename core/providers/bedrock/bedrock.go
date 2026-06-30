@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/bytedance/sonic"
 	"github.com/capsohq/bifrost/core/providers/anthropic"
+	openai "github.com/capsohq/bifrost/core/providers/openai"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	schemas "github.com/capsohq/bifrost/core/schemas"
 	"github.com/google/uuid"
@@ -454,10 +455,13 @@ func (provider *BedrockProvider) makeStreamingRequest(ctx *schemas.BifrostContex
 
 	// If Value is set, use API Key authentication - else use IAM role authentication
 	req.Header.Set("Accept", "application/vnd.amazon.eventstream")
+	// Force identity encoding so Go's net/http transport does NOT auto-negotiate
+	// gzip. A gzip-compressed eventstream buffers upstream until the stream
+	// completes, collapsing TTFB to the total generation time (issue #4542).
+	req.Header.Set("Accept-Encoding", "identity")
 	if key.Value.GetValue() != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key.Value.GetValue()))
 	} else {
-		req.Header.Set("Accept", "application/vnd.amazon.eventstream")
 		// Sign the request using either explicit credentials or IAM role authentication
 		if err := signAWSRequest(ctx, req, key.BedrockKeyConfig.AccessKey, key.BedrockKeyConfig.SecretKey, key.BedrockKeyConfig.SessionToken, key.BedrockKeyConfig.RoleARN, key.BedrockKeyConfig.ExternalID, key.BedrockKeyConfig.RoleSessionName, region, bedrockSigningService); err != nil {
 			return nil, err
@@ -540,9 +544,9 @@ func signAWSRequestFromKey(
 			cfg.ExternalID, cfg.RoleSessionName,
 			region, service)
 	}
-	// No config: pass zero EnvVar values so signAWSRequest uses the default chain.
+	// No config: pass zero SecretVar values so signAWSRequest uses the default chain.
 	return signAWSRequest(ctx, req,
-		schemas.EnvVar{}, schemas.EnvVar{},
+		schemas.SecretVar{}, schemas.SecretVar{},
 		nil, nil, nil, nil,
 		region, service)
 }
@@ -551,11 +555,11 @@ func signAWSRequestFromKey(
 func signAWSRequest(
 	ctx *schemas.BifrostContext,
 	req *http.Request,
-	accessKey, secretKey schemas.EnvVar,
-	sessionToken *schemas.EnvVar,
-	roleARN *schemas.EnvVar,
-	externalID *schemas.EnvVar,
-	sessionName *schemas.EnvVar,
+	accessKey, secretKey schemas.SecretVar,
+	sessionToken *schemas.SecretVar,
+	roleARN *schemas.SecretVar,
+	externalID *schemas.SecretVar,
+	sessionName *schemas.SecretVar,
 	region, service string,
 ) *schemas.BifrostError {
 	// Set required headers before signing (only if not already set)
@@ -684,6 +688,52 @@ func signAWSRequest(
 
 // listModelsByKey performs a list models request to Bedrock's API for a single key.
 // It retrieves all foundation models available in Amazon Bedrock for a specific key.
+// listMantleModels lists models from the Bedrock Mantle (OpenAI-compatible) /v1/models
+// endpoint, converted to a Bifrost response with the same allow/blacklist/alias gating as
+// the foundation-model path. The bare /v1/models path returns the full mantle catalog
+// (including the mantle-only gpt-5.x / gemma-4 models that ListFoundationModels omits).
+// The request is signed as it is sent (mantleSigV4Headers signs POST and can't be reused
+// for this GET). Best-effort: returns nil on any failure so the foundation-model list is
+// still returned.
+func (provider *BedrockProvider) listMantleModels(ctx *schemas.BifrostContext, key schemas.Key, region string, unfiltered bool) *schemas.BifrostListModelsResponse {
+	mURL := mantleURL(region, "", "models")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mURL, nil)
+	if err != nil {
+		provider.logger.Warn("failed to build mantle list-models request: %v", err)
+		return nil
+	}
+	providerUtils.SetExtraHeadersHTTP(ctx, req, provider.networkConfig.ExtraHeaders, nil)
+	if key.Value.GetValue() != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key.Value.GetValue()))
+	} else if bifrostErr := signAWSRequestFromKey(ctx, req, key.BedrockKeyConfig, region, bedrockMantleSigningService); bifrostErr != nil {
+		provider.logger.Warn("failed to sign mantle list-models request: %v", bifrostErr.Error.Message)
+		return nil
+	}
+
+	resp, err := provider.client.Do(req)
+	if err != nil {
+		provider.logger.Warn("mantle list-models request failed: %v", err)
+		return nil
+	}
+	responseBody, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		provider.logger.Warn("failed to read mantle list-models response: %v", err)
+		return nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		provider.logger.Warn("mantle list-models returned status %d: %s", resp.StatusCode, string(responseBody))
+		return nil
+	}
+
+	mantleResponse := &openai.OpenAIListModelsResponse{}
+	if err := sonic.Unmarshal(responseBody, mantleResponse); err != nil {
+		provider.logger.Warn("failed to parse mantle list-models response: %v", err)
+		return nil
+	}
+	return mantleResponse.ToBifrostListModelsResponse(provider.GetProviderKey(), key.Models, key.BlacklistedModels, key.Aliases, unfiltered)
+}
+
 func (provider *BedrockProvider) listModelsByKey(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostListModelsRequest) (*schemas.BifrostListModelsResponse, *schemas.BifrostError) {
 	providerName := provider.GetProviderKey()
 	config := key.BedrockKeyConfig
@@ -810,6 +860,22 @@ func (provider *BedrockProvider) listModelsByKey(ctx *schemas.BifrostContext, ke
 	response := bedrockResponse.ToBifrostListModelsResponse(providerName, key.Models, key.BlacklistedModels, key.Aliases, request.Unfiltered)
 	if response == nil {
 		return nil, providerUtils.NewBifrostOperationError("failed to convert Bedrock model list response", nil)
+	}
+
+	// Merge in the mantle catalog: ListFoundationModels omits the mantle-only models
+	// (gpt-5.x, gemma-4, ...) served on the OpenAI-compatible endpoint. Same gating, dedup by id.
+	if mantleResponse := provider.listMantleModels(ctx, key, region, request.Unfiltered); mantleResponse != nil {
+		seen := make(map[string]struct{}, len(response.Data))
+		for _, m := range response.Data {
+			seen[m.ID] = struct{}{}
+		}
+		for _, m := range mantleResponse.Data {
+			if _, ok := seen[m.ID]; ok {
+				continue
+			}
+			seen[m.ID] = struct{}{}
+			response.Data = append(response.Data, m)
+		}
 	}
 
 	response.ExtraFields.Latency = time.Since(startTime).Milliseconds()
@@ -953,7 +1019,7 @@ func (provider *BedrockProvider) TextCompletionStream(ctx *schemas.BifrostContex
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer, jsonData)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 		defer resp.Body.Close()
 
@@ -1073,7 +1139,7 @@ func (provider *BedrockProvider) ChatCompletion(ctx *schemas.BifrostContext, key
 		return nil, err
 	}
 
-	if isMantleModel(request.Model) {
+	if isMantleModel(schemas.ResolveCanonicalModel(ctx, request.Model)) {
 		return provider.chatCompletionViaMantle(ctx, key, request)
 	}
 
@@ -1145,6 +1211,18 @@ func (provider *BedrockProvider) ChatCompletion(ctx *schemas.BifrostContext, key
 	return bifrostResponse, nil
 }
 
+// normalizeCachedUsage folds the accumulated cached read/write token counts into
+// PromptTokens. Bedrock reports TotalTokens directly on the stream, so only the
+// prompt counter needs the fold. The accumulator must apply it before billing -
+// including on a mid-stream cancel/timeout. The += is not idempotent; callers
+// guard with a flag to apply it exactly once.
+func normalizeCachedUsage(usage *schemas.BifrostLLMUsage) {
+	if usage == nil || usage.PromptTokensDetails == nil {
+		return
+	}
+	usage.PromptTokens += usage.PromptTokensDetails.CachedReadTokens + usage.PromptTokensDetails.CachedWriteTokens
+}
+
 // ChatCompletionStream performs a streaming chat completion request to Bedrock's API.
 // It formats the request, sends it to Bedrock, and processes the streaming response.
 // Returns a channel for streaming BifrostStreamChunk objects or an error if the request fails.
@@ -1153,7 +1231,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 		return nil, err
 	}
 
-	if isMantleModel(request.Model) {
+	if isMantleModel(schemas.ResolveCanonicalModel(ctx, request.Model)) {
 		return provider.chatCompletionStreamViaMantle(ctx, postHookRunner, postHookSpanFinalizer, key, request)
 	}
 
@@ -1188,7 +1266,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer, jsonData)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 		defer resp.Body.Close()
 
@@ -1202,6 +1280,28 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 
 		// Process AWS Event Stream format
 		usage := &schemas.BifrostLLMUsage{}
+		// Register the accumulating usage handle so a mid-stream
+		// cancel/timeout can bill for tokens the provider already processed.
+		ctx.SetValue(schemas.BifrostContextKeyStreamAccumulatedUsage, usage)
+
+		// Fold cached tokens into PromptTokens exactly once at stream end. The EOF
+		// path calls normalizeUsage() after the loop; on a mid-stream cancel/timeout
+		// the deferred call below runs first (LIFO, registered after the cancellation
+		// handler at the top of the goroutine) so HandleStreamCancellation/Timeout
+		// bills the normalized totals.
+		usageNormalized := false
+		normalizeUsage := func() {
+			if usageNormalized {
+				return
+			}
+			usageNormalized = true
+			normalizeCachedUsage(usage)
+		}
+		defer func() {
+			if ctx.Err() != nil {
+				normalizeUsage()
+			}
+		}()
 		var finishReason *string
 		chunkIndex := 0
 
@@ -1435,9 +1535,7 @@ func (provider *BedrockProvider) ChatCompletionStream(ctx *schemas.BifrostContex
 			}
 		}
 
-		if usage.PromptTokensDetails != nil {
-			usage.PromptTokens = usage.PromptTokens + usage.PromptTokensDetails.CachedReadTokens + usage.PromptTokensDetails.CachedWriteTokens
-		}
+		normalizeUsage()
 
 		// Send final response
 		response := providerUtils.CreateBifrostChatCompletionChunkResponse(id, usage, finishReason, chunkIndex, request.Model, 0)
@@ -1461,7 +1559,7 @@ func (provider *BedrockProvider) Responses(ctx *schemas.BifrostContext, key sche
 		return nil, err
 	}
 
-	if isMantleModel(request.Model) {
+	if isMantleModel(schemas.ResolveCanonicalModel(ctx, request.Model)) {
 		return provider.responsesViaMantle(ctx, key, request)
 	}
 
@@ -1533,7 +1631,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 		return nil, err
 	}
 
-	if isMantleModel(request.Model) {
+	if isMantleModel(schemas.ResolveCanonicalModel(ctx, request.Model)) {
 		return provider.responsesStreamViaMantle(ctx, postHookRunner, postHookSpanFinalizer, key, request)
 	}
 
@@ -1569,7 +1667,7 @@ func (provider *BedrockProvider) ResponsesStream(ctx *schemas.BifrostContext, po
 			} else if ctx.Err() == context.DeadlineExceeded {
 				providerUtils.HandleStreamTimeout(ctx, postHookRunner, responseChan, provider.logger, postHookSpanFinalizer, jsonData)
 			}
-			close(responseChan)
+			providerUtils.CloseStream(ctx, responseChan)
 		}()
 		// Always release response on exit; bodyStream close should prevent indefinite blocking.
 		defer resp.Body.Close()
@@ -3336,6 +3434,15 @@ func (provider *BedrockProvider) BatchRetrieve(ctx *schemas.BifrostContext, keys
 			ExtraFields: schemas.BifrostResponseExtraFields{
 				Latency: latency.Milliseconds(),
 			},
+		}
+
+		// Surface the AWS job message (e.g. a validation failure reason) so
+		// callers see why a job failed without dropping to the AWS CLI.
+		if bedrockResp.Message != "" {
+			result.Errors = &schemas.BatchErrors{
+				Object: "list",
+				Data:   []schemas.BatchError{{Message: bedrockResp.Message}},
+			}
 		}
 
 		if bedrockResp.InputDataConfig != nil {

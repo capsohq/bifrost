@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	"github.com/tidwall/gjson"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/tidwall/gjson"
 )
 
 func TestExtractTypesFromValue(t *testing.T) {

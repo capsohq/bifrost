@@ -524,7 +524,7 @@ type BedrockGuardrailTrace struct {
 
 // BedrockGuardrailAssessment represents a guardrail assessment
 type BedrockGuardrailAssessment struct {
-	AppliedGuardrailDetails   *BedrockGuardrailAppliedDetails           `json:"appliedGuardrailDetails,omitempty"`
+	AppliedGuardrailDetails   *BedrockGuardrailAppliedDetails            `json:"appliedGuardrailDetails,omitempty"`
 	AutomatedReasoningPolicy  *BedrockGuardrailAutomatedReasoningPolicy  `json:"automatedReasoningPolicy,omitempty"`
 	ContentPolicy             *BedrockGuardrailContentPolicy             `json:"contentPolicy,omitempty"`
 	ContextualGroundingPolicy *BedrockGuardrailContextualGroundingPolicy `json:"contextualGroundingPolicy,omitempty"`

@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fasthttp/router"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/plugins/governance"
 	"github.com/capsohq/bifrost/plugins/modelcatalogresolver"
 	"github.com/capsohq/bifrost/transports/bifrost-http/integrations"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
 )
 

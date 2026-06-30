@@ -6,17 +6,17 @@ require (
 	github.com/andybalholm/brotli v1.2.1
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10
 	github.com/bytedance/sonic v1.15.1
-	github.com/capsohq/bifrost/core v1.5.21
-	github.com/capsohq/bifrost/framework v1.3.21
-	github.com/capsohq/bifrost/plugins/compat v0.1.20
-	github.com/capsohq/bifrost/plugins/governance v1.5.21
-	github.com/capsohq/bifrost/plugins/logging v1.5.21
-	github.com/capsohq/bifrost/plugins/maxim v1.6.21
-	github.com/capsohq/bifrost/plugins/modelcatalogresolver v1.0.2
-	github.com/capsohq/bifrost/plugins/otel v1.2.22
-	github.com/capsohq/bifrost/plugins/prompts v1.0.21
-	github.com/capsohq/bifrost/plugins/semanticcache v1.5.21
-	github.com/capsohq/bifrost/plugins/telemetry v1.5.21
+	github.com/capsohq/bifrost/core v1.6.1
+	github.com/capsohq/bifrost/framework v1.4.1
+	github.com/capsohq/bifrost/plugins/compat v0.1.23
+	github.com/capsohq/bifrost/plugins/governance v1.6.1
+	github.com/capsohq/bifrost/plugins/logging v1.5.24
+	github.com/capsohq/bifrost/plugins/maxim v1.6.24
+	github.com/capsohq/bifrost/plugins/modelcatalogresolver v1.0.5
+	github.com/capsohq/bifrost/plugins/otel v1.3.1
+	github.com/capsohq/bifrost/plugins/prompts v1.0.24
+	github.com/capsohq/bifrost/plugins/semanticcache v1.5.24
+	github.com/capsohq/bifrost/plugins/telemetry v1.5.24
 	github.com/fasthttp/router v1.5.4
 	github.com/fasthttp/websocket v1.5.12
 	github.com/go-git/go-billy/v5 v5.9.0
@@ -48,7 +48,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/iam v1.7.0 // indirect
 	cloud.google.com/go/monitoring v1.24.3 // indirect
-	cloud.google.com/go/storage v1.61.3 // indirect
+	cloud.google.com/go/storage v1.62.1 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1 // indirect
@@ -61,12 +61,12 @@ require (
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.41.12 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.42.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.11 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.14 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.28 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.28 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.29 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.29 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.5 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.22 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7 // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
-	github.com/capsohq/bifrost/plugins/mocker v1.5.21 // indirect
+	github.com/capsohq/bifrost/plugins/mocker v1.5.24 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
@@ -193,7 +193,7 @@ require (
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	go.mongodb.org/mongo-driver v1.17.6 // indirect
+	go.mongodb.org/mongo-driver v1.17.7 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.42.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0 // indirect

@@ -174,6 +174,10 @@
       "description": "Cache management endpoints"
     },
     {
+      "name": "Vault",
+      "description": "Vault secret management endpoints"
+    },
+    {
       "name": "Skills",
       "description": "Skills Repository management, marketplace, and download endpoints"
     }
@@ -49031,6 +49035,861 @@
         }
       }
     },
+    "/api/circuit-breaker/policies": {
+      "get": {
+        "operationId": "listCircuitBreakerPolicies",
+        "summary": "List circuit breaker policies",
+        "description": "Returns all circuit breaker policies defined in this workspace.",
+        "tags": [
+          "Circuit Breaker"
+        ],
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "primary_provider",
+                          "primary_model",
+                          "fallback_provider",
+                          "fallback_model",
+                          "condition"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "description": "Unique name for this policy."
+                          },
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true,
+                            "description": "When `false`, the policy is registered but all hooks skip it."
+                          },
+                          "primary_provider": {
+                            "type": "string",
+                            "description": "Provider to monitor (e.g. `azure`, `openai`)."
+                          },
+                          "primary_model": {
+                            "type": "string",
+                            "description": "Model name as it appears in requests (e.g. `gpt-4o-ptu`)."
+                          },
+                          "primary_key_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "API key UUIDs to track individually. Each key gets its own sub-circuit.\nThe main circuit opens only when all listed keys have tripped.\nLeave empty to use a single shared circuit for all keys serving this provider+model.\n"
+                          },
+                          "fallback_provider": {
+                            "type": "string",
+                            "description": "Provider to route to when the circuit is open."
+                          },
+                          "fallback_model": {
+                            "type": "string",
+                            "description": "Model to request from the fallback provider when the circuit is open."
+                          },
+                          "condition": {
+                            "type": "object",
+                            "required": [
+                              "signals"
+                            ],
+                            "properties": {
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  "OR",
+                                  "AND"
+                                ],
+                                "default": "OR",
+                                "description": "How multiple signals are combined.\n`OR` (default): circuit opens when any signal matches.\n`AND`: circuit opens only when all signals match simultaneously.\n"
+                              },
+                              "signals": {
+                                "type": "array",
+                                "minItems": 1,
+                                "description": "List of response signals to evaluate. At least one required.",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "source",
+                                    "header_name"
+                                  ],
+                                  "properties": {
+                                    "source": {
+                                      "type": "string",
+                                      "enum": [
+                                        "response_header"
+                                      ],
+                                      "description": "Part of the HTTP response to inspect. Only `response_header` is currently supported."
+                                    },
+                                    "header_name": {
+                                      "type": "string",
+                                      "description": "HTTP response header name to inspect (case-insensitive)."
+                                    },
+                                    "header_value": {
+                                      "type": "string",
+                                      "description": "Trips when the header value exactly equals this string (case-insensitive).\nMutually exclusive with `header_contains`. If neither is set, the signal trips whenever the header is present.\n"
+                                    },
+                                    "header_contains": {
+                                      "type": "string",
+                                      "description": "Trips when the header value contains this substring (case-insensitive).\nMutually exclusive with `header_value`. If neither is set, the signal trips whenever the header is present.\n"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "default_cooldown": {
+                            "description": "How long to keep the circuit open (in nanoseconds).\nAccepted as a Go duration string on write (e.g. `\"30s\"`, `\"5m\"`); returned as an integer (nanoseconds) on read.\nDefaults to 30 seconds (30000000000 ns).\n",
+                            "oneOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)$",
+                                "description": "Go duration string accepted on write."
+                              },
+                              {
+                                "type": "integer",
+                                "format": "int64",
+                                "description": "Nanoseconds returned on read."
+                              }
+                            ]
+                          },
+                          "cooldown_header": {
+                            "type": "string",
+                            "description": "Response header whose value (in milliseconds) overrides `default_cooldown`.\nFalls back to `default_cooldown` when the header is absent or unparsable.\n"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Total number of policies returned."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCircuitBreakerPolicy",
+        "summary": "Create circuit breaker policy",
+        "description": "Creates a new circuit breaker policy and immediately activates it in the running gateway.\nReturns 409 if a policy with the same name already exists.\n",
+        "tags": [
+          "Circuit Breaker"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "primary_provider",
+                  "primary_model",
+                  "fallback_provider",
+                  "fallback_model",
+                  "condition"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Unique name for this policy."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When `false`, the policy is registered but all hooks skip it."
+                  },
+                  "primary_provider": {
+                    "type": "string",
+                    "description": "Provider to monitor (e.g. `azure`, `openai`)."
+                  },
+                  "primary_model": {
+                    "type": "string",
+                    "description": "Model name as it appears in requests (e.g. `gpt-4o-ptu`)."
+                  },
+                  "primary_key_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "API key UUIDs to track individually. Each key gets its own sub-circuit.\nThe main circuit opens only when all listed keys have tripped.\nLeave empty to use a single shared circuit for all keys serving this provider+model.\n"
+                  },
+                  "fallback_provider": {
+                    "type": "string",
+                    "description": "Provider to route to when the circuit is open."
+                  },
+                  "fallback_model": {
+                    "type": "string",
+                    "description": "Model to request from the fallback provider when the circuit is open."
+                  },
+                  "condition": {
+                    "type": "object",
+                    "required": [
+                      "signals"
+                    ],
+                    "properties": {
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "OR",
+                          "AND"
+                        ],
+                        "default": "OR",
+                        "description": "How multiple signals are combined.\n`OR` (default): circuit opens when any signal matches.\n`AND`: circuit opens only when all signals match simultaneously.\n"
+                      },
+                      "signals": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "List of response signals to evaluate. At least one required.",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "source",
+                            "header_name"
+                          ],
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "response_header"
+                              ],
+                              "description": "Part of the HTTP response to inspect. Only `response_header` is currently supported."
+                            },
+                            "header_name": {
+                              "type": "string",
+                              "description": "HTTP response header name to inspect (case-insensitive)."
+                            },
+                            "header_value": {
+                              "type": "string",
+                              "description": "Trips when the header value exactly equals this string (case-insensitive).\nMutually exclusive with `header_contains`. If neither is set, the signal trips whenever the header is present.\n"
+                            },
+                            "header_contains": {
+                              "type": "string",
+                              "description": "Trips when the header value contains this substring (case-insensitive).\nMutually exclusive with `header_value`. If neither is set, the signal trips whenever the header is present.\n"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "default_cooldown": {
+                    "description": "How long to keep the circuit open (in nanoseconds).\nAccepted as a Go duration string on write (e.g. `\"30s\"`, `\"5m\"`); returned as an integer (nanoseconds) on read.\nDefaults to 30 seconds (30000000000 ns).\n",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)$",
+                        "description": "Go duration string accepted on write."
+                      },
+                      {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Nanoseconds returned on read."
+                      }
+                    ]
+                  },
+                  "cooldown_header": {
+                    "type": "string",
+                    "description": "Response header whose value (in milliseconds) overrides `default_cooldown`.\nFalls back to `default_cooldown` when the header is absent or unparsable.\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Policy created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "primary_provider",
+                    "primary_model",
+                    "fallback_provider",
+                    "fallback_model",
+                    "condition"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Unique name for this policy."
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true,
+                      "description": "When `false`, the policy is registered but all hooks skip it."
+                    },
+                    "primary_provider": {
+                      "type": "string",
+                      "description": "Provider to monitor (e.g. `azure`, `openai`)."
+                    },
+                    "primary_model": {
+                      "type": "string",
+                      "description": "Model name as it appears in requests (e.g. `gpt-4o-ptu`)."
+                    },
+                    "primary_key_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "API key UUIDs to track individually. Each key gets its own sub-circuit.\nThe main circuit opens only when all listed keys have tripped.\nLeave empty to use a single shared circuit for all keys serving this provider+model.\n"
+                    },
+                    "fallback_provider": {
+                      "type": "string",
+                      "description": "Provider to route to when the circuit is open."
+                    },
+                    "fallback_model": {
+                      "type": "string",
+                      "description": "Model to request from the fallback provider when the circuit is open."
+                    },
+                    "condition": {
+                      "type": "object",
+                      "required": [
+                        "signals"
+                      ],
+                      "properties": {
+                        "operator": {
+                          "type": "string",
+                          "enum": [
+                            "OR",
+                            "AND"
+                          ],
+                          "default": "OR",
+                          "description": "How multiple signals are combined.\n`OR` (default): circuit opens when any signal matches.\n`AND`: circuit opens only when all signals match simultaneously.\n"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "minItems": 1,
+                          "description": "List of response signals to evaluate. At least one required.",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "source",
+                              "header_name"
+                            ],
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "response_header"
+                                ],
+                                "description": "Part of the HTTP response to inspect. Only `response_header` is currently supported."
+                              },
+                              "header_name": {
+                                "type": "string",
+                                "description": "HTTP response header name to inspect (case-insensitive)."
+                              },
+                              "header_value": {
+                                "type": "string",
+                                "description": "Trips when the header value exactly equals this string (case-insensitive).\nMutually exclusive with `header_contains`. If neither is set, the signal trips whenever the header is present.\n"
+                              },
+                              "header_contains": {
+                                "type": "string",
+                                "description": "Trips when the header value contains this substring (case-insensitive).\nMutually exclusive with `header_value`. If neither is set, the signal trips whenever the header is present.\n"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "default_cooldown": {
+                      "description": "How long to keep the circuit open (in nanoseconds).\nAccepted as a Go duration string on write (e.g. `\"30s\"`, `\"5m\"`); returned as an integer (nanoseconds) on read.\nDefaults to 30 seconds (30000000000 ns).\n",
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)$",
+                          "description": "Go duration string accepted on write."
+                        },
+                        {
+                          "type": "integer",
+                          "format": "int64",
+                          "description": "Nanoseconds returned on read."
+                        }
+                      ]
+                    },
+                    "cooldown_header": {
+                      "type": "string",
+                      "description": "Response header whose value (in milliseconds) overrides `default_cooldown`.\nFalls back to `default_cooldown` when the header is absent or unparsable.\n"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A policy with this name already exists."
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/circuit-breaker/policies/{name}": {
+      "put": {
+        "operationId": "updateCircuitBreakerPolicy",
+        "summary": "Update circuit breaker policy",
+        "description": "Replaces a circuit breaker policy by name. The `name` field in the request body must match the URL parameter or be omitted.\nChanges take effect immediately in the running gateway.\n",
+        "tags": [
+          "Circuit Breaker"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the policy to update."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "primary_provider",
+                  "primary_model",
+                  "fallback_provider",
+                  "fallback_model",
+                  "condition"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Unique name for this policy."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When `false`, the policy is registered but all hooks skip it."
+                  },
+                  "primary_provider": {
+                    "type": "string",
+                    "description": "Provider to monitor (e.g. `azure`, `openai`)."
+                  },
+                  "primary_model": {
+                    "type": "string",
+                    "description": "Model name as it appears in requests (e.g. `gpt-4o-ptu`)."
+                  },
+                  "primary_key_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "API key UUIDs to track individually. Each key gets its own sub-circuit.\nThe main circuit opens only when all listed keys have tripped.\nLeave empty to use a single shared circuit for all keys serving this provider+model.\n"
+                  },
+                  "fallback_provider": {
+                    "type": "string",
+                    "description": "Provider to route to when the circuit is open."
+                  },
+                  "fallback_model": {
+                    "type": "string",
+                    "description": "Model to request from the fallback provider when the circuit is open."
+                  },
+                  "condition": {
+                    "type": "object",
+                    "required": [
+                      "signals"
+                    ],
+                    "properties": {
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "OR",
+                          "AND"
+                        ],
+                        "default": "OR",
+                        "description": "How multiple signals are combined.\n`OR` (default): circuit opens when any signal matches.\n`AND`: circuit opens only when all signals match simultaneously.\n"
+                      },
+                      "signals": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "List of response signals to evaluate. At least one required.",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "source",
+                            "header_name"
+                          ],
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "response_header"
+                              ],
+                              "description": "Part of the HTTP response to inspect. Only `response_header` is currently supported."
+                            },
+                            "header_name": {
+                              "type": "string",
+                              "description": "HTTP response header name to inspect (case-insensitive)."
+                            },
+                            "header_value": {
+                              "type": "string",
+                              "description": "Trips when the header value exactly equals this string (case-insensitive).\nMutually exclusive with `header_contains`. If neither is set, the signal trips whenever the header is present.\n"
+                            },
+                            "header_contains": {
+                              "type": "string",
+                              "description": "Trips when the header value contains this substring (case-insensitive).\nMutually exclusive with `header_value`. If neither is set, the signal trips whenever the header is present.\n"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "default_cooldown": {
+                    "description": "How long to keep the circuit open (in nanoseconds).\nAccepted as a Go duration string on write (e.g. `\"30s\"`, `\"5m\"`); returned as an integer (nanoseconds) on read.\nDefaults to 30 seconds (30000000000 ns).\n",
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)$",
+                        "description": "Go duration string accepted on write."
+                      },
+                      {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Nanoseconds returned on read."
+                      }
+                    ]
+                  },
+                  "cooldown_header": {
+                    "type": "string",
+                    "description": "Response header whose value (in milliseconds) overrides `default_cooldown`.\nFalls back to `default_cooldown` when the header is absent or unparsable.\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "primary_provider",
+                    "primary_model",
+                    "fallback_provider",
+                    "fallback_model",
+                    "condition"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Unique name for this policy."
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true,
+                      "description": "When `false`, the policy is registered but all hooks skip it."
+                    },
+                    "primary_provider": {
+                      "type": "string",
+                      "description": "Provider to monitor (e.g. `azure`, `openai`)."
+                    },
+                    "primary_model": {
+                      "type": "string",
+                      "description": "Model name as it appears in requests (e.g. `gpt-4o-ptu`)."
+                    },
+                    "primary_key_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "API key UUIDs to track individually. Each key gets its own sub-circuit.\nThe main circuit opens only when all listed keys have tripped.\nLeave empty to use a single shared circuit for all keys serving this provider+model.\n"
+                    },
+                    "fallback_provider": {
+                      "type": "string",
+                      "description": "Provider to route to when the circuit is open."
+                    },
+                    "fallback_model": {
+                      "type": "string",
+                      "description": "Model to request from the fallback provider when the circuit is open."
+                    },
+                    "condition": {
+                      "type": "object",
+                      "required": [
+                        "signals"
+                      ],
+                      "properties": {
+                        "operator": {
+                          "type": "string",
+                          "enum": [
+                            "OR",
+                            "AND"
+                          ],
+                          "default": "OR",
+                          "description": "How multiple signals are combined.\n`OR` (default): circuit opens when any signal matches.\n`AND`: circuit opens only when all signals match simultaneously.\n"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "minItems": 1,
+                          "description": "List of response signals to evaluate. At least one required.",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "source",
+                              "header_name"
+                            ],
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "response_header"
+                                ],
+                                "description": "Part of the HTTP response to inspect. Only `response_header` is currently supported."
+                              },
+                              "header_name": {
+                                "type": "string",
+                                "description": "HTTP response header name to inspect (case-insensitive)."
+                              },
+                              "header_value": {
+                                "type": "string",
+                                "description": "Trips when the header value exactly equals this string (case-insensitive).\nMutually exclusive with `header_contains`. If neither is set, the signal trips whenever the header is present.\n"
+                              },
+                              "header_contains": {
+                                "type": "string",
+                                "description": "Trips when the header value contains this substring (case-insensitive).\nMutually exclusive with `header_value`. If neither is set, the signal trips whenever the header is present.\n"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "default_cooldown": {
+                      "description": "How long to keep the circuit open (in nanoseconds).\nAccepted as a Go duration string on write (e.g. `\"30s\"`, `\"5m\"`); returned as an integer (nanoseconds) on read.\nDefaults to 30 seconds (30000000000 ns).\n",
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)$",
+                          "description": "Go duration string accepted on write."
+                        },
+                        {
+                          "type": "integer",
+                          "format": "int64",
+                          "description": "Nanoseconds returned on read."
+                        }
+                      ]
+                    },
+                    "cooldown_header": {
+                      "type": "string",
+                      "description": "Response header whose value (in milliseconds) overrides `default_cooldown`.\nFalls back to `default_cooldown` when the header is absent or unparsable.\n"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Policy not found."
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCircuitBreakerPolicy",
+        "summary": "Delete circuit breaker policy",
+        "description": "Deletes a circuit breaker policy by name and removes it from the running gateway.\nAny open circuits for this policy are discarded immediately.\n",
+        "tags": [
+          "Circuit Breaker"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Name of the policy to delete."
+          }
+        ],
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Policy not found."
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/circuit-breaker/state": {
+      "get": {
+        "operationId": "getCircuitBreakerState",
+        "summary": "Get circuit breaker state",
+        "description": "Returns a snapshot of all currently-open circuits.\nMain circuits are keyed by policy name. Per-key sub-circuits are keyed by `\"<policy_name>\\x00<key_id>\"`.\nCircuits not present in the map are closed.\n",
+        "tags": [
+          "Circuit Breaker"
+        ],
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "circuits": {
+                      "type": "object",
+                      "description": "Map of circuit keys to their current state.\nMain circuit key: the policy name.\nSub-circuit key: `\"<policy_name>\\x00<key_id>\"`.\n",
+                      "additionalProperties": {
+                        "type": "object",
+                        "description": "Runtime state of a single circuit (main circuit or per-key sub-circuit).",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "description": "Current circuit status. `open` means the circuit is tripped and requests are being rerouted."
+                          },
+                          "opened_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When the circuit was last tripped."
+                          },
+                          "cooldown": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Cooldown duration in nanoseconds."
+                          },
+                          "expires_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When the cooldown expires and the circuit will be probed again."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/governance/complexity-analyzer-config": {
       "get": {
         "operationId": "getComplexityAnalyzerConfig",
@@ -50292,6 +51151,14 @@
             }
           },
           {
+            "name": "aliases",
+            "in": "query",
+            "description": "Comma-separated list of model aliases to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "description": "Comma-separated list of statuses to filter by",
@@ -50319,6 +51186,38 @@
             "name": "virtual_key_ids",
             "in": "query",
             "description": "Comma-separated list of virtual key IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team_ids",
+            "in": "query",
+            "description": "Comma-separated list of team IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "customer_ids",
+            "in": "query",
+            "description": "Comma-separated list of customer IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_ids",
+            "in": "query",
+            "description": "Comma-separated list of user IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "business_unit_ids",
+            "in": "query",
+            "description": "Comma-separated list of business unit IDs to filter by",
             "schema": {
               "type": "string"
             }
@@ -50355,6 +51254,14 @@
             "schema": {
               "type": "string",
               "format": "date-time"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Relative time period filter",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -50411,6 +51318,38 @@
             "description": "Only show logs with missing cost",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "stop_reasons",
+            "in": "query",
+            "description": "Comma-separated list of stop reasons to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cache_hit_types",
+            "in": "query",
+            "description": "Comma-separated list of cache hit types to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "parent_request_id",
+            "in": "query",
+            "description": "Parent request ID to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metadata_<key>",
+            "in": "query",
+            "description": "Metadata filter where <key> is the metadata key to match",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -53082,6 +54021,14 @@
             }
           },
           {
+            "name": "aliases",
+            "in": "query",
+            "description": "Comma-separated list of model aliases to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "description": "Comma-separated list of statuses to filter by",
@@ -53109,6 +54056,38 @@
             "name": "virtual_key_ids",
             "in": "query",
             "description": "Comma-separated list of virtual key IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team_ids",
+            "in": "query",
+            "description": "Comma-separated list of team IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "customer_ids",
+            "in": "query",
+            "description": "Comma-separated list of customer IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_ids",
+            "in": "query",
+            "description": "Comma-separated list of user IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "business_unit_ids",
+            "in": "query",
+            "description": "Comma-separated list of business unit IDs to filter by",
             "schema": {
               "type": "string"
             }
@@ -53145,6 +54124,14 @@
             "schema": {
               "type": "string",
               "format": "date-time"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Relative time period filter",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -53201,6 +54188,38 @@
             "description": "Only show logs with missing cost",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "stop_reasons",
+            "in": "query",
+            "description": "Comma-separated list of stop reasons to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cache_hit_types",
+            "in": "query",
+            "description": "Comma-separated list of cache hit types to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "parent_request_id",
+            "in": "query",
+            "description": "Parent request ID to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metadata_<key>",
+            "in": "query",
+            "description": "Metadata filter where <key> is the metadata key to match",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -53290,6 +54309,991 @@
                             }
                           }
                         ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/dashboard": {
+      "get": {
+        "operationId": "getDashboard",
+        "summary": "Get consolidated dashboard data",
+        "description": "Returns every metric shown on the workspace dashboard in a single\nresponse: overview totals and histograms, provider usage, model rankings,\ndimension rankings (team, user, virtual key, customer, business unit), and\nMCP usage. Intended for external integrations that want the full dashboard\nin one call rather than orchestrating the individual endpoints.\n\nAccepts the same LLM filter parameters as the histogram and rankings\nendpoints, plus the MCP filter parameters (`tool_names`, `server_labels`)\nwhich apply to the `mcp` section. Filters are applied once and every\nsection is computed against the same time window and bucket size. The\nrequest fails as a whole if any section cannot be computed, so the payload\nis always complete.\n",
+        "tags": [
+          "Logging"
+        ],
+        "parameters": [
+          {
+            "name": "providers",
+            "in": "query",
+            "description": "Comma-separated list of providers to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "models",
+            "in": "query",
+            "description": "Comma-separated list of models to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "aliases",
+            "in": "query",
+            "description": "Comma-separated list of model aliases to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Comma-separated list of statuses to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "objects",
+            "in": "query",
+            "description": "Comma-separated list of object types to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "selected_key_ids",
+            "in": "query",
+            "description": "Comma-separated list of selected key IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "virtual_key_ids",
+            "in": "query",
+            "description": "Comma-separated list of virtual key IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team_ids",
+            "in": "query",
+            "description": "Comma-separated list of team IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "customer_ids",
+            "in": "query",
+            "description": "Comma-separated list of customer IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_ids",
+            "in": "query",
+            "description": "Comma-separated list of user IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "business_unit_ids",
+            "in": "query",
+            "description": "Comma-separated list of business unit IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "routing_rule_ids",
+            "in": "query",
+            "description": "Comma-separated list of routing rule IDs to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "routing_engine_used",
+            "in": "query",
+            "description": "Comma-separated list of routing engines to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_time",
+            "in": "query",
+            "description": "Start time filter (RFC3339 format)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "description": "End time filter (RFC3339 format)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Relative time period filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_latency",
+            "in": "query",
+            "description": "Minimum latency filter",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "max_latency",
+            "in": "query",
+            "description": "Maximum latency filter",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "min_tokens",
+            "in": "query",
+            "description": "Minimum tokens filter",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "max_tokens",
+            "in": "query",
+            "description": "Maximum tokens filter",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "min_cost",
+            "in": "query",
+            "description": "Minimum cost filter",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "max_cost",
+            "in": "query",
+            "description": "Maximum cost filter",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "missing_cost_only",
+            "in": "query",
+            "description": "Only show logs with missing cost",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "stop_reasons",
+            "in": "query",
+            "description": "Comma-separated list of stop reasons to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cache_hit_types",
+            "in": "query",
+            "description": "Comma-separated list of cache hit types to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "parent_request_id",
+            "in": "query",
+            "description": "Parent request ID to filter by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metadata_<key>",
+            "in": "query",
+            "description": "Metadata filter where <key> is the metadata key to match",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "content_search",
+            "in": "query",
+            "description": "Search in request/response content",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tool_names",
+            "in": "query",
+            "description": "Comma-separated list of MCP tool names to filter the MCP section by",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "server_labels",
+            "in": "query",
+            "description": "Comma-separated list of MCP server labels to filter the MCP section by",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Consolidated payload containing every metric shown on the workspace\ndashboard. Each section mirrors the response of its dedicated endpoint, so\nconsumers can integrate a single call instead of orchestrating many.\n",
+                  "properties": {
+                    "meta": {
+                      "type": "object",
+                      "description": "Parameters the dashboard data was computed with",
+                      "properties": {
+                        "generated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "UTC time the response was assembled"
+                        },
+                        "bucket_size_seconds": {
+                          "type": "integer",
+                          "format": "int64",
+                          "description": "Width of every histogram bucket, derived from the time range"
+                        },
+                        "start_time": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Resolved start of the queried range"
+                        },
+                        "end_time": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Resolved end of the queried range"
+                        }
+                      }
+                    },
+                    "overview": {
+                      "type": "object",
+                      "description": "Overview tab metrics",
+                      "properties": {
+                        "stats": {
+                          "$ref": "#/components/schemas/LogStats"
+                        },
+                        "requests": {
+                          "type": "object",
+                          "description": "Time-bucketed request count histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed request count",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "success": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "error": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            }
+                          }
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "description": "Time-bucketed token usage histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed token usage",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "prompt_tokens": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "completion_tokens": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "total_tokens": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            }
+                          }
+                        },
+                        "cost": {
+                          "type": "object",
+                          "description": "Time-bucketed cost histogram with model breakdown",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed cost data with model breakdown",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "total_cost": {
+                                    "type": "number"
+                                  },
+                                  "by_model": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "number"
+                                    },
+                                    "description": "Cost breakdown by model name"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "models": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "List of models present in the histogram"
+                            }
+                          }
+                        },
+                        "models": {
+                          "type": "object",
+                          "description": "Time-bucketed model usage histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed model usage with success/error breakdown",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "by_model": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "description": "Usage statistics for a single model",
+                                      "properties": {
+                                        "total": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
+                                        "success": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
+                                        "error": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        }
+                                      }
+                                    },
+                                    "description": "Usage breakdown by model name"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "models": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "latency": {
+                          "type": "object",
+                          "description": "Time-bucketed latency histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed latency percentiles",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "avg_latency": {
+                                    "type": "number"
+                                  },
+                                  "p90_latency": {
+                                    "type": "number"
+                                  },
+                                  "p95_latency": {
+                                    "type": "number"
+                                  },
+                                  "p99_latency": {
+                                    "type": "number"
+                                  },
+                                  "total_requests": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "provider_usage": {
+                      "type": "object",
+                      "description": "Provider Usage tab metrics",
+                      "properties": {
+                        "cost": {
+                          "type": "object",
+                          "description": "Time-bucketed cost histogram with provider breakdown",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed cost data with provider breakdown",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "total_cost": {
+                                    "type": "number"
+                                  },
+                                  "by_provider": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "number"
+                                    },
+                                    "description": "Cost breakdown by provider name"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "providers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "tokens": {
+                          "type": "object",
+                          "description": "Time-bucketed token histogram with provider breakdown",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed token usage with provider breakdown",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "by_provider": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "description": "Token statistics for a single provider",
+                                      "properties": {
+                                        "prompt_tokens": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
+                                        "completion_tokens": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
+                                        "total_tokens": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        }
+                                      }
+                                    },
+                                    "description": "Token usage breakdown by provider name"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "providers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "latency": {
+                          "type": "object",
+                          "description": "Time-bucketed latency histogram with provider breakdown",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed latency data with provider breakdown",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "by_provider": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "description": "Latency statistics for a single provider",
+                                      "properties": {
+                                        "avg_latency": {
+                                          "type": "number"
+                                        },
+                                        "p90_latency": {
+                                          "type": "number"
+                                        },
+                                        "p95_latency": {
+                                          "type": "number"
+                                        },
+                                        "p99_latency": {
+                                          "type": "number"
+                                        },
+                                        "total_requests": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        }
+                                      }
+                                    },
+                                    "description": "Latency breakdown by provider name"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "providers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "model_rankings": {
+                      "type": "object",
+                      "description": "Model Rankings tab data",
+                      "properties": {
+                        "rankings": {
+                          "type": "object",
+                          "description": "Models ranked by usage with trend comparison",
+                          "properties": {
+                            "rankings": {
+                              "type": "array",
+                              "items": {
+                                "allOf": [
+                                  {
+                                    "type": "object",
+                                    "description": "Aggregated stats for a single model over the query period",
+                                    "properties": {
+                                      "model": {
+                                        "type": "string"
+                                      },
+                                      "provider": {
+                                        "type": "string"
+                                      },
+                                      "total_requests": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "success_count": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "success_rate": {
+                                        "type": "number"
+                                      },
+                                      "total_tokens": {
+                                        "type": "integer",
+                                        "format": "int64"
+                                      },
+                                      "total_cost": {
+                                        "type": "number"
+                                      },
+                                      "avg_latency": {
+                                        "type": "number"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "trend": {
+                                        "type": "object",
+                                        "description": "Percentage change versus the previous comparable period",
+                                        "properties": {
+                                          "has_previous_period": {
+                                            "type": "boolean"
+                                          },
+                                          "requests_trend": {
+                                            "type": "number"
+                                          },
+                                          "tokens_trend": {
+                                            "type": "number"
+                                          },
+                                          "cost_trend": {
+                                            "type": "number"
+                                          },
+                                          "latency_trend": {
+                                            "type": "number"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "histogram": {
+                          "type": "object",
+                          "description": "Time-bucketed model usage histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed model usage with success/error breakdown",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "by_model": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "object",
+                                      "description": "Usage statistics for a single model",
+                                      "properties": {
+                                        "total": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
+                                        "success": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        },
+                                        "error": {
+                                          "type": "integer",
+                                          "format": "int64"
+                                        }
+                                      }
+                                    },
+                                    "description": "Usage breakdown by model name"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "models": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "dimension_rankings": {
+                      "type": "object",
+                      "description": "Ranking tables keyed by dimension (`team`, `user`, `virtual_key`,\n`customer`, `business_unit`); each value is that dimension's rankings.\n",
+                      "additionalProperties": {
+                        "type": "object",
+                        "description": "Dimension values ranked by usage with trend comparison",
+                        "properties": {
+                          "rankings": {
+                            "type": "array",
+                            "items": {
+                              "allOf": [
+                                {
+                                  "type": "object",
+                                  "description": "Aggregated usage for a single dimension value (team, user, virtual key, etc.)",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "total_requests": {
+                                      "type": "integer",
+                                      "format": "int64"
+                                    },
+                                    "total_tokens": {
+                                      "type": "integer",
+                                      "format": "int64"
+                                    },
+                                    "total_cost": {
+                                      "type": "number"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "trend": {
+                                      "type": "object",
+                                      "description": "Percentage change versus the previous comparable period",
+                                      "properties": {
+                                        "has_previous_period": {
+                                          "type": "boolean"
+                                        },
+                                        "requests_trend": {
+                                          "type": "number"
+                                        },
+                                        "tokens_trend": {
+                                          "type": "number"
+                                        },
+                                        "cost_trend": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          "dimension": {
+                            "type": "string",
+                            "description": "Entity used to group dimension rankings",
+                            "enum": [
+                              "team",
+                              "customer",
+                              "business_unit",
+                              "user",
+                              "virtual_key"
+                            ]
+                          },
+                          "total_actual_requests": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Distinct request count over the attributed population. Only set for\nfan-out dimensions (team, customer, business_unit) on Postgres.\n"
+                          },
+                          "total_attributed_requests": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Requests credited to every dimension value they touch; the sum can\nexceed the real request count. Only set for fan-out dimensions.\n"
+                          }
+                        }
+                      }
+                    },
+                    "mcp": {
+                      "type": "object",
+                      "description": "MCP usage tab metrics",
+                      "properties": {
+                        "volume": {
+                          "type": "object",
+                          "description": "Time-bucketed MCP tool call volume histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed MCP tool call volume",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "success": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "error": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            }
+                          }
+                        },
+                        "cost": {
+                          "type": "object",
+                          "description": "Time-bucketed MCP cost histogram",
+                          "properties": {
+                            "buckets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Time-bucketed MCP cost data",
+                                "properties": {
+                                  "timestamp": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "total_cost": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            },
+                            "bucket_size_seconds": {
+                              "type": "integer",
+                              "format": "int64"
+                            }
+                          }
+                        },
+                        "top_tools": {
+                          "type": "object",
+                          "description": "Top MCP tools by call count (limit 10)",
+                          "properties": {
+                            "tools": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Aggregated stats for a single MCP tool",
+                                "properties": {
+                                  "tool_name": {
+                                    "type": "string"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                  },
+                                  "cost": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -58661,6 +60665,65 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BifrostError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vault/flush-cache": {
+      "post": {
+        "operationId": "flushVaultCache",
+        "summary": "Flush vault secret cache",
+        "description": "Clears the in-memory vault secret cache so the next resolution of every\n`vault.<path>` reference re-fetches from the configured backend (AWS Secrets\nManager, GCP Secret Manager, or HashiCorp Vault).\n\nUse this after rotating a secret when you cannot wait for the hourly\nbackground refresh. In a clustered deployment the flush is broadcast to all\npeer nodes automatically — you only need to call this on one node.\n\nReturns `400` if vault integration is not enabled.\n",
+        "tags": [
+          "Vault"
+        ],
+        "security": [
+          {
+            "ManagementBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vault cache flushed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "vault cache flushed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Vault is not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "vault is not enabled"
+                    }
+                  }
                 }
               }
             }

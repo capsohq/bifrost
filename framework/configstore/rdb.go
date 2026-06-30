@@ -224,9 +224,9 @@ func tableKeyFromSchemaKey(provider tables.TableProvider, key schemas.Key) (tabl
 	return dbKey, nil
 }
 
-// mcpExternalURLToString converts an *schemas.EnvVar to its storage string form.
+// mcpExternalURLToString converts an *schemas.SecretVar to its storage string form.
 // Stores "env.MY_VAR" when sourced from an env var, or the raw URL otherwise.
-func mcpExternalURLToString(e *schemas.EnvVar) string {
+func mcpExternalURLToString(e *schemas.SecretVar) string {
 	if e == nil {
 		return ""
 	}
@@ -246,6 +246,7 @@ func (s *RDBConfigStore) UpdateClientConfig(ctx context.Context, config *ClientC
 		EnableLogging:                         config.EnableLogging,
 		DisableContentLogging:                 config.DisableContentLogging,
 		DisableDBPingsInHealth:                config.DisableDBPingsInHealth,
+		DumpErrorsInConsoleLogs:               config.DumpErrorsInConsoleLogs,
 		LogRetentionDays:                      config.LogRetentionDays,
 		EnforceAuthOnInference:                config.EnforceAuthOnInference,
 		EnforceGovernanceHeader:               config.EnforceGovernanceHeader,
@@ -509,6 +510,7 @@ func (s *RDBConfigStore) GetClientConfig(ctx context.Context) (*ClientConfig, er
 		EnableLogging:           dbConfig.EnableLogging,
 		DisableContentLogging:   dbConfig.DisableContentLogging,
 		DisableDBPingsInHealth:  dbConfig.DisableDBPingsInHealth,
+		DumpErrorsInConsoleLogs: dbConfig.DumpErrorsInConsoleLogs,
 		LogRetentionDays:        dbConfig.LogRetentionDays,
 		EnforceAuthOnInference:  dbConfig.EnforceAuthOnInference,
 		EnforceGovernanceHeader: dbConfig.EnforceGovernanceHeader,
@@ -534,7 +536,7 @@ func (s *RDBConfigStore) GetClientConfig(ctx context.Context) (*ClientConfig, er
 		WhitelistedRoutes:                     dbConfig.WhitelistedRoutes,
 		HideDeletedVirtualKeysInFilters:       dbConfig.HideDeletedVirtualKeysInFilters,
 		RoutingChainMaxDepth:                  dbConfig.RoutingChainMaxDepth,
-		MCPExternalClientURL:                  schemas.NewEnvVar(dbConfig.MCPExternalClientURL),
+		MCPExternalClientURL:                  schemas.NewSecretVar(dbConfig.MCPExternalClientURL),
 		HeaderFilterConfig:                    dbConfig.HeaderFilterConfig,
 		AllowPerRequestContentStorageOverride: dbConfig.AllowPerRequestContentStorageOverride,
 		AllowPerRequestRawOverride:            dbConfig.AllowPerRequestRawOverride,
@@ -1972,7 +1974,7 @@ func (s *RDBConfigStore) CreateMCPClientConfig(ctx context.Context, clientConfig
 	return s.DB().Transaction(func(tx *gorm.DB) error {
 		// Check if a client with the same name already exists
 		if _, err := s.GetMCPClientByName(ctx, clientConfig.Name); err == nil {
-			return fmt.Errorf("MCP client with name '%s' already exists", clientConfig.Name)
+			return fmt.Errorf("MCP client with name %q %w", clientConfig.Name, ErrAlreadyExists)
 		}
 		// Create a deep copy to avoid modifying the original
 		clientConfigCopy, err := deepCopy(*clientConfig)
@@ -2058,8 +2060,8 @@ func (s *RDBConfigStore) UpdateMCPClientConfig(ctx context.Context, id string, c
 		headersToSerialize := make(map[string]string)
 		if clientConfigCopy.Headers != nil {
 			for key, value := range clientConfigCopy.Headers {
-				if value.IsFromEnv() {
-					headersToSerialize[key] = value.EnvVar
+				if value.IsFromSecret() {
+					headersToSerialize[key] = value.GetRawRef()
 				} else {
 					headersToSerialize[key] = value.GetValue()
 				}
@@ -2178,7 +2180,7 @@ func (s *RDBConfigStore) UpdateMCPClientConfig(ctx context.Context, id string, c
 		if clientConfigCopy.ConfigHash != "" {
 			connectionStringToPersist := clientConfigCopy.ConnectionString
 			if encrypt.IsEnabled() && connectionStringToPersist != nil &&
-				!connectionStringToPersist.IsFromEnv() && connectionStringToPersist.GetValue() != "" {
+				!connectionStringToPersist.IsFromSecret() && connectionStringToPersist.GetValue() != "" {
 				// Mirror TableMCPClient.BeforeSave behavior for map-based Updates.
 				cs := *connectionStringToPersist
 				encryptedConnString, encErr := encrypt.Encrypt(cs.Val)
@@ -2485,6 +2487,59 @@ func (s *RDBConfigStore) UpsertModelPrices(ctx context.Context, pricing *tables.
 		return s.parseGormError(err)
 	}
 	return nil
+}
+
+// pricingUpsertBatchSize bounds rows per multi-row INSERT on the PostgreSQL
+// pricing-sync path, sized well under PostgreSQL's 65535 bind-parameter ceiling
+// (TableModelPricing has ~76 columns, so ~860 rows would hit the limit; 500
+// leaves comfortable headroom). Only PostgreSQL batches — see
+// UpsertModelPricesBatch.
+const pricingUpsertBatchSize = 500
+
+// UpsertModelPricesBatch creates or updates many model pricing records with the
+// same semantics as UpsertModelPrices (pricingSyncUpdateColumns only, so
+// additional_attributes editorial metadata survives the sync). Callers must
+// dedup by (model, provider, mode) first: a conflict target may not appear
+// twice in one statement.
+//
+// The whole write runs in one transaction so the sync stays atomic. PostgreSQL
+// uses chunked multi-row ON CONFLICT statements to cut the per-model round-trips
+// that motivated batching against a remote DB. SQLite cannot batch these rows: a
+// multi-row VALUES list rejects the DEFAULT keyword GORM emits for the table's
+// many default:null columns ("near \"DEFAULT\": syntax error"), and its
+// bind-variable ceiling is lower. SQLite is a local file, so per-row writes are
+// ~free — it loops within the same transaction instead.
+func (s *RDBConfigStore) UpsertModelPricesBatch(ctx context.Context, pricing []tables.TableModelPricing, tx ...*gorm.DB) error {
+	if len(pricing) == 0 {
+		return nil
+	}
+	var txDB *gorm.DB
+	if len(tx) > 0 {
+		txDB = tx[0]
+	} else {
+		txDB = s.DB()
+	}
+	db := txDB.WithContext(ctx)
+
+	onConflict := clause.OnConflict{
+		Columns:   []clause.Column{{Name: "model"}, {Name: "provider"}, {Name: "mode"}},
+		DoUpdates: clause.AssignmentColumns(pricingSyncUpdateColumns),
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if tx.Dialector.Name() == "postgres" {
+			if err := tx.Clauses(onConflict).CreateInBatches(pricing, pricingUpsertBatchSize).Error; err != nil {
+				return s.parseGormError(err)
+			}
+			return nil
+		}
+		for i := range pricing {
+			if err := tx.Clauses(onConflict).Create(&pricing[i]).Error; err != nil {
+				return s.parseGormError(err)
+			}
+		}
+		return nil
+	})
 }
 
 // UpsertModelPricingAttributes writes only the additional_attributes column
@@ -5053,8 +5108,8 @@ func (s *RDBConfigStore) GetGovernanceConfig(ctx context.Context) (*GovernanceCo
 		}
 		if username != nil && password != nil {
 			authConfig = &AuthConfig{
-				AdminUserName: schemas.NewEnvVar(*username),
-				AdminPassword: schemas.NewEnvVar(*password),
+				AdminUserName: schemas.NewSecretVar(*username),
+				AdminPassword: schemas.NewSecretVar(*password),
 				IsEnabled:     isEnabled,
 			}
 		}
@@ -5162,8 +5217,8 @@ func (s *RDBConfigStore) GetAuthConfig(ctx context.Context) (*AuthConfig, error)
 		return nil, nil
 	}
 	return &AuthConfig{
-		AdminUserName: schemas.NewEnvVar(*username),
-		AdminPassword: schemas.NewEnvVar(*password),
+		AdminUserName: schemas.NewSecretVar(*username),
+		AdminPassword: schemas.NewSecretVar(*password),
 		IsEnabled:     isEnabled,
 	}, nil
 }
