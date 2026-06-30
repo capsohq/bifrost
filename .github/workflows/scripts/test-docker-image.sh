@@ -71,12 +71,14 @@ echo ""
 echo "=== Starting docker-compose services ==="
 docker compose -f "$DOCKER_COMPOSE_FILE" up -d
 
-# Wait for Postgres to be ready
+# Wait for Postgres to accept real SQL connections. pg_isready can briefly
+# succeed while startup still rejects clients with SQLSTATE 57P03.
 echo "Waiting for Postgres to be ready..."
 MAX_WAIT=60
 ELAPSED=0
 while [ $ELAPSED -lt $MAX_WAIT ]; do
-  if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T postgres pg_isready -U bifrost -d bifrost > /dev/null 2>&1; then
+  if docker compose -f "$DOCKER_COMPOSE_FILE" exec -T postgres \
+    psql -U bifrost -d bifrost -tAc "SELECT 1" > /dev/null 2>&1; then
     echo "Postgres is ready"
     break
   fi
