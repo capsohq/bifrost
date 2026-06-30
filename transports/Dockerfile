@@ -18,7 +18,7 @@
 
   # --- Go Build Stage: Compile the Go binary ---
   FROM golang:1.26.4-alpine3.23@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS builder
-  WORKDIR /app
+  WORKDIR /app/transports
 
   # Install dependencies including gcc for CGO and sqlite (with latest security patches)
   RUN apk upgrade --no-cache && \
@@ -27,12 +27,14 @@
   # Set environment for CGO-enabled build (required for go-sqlite3)
   ENV CGO_ENABLED=1 GOOS=linux
 
+  # Copy workspace modules that transports/go.mod references via local replace directives.
+  COPY core /app/core
+  COPY framework /app/framework
+  COPY plugins /app/plugins
   COPY transports/go.mod transports/go.sum ./
-  RUN ls
-  RUN cat go.mod
   RUN go mod download
 
-  # Copy source code and dependencies
+  # Copy transport source after dependency resolution for better layer reuse.
   COPY transports/ ./
 
   COPY --from=ui-builder /app/out ./bifrost-http/ui
@@ -63,7 +65,7 @@
 
   # Create data directory and set up user
   COPY --from=builder /app/main .
-  COPY --from=builder /app/docker-entrypoint.sh .
+  COPY --from=builder /app/transports/docker-entrypoint.sh .
 
   # Getting arguments
   ARG ARG_APP_PORT=8080
