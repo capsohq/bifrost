@@ -31,7 +31,6 @@ const GenericProviderIcon = ({ size = "md", className = "" }: IconProps) => {
 };
 
 export const ProviderIcons = {
-	deepseek: GenericProviderIcon,
 	glm: GenericProviderIcon,
 	minimax: GenericProviderIcon,
 	modelark: GenericProviderIcon,
