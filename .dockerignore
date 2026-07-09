@@ -64,6 +64,6 @@ tmp/
 temp/
 .tmp/
 
-# Go workspaces (local only)
-go.work
+# Go workspace sum is local cache; go.work is required by Dockerfile.local to
+# resolve fork modules via checked-in replaces during pre-release CI builds.
 go.work.sum
