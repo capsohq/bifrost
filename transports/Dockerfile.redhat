@@ -27,12 +27,19 @@ RUN apk upgrade --no-cache && \
 # Set environment for CGO-enabled build (required for go-sqlite3)
 ENV CGO_ENABLED=1 GOOS=linux
 
-# Copy workspace modules that transports/go.mod references via local replace directives.
+# Copy the checked-in workspace and all workspace modules so fork builds use
+# local module replaces instead of resolving just-bumped tags from git.
+COPY go.work /app/go.work
+COPY cli /app/cli
 COPY core /app/core
 COPY framework /app/framework
 COPY plugins /app/plugins
 COPY transports/go.mod transports/go.sum ./
-RUN go mod download
+RUN for i in 1 2 3; do \
+    go mod download && break; \
+    if [ "$i" = "3" ]; then exit 1; fi; \
+    sleep 5; \
+  done
 
 # Copy transport source after dependency resolution for better layer reuse.
 COPY transports/ ./
@@ -40,7 +47,6 @@ COPY transports/ ./
 COPY --from=ui-builder /app/out ./bifrost-http/ui
 
 # Build the binary with CGO enabled and static SQLite linking
-ENV GOWORK=off
 ARG VERSION=unknown
 RUN go build \
   -ldflags="-w -s -X main.Version=v${VERSION} -extldflags '-static'" \
