@@ -56,6 +56,15 @@ type TableKey struct {
 	BedrockRoleSessionName   *schemas.SecretVar `gorm:"type:text" json:"bedrock_role_session_name,omitempty"`
 	BedrockBatchS3ConfigJSON *string            `gorm:"type:text" json:"-"` // JSON serialized schemas.BatchS3Config
 
+	// Bedrock Mantle config fields (embedded)
+	BedrockMantleAccessKey       *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_access_key,omitempty"`
+	BedrockMantleSecretKey       *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_secret_key,omitempty"`
+	BedrockMantleSessionToken    *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_session_token,omitempty"`
+	BedrockMantleRegion          *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_region,omitempty"`
+	BedrockMantleRoleARN         *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_role_arn,omitempty"`
+	BedrockMantleExternalID      *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_external_id,omitempty"`
+	BedrockMantleRoleSessionName *schemas.SecretVar `gorm:"type:text" json:"bedrock_mantle_role_session_name,omitempty"`
+
 	// VLLM config fields (embedded)
 	VLLMUrl       *schemas.SecretVar `gorm:"type:text" json:"vllm_url,omitempty"`
 	VLLMModelName *string            `gorm:"type:varchar(255)" json:"vllm_model_name,omitempty"`
@@ -78,16 +87,17 @@ type TableKey struct {
 	EncryptionStatus string `gorm:"type:varchar(20);default:'plain_text'" json:"-"`
 
 	// Virtual fields for runtime use (not stored in DB)
-	Models             schemas.WhiteList           `gorm:"-" json:"models"` // ["*"] allows all models; empty denies all (deny-by-default)
-	BlacklistedModels  schemas.BlackList           `gorm:"-" json:"blacklisted_models"`
-	Aliases            schemas.KeyAliases          `gorm:"-" json:"aliases,omitempty"`
-	AzureKeyConfig     *schemas.AzureKeyConfig     `gorm:"-" json:"azure_key_config,omitempty"`
-	VertexKeyConfig    *schemas.VertexKeyConfig    `gorm:"-" json:"vertex_key_config,omitempty"`
-	BedrockKeyConfig   *schemas.BedrockKeyConfig   `gorm:"-" json:"bedrock_key_config,omitempty"`
-	VLLMKeyConfig      *schemas.VLLMKeyConfig      `gorm:"-" json:"vllm_key_config,omitempty"`
-	ReplicateKeyConfig *schemas.ReplicateKeyConfig `gorm:"-" json:"replicate_key_config,omitempty"`
-	OllamaKeyConfig    *schemas.OllamaKeyConfig    `gorm:"-" json:"ollama_key_config,omitempty"`
-	SGLKeyConfig       *schemas.SGLKeyConfig       `gorm:"-" json:"sgl_key_config,omitempty"`
+	Models                 schemas.WhiteList               `gorm:"-" json:"models"` // ["*"] allows all models; empty denies all (deny-by-default)
+	BlacklistedModels      schemas.BlackList               `gorm:"-" json:"blacklisted_models"`
+	Aliases                schemas.KeyAliases              `gorm:"-" json:"aliases,omitempty"`
+	AzureKeyConfig         *schemas.AzureKeyConfig         `gorm:"-" json:"azure_key_config,omitempty"`
+	VertexKeyConfig        *schemas.VertexKeyConfig        `gorm:"-" json:"vertex_key_config,omitempty"`
+	BedrockKeyConfig       *schemas.BedrockKeyConfig       `gorm:"-" json:"bedrock_key_config,omitempty"`
+	BedrockMantleKeyConfig *schemas.BedrockMantleKeyConfig `gorm:"-" json:"bedrock_mantle_key_config,omitempty"`
+	VLLMKeyConfig          *schemas.VLLMKeyConfig          `gorm:"-" json:"vllm_key_config,omitempty"`
+	ReplicateKeyConfig     *schemas.ReplicateKeyConfig     `gorm:"-" json:"replicate_key_config,omitempty"`
+	OllamaKeyConfig        *schemas.OllamaKeyConfig        `gorm:"-" json:"ollama_key_config,omitempty"`
+	SGLKeyConfig           *schemas.SGLKeyConfig           `gorm:"-" json:"sgl_key_config,omitempty"`
 }
 
 // TableName sets the table name for each model
@@ -275,6 +285,60 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		k.BedrockBatchS3ConfigJSON = nil
 	}
 
+	if k.BedrockMantleKeyConfig != nil {
+		// Copy to avoid encrypting the shared BedrockMantleKeyConfig through the pointer.
+		if k.BedrockMantleKeyConfig.AccessKey.IsSet() {
+			ak := k.BedrockMantleKeyConfig.AccessKey
+			k.BedrockMantleAccessKey = &ak
+		} else {
+			k.BedrockMantleAccessKey = nil
+		}
+		if k.BedrockMantleKeyConfig.SecretKey.IsSet() {
+			sk := k.BedrockMantleKeyConfig.SecretKey
+			k.BedrockMantleSecretKey = &sk
+		} else {
+			k.BedrockMantleSecretKey = nil
+		}
+		if k.BedrockMantleKeyConfig.SessionToken != nil {
+			st := *k.BedrockMantleKeyConfig.SessionToken
+			k.BedrockMantleSessionToken = &st
+		} else {
+			k.BedrockMantleSessionToken = nil
+		}
+		if k.BedrockMantleKeyConfig.Region != nil {
+			br := *k.BedrockMantleKeyConfig.Region
+			k.BedrockMantleRegion = &br
+		} else {
+			k.BedrockMantleRegion = nil
+		}
+		if k.BedrockMantleKeyConfig.RoleARN != nil {
+			bra := *k.BedrockMantleKeyConfig.RoleARN
+			k.BedrockMantleRoleARN = &bra
+		} else {
+			k.BedrockMantleRoleARN = nil
+		}
+		if k.BedrockMantleKeyConfig.ExternalID != nil {
+			ei := *k.BedrockMantleKeyConfig.ExternalID
+			k.BedrockMantleExternalID = &ei
+		} else {
+			k.BedrockMantleExternalID = nil
+		}
+		if k.BedrockMantleKeyConfig.RoleSessionName != nil {
+			rsn := *k.BedrockMantleKeyConfig.RoleSessionName
+			k.BedrockMantleRoleSessionName = &rsn
+		} else {
+			k.BedrockMantleRoleSessionName = nil
+		}
+	} else {
+		k.BedrockMantleAccessKey = nil
+		k.BedrockMantleSecretKey = nil
+		k.BedrockMantleSessionToken = nil
+		k.BedrockMantleRegion = nil
+		k.BedrockMantleRoleARN = nil
+		k.BedrockMantleExternalID = nil
+		k.BedrockMantleRoleSessionName = nil
+	}
+
 	if k.Aliases != nil {
 		data, err := sonic.Marshal(k.Aliases)
 		if err != nil {
@@ -396,6 +460,28 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		if err := encryptString(k.BedrockBatchS3ConfigJSON); err != nil {
 			return fmt.Errorf("failed to encrypt bedrock batch s3 config: %w", err)
 		}
+		// Bedrock Mantle
+		if err := encryptSecretVarPtr(&k.BedrockMantleAccessKey); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle access key: %w", err)
+		}
+		if err := encryptSecretVarPtr(&k.BedrockMantleSecretKey); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle secret key: %w", err)
+		}
+		if err := encryptSecretVarPtr(&k.BedrockMantleSessionToken); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle session token: %w", err)
+		}
+		if err := encryptSecretVarPtr(&k.BedrockMantleRegion); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle region: %w", err)
+		}
+		if err := encryptSecretVarPtr(&k.BedrockMantleRoleARN); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle role arn: %w", err)
+		}
+		if err := encryptSecretVarPtr(&k.BedrockMantleExternalID); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle external id: %w", err)
+		}
+		if err := encryptSecretVarPtr(&k.BedrockMantleRoleSessionName); err != nil {
+			return fmt.Errorf("failed to encrypt bedrock mantle role session name: %w", err)
+		}
 		// Aliases
 		if err := encryptString(k.AliasesJSON); err != nil {
 			return fmt.Errorf("failed to encrypt aliases: %w", err)
@@ -479,6 +565,28 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 		}
 		if err := decryptString(k.BedrockBatchS3ConfigJSON); err != nil {
 			return fmt.Errorf("failed to decrypt bedrock batch s3 config: %w", err)
+		}
+		// Bedrock Mantle
+		if err := decryptSecretVarPtr(&k.BedrockMantleAccessKey); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle access key: %w", err)
+		}
+		if err := decryptSecretVarPtr(&k.BedrockMantleSecretKey); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle secret key: %w", err)
+		}
+		if err := decryptSecretVarPtr(&k.BedrockMantleSessionToken); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle session token: %w", err)
+		}
+		if err := decryptSecretVarPtr(&k.BedrockMantleRegion); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle region: %w", err)
+		}
+		if err := decryptSecretVarPtr(&k.BedrockMantleRoleARN); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle role arn: %w", err)
+		}
+		if err := decryptSecretVarPtr(&k.BedrockMantleExternalID); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle external id: %w", err)
+		}
+		if err := decryptSecretVarPtr(&k.BedrockMantleRoleSessionName); err != nil {
+			return fmt.Errorf("failed to decrypt bedrock mantle role session name: %w", err)
 		}
 		// Aliases
 		if err := decryptString(k.AliasesJSON); err != nil {
@@ -586,6 +694,22 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 		}
 
 		k.BedrockKeyConfig = bedrockConfig
+	}
+	// Reconstruct Bedrock Mantle config if fields are present
+	if k.BedrockMantleAccessKey != nil || k.BedrockMantleSecretKey != nil || k.BedrockMantleSessionToken != nil || k.BedrockMantleRegion != nil || k.BedrockMantleRoleARN != nil || k.BedrockMantleExternalID != nil || k.BedrockMantleRoleSessionName != nil {
+		mantleConfig := &schemas.BedrockMantleKeyConfig{}
+		if k.BedrockMantleAccessKey != nil {
+			mantleConfig.AccessKey = *k.BedrockMantleAccessKey
+		}
+		if k.BedrockMantleSecretKey != nil {
+			mantleConfig.SecretKey = *k.BedrockMantleSecretKey
+		}
+		mantleConfig.SessionToken = k.BedrockMantleSessionToken
+		mantleConfig.Region = k.BedrockMantleRegion
+		mantleConfig.RoleARN = k.BedrockMantleRoleARN
+		mantleConfig.ExternalID = k.BedrockMantleExternalID
+		mantleConfig.RoleSessionName = k.BedrockMantleRoleSessionName
+		k.BedrockMantleKeyConfig = mantleConfig
 	}
 	// Reconstruct Aliases
 	if k.AliasesJSON != nil && *k.AliasesJSON != "" {

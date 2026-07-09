@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/mocker
 go 1.26.4
 
 require (
-	github.com/capsohq/bifrost/core v1.6.1
 	github.com/jaswdr/faker/v2 v2.8.0
+	github.com/capsohq/bifrost/core v1.6.3
 )
 
 require (
@@ -72,5 +72,3 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/capsohq/bifrost/core => ../../core

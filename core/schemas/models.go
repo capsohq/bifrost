@@ -157,6 +157,7 @@ type Model struct {
 	MaxInputTokens      *int               `json:"max_input_tokens,omitempty"`
 	MaxOutputTokens     *int               `json:"max_output_tokens,omitempty"`
 	Architecture        *Architecture      `json:"architecture,omitempty"`
+	IsDeprecated        bool               `json:"is_deprecated,omitempty"`
 	Pricing             *Pricing           `json:"pricing,omitempty"`
 	TopProvider         *TopProvider       `json:"top_provider,omitempty"`
 	PerRequestLimits    *PerRequestLimits  `json:"per_request_limits,omitempty"`

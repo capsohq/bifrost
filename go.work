@@ -17,3 +17,38 @@ use (
 	./plugins/telemetry
 	./transports
 )
+
+replace (
+	github.com/capsohq/bifrost/core v1.5.12 => ./core
+	github.com/capsohq/bifrost/core v1.5.13 => ./core
+	github.com/capsohq/bifrost/core v1.6.2 => ./core
+	github.com/capsohq/bifrost/core v1.6.3 => ./core
+)
+
+replace (
+	github.com/capsohq/bifrost/framework v1.3.16 => ./framework
+	github.com/capsohq/bifrost/framework v1.4.3 => ./framework
+)
+
+replace github.com/capsohq/bifrost/plugins/compat v0.1.25 => ./plugins/compat
+
+replace github.com/capsohq/bifrost/plugins/governance v1.6.3 => ./plugins/governance
+
+replace github.com/capsohq/bifrost/plugins/logging v1.5.26 => ./plugins/logging
+
+replace github.com/capsohq/bifrost/plugins/maxim v1.6.26 => ./plugins/maxim
+
+replace (
+	github.com/capsohq/bifrost/plugins/mocker v1.5.19 => ./plugins/mocker
+	github.com/capsohq/bifrost/plugins/mocker v1.5.26 => ./plugins/mocker
+)
+
+replace github.com/capsohq/bifrost/plugins/modelcatalogresolver v1.0.7 => ./plugins/modelcatalogresolver
+
+replace github.com/capsohq/bifrost/plugins/otel v1.3.3 => ./plugins/otel
+
+replace github.com/capsohq/bifrost/plugins/prompts v1.0.26 => ./plugins/prompts
+
+replace github.com/capsohq/bifrost/plugins/semanticcache v1.5.26 => ./plugins/semanticcache
+
+replace github.com/capsohq/bifrost/plugins/telemetry v1.5.26 => ./plugins/telemetry

@@ -3,8 +3,8 @@ module github.com/capsohq/bifrost/plugins/prompts
 go 1.26.4
 
 require (
-	github.com/capsohq/bifrost/core v1.6.1
-	github.com/capsohq/bifrost/framework v1.4.1
+	github.com/capsohq/bifrost/core v1.6.3
+	github.com/capsohq/bifrost/framework v1.4.3
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -78,7 +78,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
-
-replace github.com/capsohq/bifrost/core => ../../core
-
-replace github.com/capsohq/bifrost/framework => ../../framework

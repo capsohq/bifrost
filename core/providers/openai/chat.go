@@ -10,12 +10,16 @@ import (
 // ToBifrostChatRequest converts an OpenAI chat request to Bifrost format
 func (req *OpenAIChatRequest) ToBifrostChatRequest(ctx *schemas.BifrostContext) *schemas.BifrostChatRequest {
 	provider, model := schemas.ParseModelString(req.Model, "")
+	params := req.ChatParameters
+	if params.MaxCompletionTokens == nil && req.MaxTokens != nil {
+		params.MaxCompletionTokens = req.MaxTokens
+	}
 
 	return &schemas.BifrostChatRequest{
 		Provider:  provider,
 		Model:     model,
 		Input:     ConvertOpenAIMessagesToBifrostMessages(req.Messages),
-		Params:    &req.ChatParameters,
+		Params:    &params,
 		Fallbacks: schemas.ParseFallbacks(req.Fallbacks),
 	}
 }
@@ -65,13 +69,13 @@ func ToOpenAIChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bifros
 		return openaiReq
 	case schemas.Cerebras:
 		openaiReq.filterOpenAISpecificParameters(capModel)
-		openaiReq.applyCerebrasCompatibility()
+		openaiReq.stripReasoningDetails()
 		return openaiReq
 	case schemas.XAI:
 		openaiReq.filterOpenAISpecificParameters(capModel)
 		openaiReq.applyXAICompatibility(capModel)
 		return openaiReq
-	case schemas.Deepseek:
+	case schemas.DeepSeek:
 		openaiReq.filterOpenAISpecificParametersPreserveReasoning()
 		openaiReq.applyDeepseekCompatibility()
 		return openaiReq
@@ -291,8 +295,9 @@ func (req *OpenAIChatRequest) applyMistralCompatibility() {
 	}
 }
 
-// applyCerebrasCompatibility applies Cerebras-specific transformations to the request.
-func (req *OpenAIChatRequest) applyCerebrasCompatibility() {
+// stripReasoningDetails for providers that throw error for reasoning_details in assistant messages
+// e.g. Cerebras, DeepSeek
+func (req *OpenAIChatRequest) stripReasoningDetails() {
 	for i := range req.Messages {
 		assistantMessage := req.Messages[i].OpenAIChatAssistantMessage
 		if assistantMessage == nil {

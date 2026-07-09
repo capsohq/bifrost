@@ -6,19 +6,12 @@ import (
 	"testing"
 
 	"github.com/capsohq/bifrost/core/internal/llmtests"
+
 	"github.com/capsohq/bifrost/core/schemas"
 )
 
-func envOrDefault(key, fallback string) string {
-	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func TestDeepSeek(t *testing.T) {
+func TestDeepseek(t *testing.T) {
 	t.Parallel()
-
 	if strings.TrimSpace(os.Getenv("DEEPSEEK_API_KEY")) == "" {
 		t.Skip("Skipping DeepSeek tests because DEEPSEEK_API_KEY is not set")
 	}
@@ -28,11 +21,18 @@ func TestDeepSeek(t *testing.T) {
 		t.Fatalf("Error initializing test setup: %v", err)
 	}
 	defer cancel()
+	defer client.Shutdown()
 
 	testConfig := llmtests.ComprehensiveTestConfig{
-		Provider:  schemas.Deepseek,
-		ChatModel: envOrDefault("DEEPSEEK_CHAT_MODEL", "deepseek-chat"),
-		TextModel: envOrDefault("DEEPSEEK_TEXT_MODEL", "deepseek-chat"),
+		Provider:  schemas.DeepSeek,
+		ChatModel: "deepseek-v4-flash",
+		Fallbacks: []schemas.Fallback{
+			{Provider: schemas.DeepSeek, Model: "deepseek-v4-flash"},
+			{Provider: schemas.DeepSeek, Model: "deepseek-v4-pro"},
+		},
+		TextModel:      "deepseek-v4-pro",
+		EmbeddingModel: "", // DeepSeek doesn't support embedding
+		ReasoningModel: "deepseek-v4-pro",
 		Scenarios: llmtests.TestScenarios{
 			TextCompletion:        true,
 			TextCompletionStream:  true,
@@ -40,15 +40,21 @@ func TestDeepSeek(t *testing.T) {
 			CompletionStream:      true,
 			MultiTurnConversation: true,
 			ToolCalls:             true,
-			MultipleToolCalls:     true,
+			ToolCallsStreaming:    true,
+			MultipleToolCalls:     false,
 			End2EndToolCalling:    true,
 			AutomaticFunctionCall: true,
+			ImageURL:              false,
+			ImageBase64:           false,
+			MultipleImages:        false,
+			CompleteEnd2End:       true,
+			Embedding:             false,
 			ListModels:            true,
+			Reasoning:             true,
 		},
 	}
 
 	t.Run("DeepSeekTests", func(t *testing.T) {
 		llmtests.RunAllComprehensiveTests(t, client, ctx, testConfig)
 	})
-	client.Shutdown()
 }

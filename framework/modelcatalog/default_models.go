@@ -39,7 +39,7 @@ var defaultProviderModels = map[schemas.ModelProvider][]string{
 		"speech-02-hd",
 		"speech-02-turbo",
 	},
-	schemas.Deepseek: {
+	schemas.DeepSeek: {
 		"deepseek-chat",
 		"deepseek-reasoner",
 	},

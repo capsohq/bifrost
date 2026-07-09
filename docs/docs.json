@@ -133,6 +133,7 @@
                   "providers/supported-providers/anthropic",
                   "providers/supported-providers/azure",
                   "providers/supported-providers/bedrock",
+                  "providers/supported-providers/bedrock-mantle",
                   "providers/supported-providers/cerebras",
                   "providers/supported-providers/cohere",
                   "providers/supported-providers/databricks",
@@ -199,6 +200,7 @@
               "mcp/agent-mode",
               "mcp/code-mode",
               "mcp/gateway",
+              "mcp/gateway-auth",
               "mcp/tool-hosting",
               "mcp/filtering"
             ]
@@ -627,6 +629,7 @@
               "deployment-guides/how-to/install-make",
               "deployment-guides/how-to/multinode",
               "deployment-guides/how-to/nginx-reverse-proxy",
+              "deployment-guides/how-to/security-best-practices",
               "deployment-guides/how-to/airgapped",
               "deployment-guides/docker-tuning"
             ]
@@ -702,17 +705,25 @@
             "item": "Open Source",
             "icon": "rocket",
             "pages": [
-              "changelogs/v1.6.1",
-              "changelogs/v1.6.0",
-              "changelogs/v1.5.16",
-              "changelogs/v1.5.15",
-              "changelogs/v1.5.14",
-              "changelogs/v1.5.13",
-              "changelogs/v1.5.12",
-              "changelogs/v1.5.11",
-              "changelogs/v1.5.10",
-              "changelogs/v1.5.9",
-              "changelogs/v1.5.8",
+              "changelogs/v2.0.0-prerelease1",
+              "changelogs/v1.6.3",
+              "changelogs/v1.6.2",
+              {
+                "group": "June 2026",
+                "pages": [
+                  "changelogs/v1.6.1",
+                  "changelogs/v1.6.0",
+                  "changelogs/v1.5.16",
+                  "changelogs/v1.5.15",
+                  "changelogs/v1.5.14",
+                  "changelogs/v1.5.13",
+                  "changelogs/v1.5.12",
+                  "changelogs/v1.5.11",
+                  "changelogs/v1.5.10",
+                  "changelogs/v1.5.9",
+                  "changelogs/v1.5.8"
+                ]
+              },
               {
                 "group": "May 2026",
                 "pages": [
@@ -889,6 +900,9 @@
             "item": "Enterprise",
             "icon": "building",
             "pages": [
+              "changelogs/ent-v2.0.0-prerelease1",
+              "changelogs/ent-v1.5.3",
+              "changelogs/ent-v1.5.2",
               "changelogs/ent-v1.5.1",
               "changelogs/ent-v1.5.0",
               "changelogs/ent-v1.4.13",
@@ -945,6 +959,14 @@
             ]
           },
           {
+            "item": "Edge",
+            "icon": "grip",
+            "pages": [
+              "changelogs/edge-v0.2.0",
+              "changelogs/edge-v0.1.0"
+            ]
+          },
+          {
             "item": "Bifrost CLI",
             "icon": "laptop-code",
             "pages": [
@@ -971,6 +993,7 @@
             "item": "Helm",
             "icon": "box",
             "pages": [
+              "changelogs/helm-v2.1.26",
               "changelogs/helm-v2.1.25",
               "changelogs/helm-v2.1.24",
               "changelogs/helm-v2.1.23",

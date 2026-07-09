@@ -200,14 +200,8 @@ var ProviderFeatures = map[schemas.ModelProvider]ProviderFeatureSupport{
 		WebSearchNova: true, // nova_grounding — Responses path only
 		CodeExecNova:  true, // nova_code_interpreter — Responses path only
 		ComputerUse:   true, Bash: true, Memory: true, TextEditor: true, ToolSearch: true,
-		ContainerBasic: true,
-		// StructuredOutputs: kept true to match pre-existing behavior and the
-		// provider_feature_support_test.go assertion, but NEITHER B-header
-		// NOR B-platform upstream docs document strict tool validation /
-		// output_format on Bedrock. Needs live verification. If Bedrock's
-		// Converse API actually rejects `strict: true`, flip this to false
-		// and update the corresponding test assertion.
-		StructuredOutputs:      true,
+		ContainerBasic:         true,
+		StructuredOutputs:      true, // documented on Bedrock per A overview matrix
 		Compaction:             true, // compact-2026-01-12 per B-header
 		ContextEditing:         true, // context-management-2025-06-27 per B-header (bundles memory)
 		ContextManagementField: true, // Bedrock accepts context_management body field
@@ -219,6 +213,32 @@ var ProviderFeatures = map[schemas.ModelProvider]ProviderFeatureSupport{
 		// (advanced-tool-use-2025-11-20) is not listed in B-header; only the
 		// narrow tool-examples-2025-10-29 header is, gated via InputExamples above.
 		ServiceTier: true, // Bedrock handles service_tier via its own typed conversion
+	},
+	// Bedrock Mantle — same AWS-hosted Claude models as Bedrock, reached through
+	// the native Anthropic Messages surface (/anthropic/v1/messages) instead of
+	// Converse. Feature support is a property of the model+cloud, so this mirrors
+	// schemas.Bedrock — with one deliberate exception: the *Nova flags below.
+	//
+	// WebSearchNova / CodeExecNova are intentionally OFF here. They exist only to
+	// keep web_search / code_interpreter tools so the Bedrock Converse/Responses
+	// converter can rewrite them into nova_grounding / nova_code_interpreter.
+	// Mantle uses the native Anthropic body builder, which never runs that
+	// conversion, so leaving them on would forward an un-rewritten web_search /
+	// code_interpreter tool that the endpoint rejects. Mantle's native surface
+	// does not support the Anthropic web_search / code_execution server tools
+	// either, so both stay false (no WebSearch / CodeExecution).
+	schemas.BedrockMantle: {
+		ComputerUse: true, Bash: true, Memory: true, TextEditor: true, ToolSearch: true,
+		ContainerBasic:         true,
+		StructuredOutputs:      true,
+		Compaction:             true,
+		ContextEditing:         true,
+		ContextManagementField: true,
+		InterleavedThinking:    true,
+		Context1M:              true,
+		EagerInputStreaming:    true,
+		InputExamples:          true,
+		ServiceTier:            true,
 	},
 	// Microsoft Azure AI Foundry — cite: A (most features azureAiBeta) +
 	// Az-platform ("supports most of Claude's features"). Excluded per
@@ -1236,6 +1256,7 @@ const (
 	AnthropicToolTypeWebFetch20250910 AnthropicToolType = "web_fetch_20250910"
 	AnthropicToolTypeWebFetch20260209 AnthropicToolType = "web_fetch_20260209" // Dynamic filtering
 	AnthropicToolTypeWebFetch20260309 AnthropicToolType = "web_fetch_20260309"
+	AnthropicToolTypeWebFetch20260318 AnthropicToolType = "web_fetch_20260318"
 
 	// Memory (client-side)
 	AnthropicToolTypeMemory20250818 AnthropicToolType = "memory_20250818"
@@ -1297,12 +1318,13 @@ type AnthropicToolWebSearch struct {
 }
 
 type AnthropicToolWebFetch struct {
-	MaxUses          *int                `json:"max_uses,omitempty"`
-	AllowedDomains   []string            `json:"allowed_domains,omitempty"`
-	BlockedDomains   []string            `json:"blocked_domains,omitempty"`
-	MaxContentTokens *int                `json:"max_content_tokens,omitempty"`
-	Citations        *AnthropicCitations `json:"citations,omitempty"` // {enabled: bool} — toggles citation emission on fetched documents
-	UseCache         *bool               `json:"use_cache,omitempty"` // web_fetch_20260309+ only — enables server-side page cache
+	MaxUses           *int                `json:"max_uses,omitempty"`
+	AllowedDomains    []string            `json:"allowed_domains,omitempty"`
+	BlockedDomains    []string            `json:"blocked_domains,omitempty"`
+	MaxContentTokens  *int                `json:"max_content_tokens,omitempty"`
+	Citations         *AnthropicCitations `json:"citations,omitempty"`          // {enabled: bool} — toggles citation emission on fetched documents
+	UseCache          *bool               `json:"use_cache,omitempty"`          // web_fetch_20260309+ only — enables server-side page cache
+	ResponseInclusion *string             `json:"response_inclusion,omitempty"` // web_fetch_20260318+ only — "full" | "excluded"
 }
 
 // AnthropicToolTextEditor holds fields specific to the text_editor tool
@@ -1717,9 +1739,10 @@ type AnthropicStreamError struct {
 
 // AnthropicFileUploadRequest represents a request to upload a file.
 type AnthropicFileUploadRequest struct {
-	File     []byte `json:"-"`        // Raw file content (not serialized)
-	Filename string `json:"filename"` // Original filename
-	Purpose  string `json:"purpose"`  // Purpose of the file (e.g., "batch")
+	File        []byte  `json:"-"`                      // Raw file content (not serialized)
+	Filename    string  `json:"filename"`               // Original filename
+	Purpose     string  `json:"purpose"`                // Purpose of the file (e.g., "batch")
+	ContentType *string `json:"content_type,omitempty"` // MIME type of the file
 }
 
 // AnthropicFileRetrieveRequest represents a request to retrieve a file.

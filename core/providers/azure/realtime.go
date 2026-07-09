@@ -121,7 +121,7 @@ func (provider *AzureProvider) ExchangeRealtimeWebRTCSDP(
 	}
 	req.SetBody(bodyBuf.Bytes())
 
-	_, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
+	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, req, resp)
 	defer wait()
 	if bifrostErr != nil {
 		return "", bifrostErr
@@ -129,7 +129,7 @@ func (provider *AzureProvider) ExchangeRealtimeWebRTCSDP(
 
 	answerBody := resp.Body()
 	if resp.StatusCode() < fasthttp.StatusOK || resp.StatusCode() >= fasthttp.StatusMultipleChoices {
-		return "", provider.realtimeWebRTCUpstreamError(ctx, resp.StatusCode(), answerBody)
+		return "", providerUtils.SetErrorLatency(provider.realtimeWebRTCUpstreamError(ctx, resp.StatusCode(), answerBody), latency)
 	}
 
 	return string(answerBody), nil
@@ -252,7 +252,7 @@ func (provider *AzureProvider) CreateRealtimeClientSecret(
 	ctx.SetValue(schemas.BifrostContextKeyProviderResponseHeaders, headers)
 
 	if resp.StatusCode() < fasthttp.StatusOK || resp.StatusCode() >= fasthttp.StatusMultipleChoices {
-		return nil, provider.parseRealtimeClientSecretError(ctx, resp)
+		return nil, providerUtils.SetErrorLatency(provider.parseRealtimeClientSecretError(ctx, resp), latency)
 	}
 
 	body, err := providerUtils.CheckAndDecodeBody(resp)
