@@ -118,7 +118,10 @@ start_postgres() {
   container="$(docker_compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" ps -q postgres)"
   local pg_ready=0
   for _ in $(seq 1 60); do
-    if docker exec "${container}" pg_isready -U "${POSTGRES_USER}" -d bifrost >/dev/null 2>&1; then
+    # pg_isready can briefly succeed while Postgres still rejects real clients
+    # during startup. Gate on an actual SQL connection instead.
+    if docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" "${container}" \
+      psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER}" -d bifrost -tAc "SELECT 1" >/dev/null 2>&1; then
       log "Postgres is ready"
       pg_ready=1
       break
@@ -130,11 +133,23 @@ start_postgres() {
     docker logs --tail 100 "${container}" >&2 || true
     exit 1
   fi
-  docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" "${container}" \
-    psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER}" -d postgres \
-      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${POSTGRES_DB}' AND pid <> pg_backend_pid();" \
-      -c "DROP DATABASE IF EXISTS \"${POSTGRES_DB}\";" \
-      -c "CREATE DATABASE \"${POSTGRES_DB}\";" >/dev/null
+  local reset_ready=0
+  for _ in $(seq 1 10); do
+    if docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" "${container}" \
+      psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER}" -d postgres \
+        -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${POSTGRES_DB}' AND pid <> pg_backend_pid();" \
+        -c "DROP DATABASE IF EXISTS \"${POSTGRES_DB}\";" \
+        -c "CREATE DATABASE \"${POSTGRES_DB}\";" >/dev/null; then
+      reset_ready=1
+      break
+    fi
+    sleep 2
+  done
+  if [ "${reset_ready}" -ne 1 ]; then
+    log "failed to reset Postgres database ${POSTGRES_DB}"
+    docker logs --tail 100 "${container}" >&2 || true
+    exit 1
+  fi
 }
 
 build_binaries() {
