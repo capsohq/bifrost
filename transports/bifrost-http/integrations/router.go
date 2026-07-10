@@ -60,13 +60,13 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
 	"github.com/bytedance/sonic"
-	"github.com/fasthttp/router"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/providers/bedrock"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/logstore"
 	"github.com/capsohq/bifrost/framework/modelcatalog"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
 )
 
@@ -173,6 +173,16 @@ type CachedContentDeleteResponseConverter func(ctx *schemas.BifrostContext, resp
 // RequestConverter is a function that converts integration-specific requests to Bifrost format.
 // It takes the parsed request object and returns a BifrostRequest ready for processing.
 type RequestConverter func(ctx *schemas.BifrostContext, req interface{}) (*schemas.BifrostRequest, error)
+
+// NativePassthroughRequestConverter selects an integration request for native
+// provider passthrough while the raw body is still local to the HTTP handler.
+type NativePassthroughRequestConverter func(
+	client *bifrost.Bifrost,
+	httpCtx *fasthttp.RequestCtx,
+	bifrostCtx *schemas.BifrostContext,
+	req interface{},
+	rawBody []byte,
+) (*schemas.BifrostPassthroughRequest, bool, error)
 
 // ListModelsResponseConverter is a function that converts BifrostListModelsResponse to integration-specific format.
 // It takes a BifrostListModelsResponse and returns the format expected by the specific integration.
@@ -450,6 +460,7 @@ type RouteConfig struct {
 	GetRequestTypeInstance                 func(ctx context.Context) interface{}  // Factory function to create request instance (SHOULD NOT BE NIL)
 	RequestParser                          RequestParser                          // Optional: custom request parsing (e.g., multipart/form-data)
 	RequestConverter                       RequestConverter                       // Function to convert request to BifrostRequest (for inference requests)
+	NativePassthroughRequestConverter      NativePassthroughRequestConverter      // Optional native byte-preserving provider path
 	BatchRequestConverter                  BatchRequestConverter                  // Function to convert request to BatchRequest (for batch operations)
 	FileRequestConverter                   FileRequestConverter                   // Function to convert request to FileRequest (for file operations)
 	ContainerRequestConverter              ContainerRequestConverter              // Function to convert request to ContainerRequest (for container operations)
@@ -772,6 +783,31 @@ func (g *GenericRouter) createHandler(config RouteConfig) fasthttp.RequestHandle
 				return
 			}
 			if handled {
+				return
+			}
+		}
+
+		if config.NativePassthroughRequestConverter != nil {
+			passthroughReq, usePassthrough, err := config.NativePassthroughRequestConverter(g.client, ctx, bifrostCtx, req, rawBody)
+			if err != nil {
+				g.sendError(ctx, bifrostCtx, config.ErrorConverter, newBifrostError(err, "failed to prepare native passthrough request"))
+				return
+			}
+			if usePassthrough {
+				if passthroughReq == nil {
+					g.sendError(ctx, bifrostCtx, config.ErrorConverter, newBifrostError(nil, "native passthrough request is nil"))
+					return
+				}
+				isStreaming := false
+				if streamingReq, ok := req.(StreamingRequest); ok {
+					isStreaming = streamingReq.IsStreamingRequested()
+				}
+				if isStreaming {
+					streamingOwnsCancel = true
+					g.handlePassthroughStream(ctx, bifrostCtx, cancel, passthroughReq.Provider, passthroughReq)
+				} else {
+					g.handlePassthroughNonStream(ctx, bifrostCtx, cancel, passthroughReq.Provider, passthroughReq)
+				}
 				return
 			}
 		}

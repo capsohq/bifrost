@@ -718,6 +718,13 @@ type Provider interface {
 	PassthroughStream(ctx *BifrostContext, postHookRunner PostHookRunner, postHookSpanFinalizer func(context.Context), key Key, req *BifrostPassthroughRequest) (chan *BifrostStreamChunk, *BifrostError)
 }
 
+// AnthropicMessagesCapable is implemented by providers that expose a native
+// Anthropic-compatible /v1/messages endpoint in addition to their primary API.
+// The endpoint is a base URL without the /v1/messages suffix.
+type AnthropicMessagesCapable interface {
+	AnthropicMessagesEndpoint() (baseURL string, ok bool)
+}
+
 // ResponsesLifecycleProvider is an optional interface for OpenAI-style Responses API
 // secondary verbs (retrieve, delete, cancel, list input items). Checked via type assertion
 // in core dispatch; providers that do not implement it return unsupported_operation.

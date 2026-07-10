@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/capsohq/bifrost/core/providers/anthropicmsg"
 	"github.com/capsohq/bifrost/core/providers/openai"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	schemas "github.com/capsohq/bifrost/core/schemas"
@@ -15,12 +16,13 @@ import (
 
 // xAIProvider implements the Provider interface for xAI's API.
 type XAIProvider struct {
-	logger              schemas.Logger        // Logger for provider operations
-	client              *fasthttp.Client      // HTTP client for unary API requests (ReadTimeout bounds overall response)
-	streamingClient     *fasthttp.Client      // HTTP client for streaming API requests (no ReadTimeout; idle governed by NewIdleTimeoutReader)
-	networkConfig       schemas.NetworkConfig // Network configuration including extra headers
-	sendBackRawRequest  bool                  // Whether to include raw request in BifrostResponse
-	sendBackRawResponse bool                  // Whether to include raw response in BifrostResponse
+	logger               schemas.Logger        // Logger for provider operations
+	client               *fasthttp.Client      // HTTP client for unary API requests (ReadTimeout bounds overall response)
+	streamingClient      *fasthttp.Client      // HTTP client for streaming API requests (no ReadTimeout; idle governed by NewIdleTimeoutReader)
+	networkConfig        schemas.NetworkConfig // Network configuration including extra headers
+	sendBackRawRequest   bool                  // Whether to include raw request in BifrostResponse
+	sendBackRawResponse  bool                  // Whether to include raw response in BifrostResponse
+	customProviderConfig *schemas.CustomProviderConfig
 }
 
 // NewXAIProvider creates a new xAI provider instance.
@@ -52,18 +54,24 @@ func NewXAIProvider(config *schemas.ProviderConfig, logger schemas.Logger) (*XAI
 	}
 
 	return &XAIProvider{
-		logger:              logger,
-		client:              client,
-		streamingClient:     streamingClient,
-		networkConfig:       config.NetworkConfig,
-		sendBackRawRequest:  config.SendBackRawRequest,
-		sendBackRawResponse: config.SendBackRawResponse,
+		logger:               logger,
+		client:               client,
+		streamingClient:      streamingClient,
+		networkConfig:        config.NetworkConfig,
+		sendBackRawRequest:   config.SendBackRawRequest,
+		sendBackRawResponse:  config.SendBackRawResponse,
+		customProviderConfig: config.CustomProviderConfig,
 	}, nil
 }
 
 // GetProviderKey returns the provider identifier for xAI.
 func (provider *XAIProvider) GetProviderKey() schemas.ModelProvider {
-	return schemas.XAI
+	return providerUtils.GetProviderName(schemas.XAI, provider.customProviderConfig)
+}
+
+// AnthropicMessagesEndpoint advertises xAI's native Anthropic-compatible endpoint.
+func (provider *XAIProvider) AnthropicMessagesEndpoint() (string, bool) {
+	return provider.networkConfig.BaseURL, provider.networkConfig.BaseURL != ""
 }
 
 // ListModels performs a list models request to xAI's API.
@@ -437,11 +445,24 @@ func (provider *XAIProvider) ContainerFileDelete(_ *schemas.BifrostContext, _ []
 	return nil, providerUtils.NewUnsupportedOperationError(schemas.ContainerFileDeleteRequest, provider.GetProviderKey())
 }
 
-// Passthrough is not supported by the xAI provider.
-func (provider *XAIProvider) Passthrough(_ *schemas.BifrostContext, _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
-	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+func (provider *XAIProvider) Passthrough(ctx *schemas.BifrostContext, key schemas.Key, req *schemas.BifrostPassthroughRequest) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
+	if !anthropicmsg.IsMessagesPath(req.Path) {
+		return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughRequest, provider.GetProviderKey())
+	}
+	endpoint, _ := provider.AnthropicMessagesEndpoint()
+	return anthropicmsg.Passthrough(ctx, provider.client, key, req, anthropicmsg.Config{
+		Provider: provider.GetProviderKey(), Endpoint: endpoint,
+		NetworkConfig: provider.networkConfig, CustomProviderConfig: provider.customProviderConfig, Logger: provider.logger,
+	})
 }
 
-func (provider *XAIProvider) PassthroughStream(_ *schemas.BifrostContext, _ schemas.PostHookRunner, _ func(context.Context), _ schemas.Key, _ *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
-	return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
+func (provider *XAIProvider) PassthroughStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, req *schemas.BifrostPassthroughRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	if !anthropicmsg.IsMessagesPath(req.Path) {
+		return nil, providerUtils.NewUnsupportedOperationError(schemas.PassthroughStreamRequest, provider.GetProviderKey())
+	}
+	endpoint, _ := provider.AnthropicMessagesEndpoint()
+	return anthropicmsg.PassthroughStream(ctx, postHookRunner, postHookSpanFinalizer, provider.streamingClient, key, req, anthropicmsg.Config{
+		Provider: provider.GetProviderKey(), Endpoint: endpoint,
+		NetworkConfig: provider.networkConfig, CustomProviderConfig: provider.customProviderConfig, Logger: provider.logger,
+	})
 }

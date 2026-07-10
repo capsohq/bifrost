@@ -17,6 +17,7 @@ import (
 
 	"github.com/bytedance/sonic"
 
+	"github.com/capsohq/bifrost/core/providers/anthropicmsg"
 	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	schemas "github.com/capsohq/bifrost/core/schemas"
 	"github.com/valyala/fasthttp"
@@ -125,6 +126,11 @@ func NewAnthropicProvider(config *schemas.ProviderConfig, logger schemas.Logger)
 // GetProviderKey returns the provider identifier for Anthropic.
 func (provider *AnthropicProvider) GetProviderKey() schemas.ModelProvider {
 	return providerUtils.GetProviderName(schemas.Anthropic, provider.customProviderConfig)
+}
+
+// AnthropicMessagesEndpoint advertises the provider's native Messages base URL.
+func (provider *AnthropicProvider) AnthropicMessagesEndpoint() (string, bool) {
+	return provider.networkConfig.BaseURL, provider.networkConfig.BaseURL != ""
 }
 
 // buildRequestURL constructs the full request URL using the provider's configuration.
@@ -2792,68 +2798,15 @@ func (provider *AnthropicProvider) Passthrough(
 	key schemas.Key,
 	req *schemas.BifrostPassthroughRequest,
 ) (*schemas.BifrostPassthroughResponse, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Anthropic, provider.customProviderConfig, schemas.PassthroughRequest); err != nil {
-		return nil, err
-	}
-
-	url := provider.networkConfig.BaseURL + req.Path
-	if req.RawQuery != "" {
-		url += "?" + req.RawQuery
-	}
-
-	fasthttpReq := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseResponse(resp)
-	defer fasthttp.ReleaseRequest(fasthttpReq)
-
-	fasthttpReq.Header.SetMethod(req.Method)
-	fasthttpReq.SetRequestURI(url)
-
-	providerUtils.SetExtraHeaders(ctx, fasthttpReq, provider.networkConfig.ExtraHeaders, nil)
-
-	for k, v := range req.SafeHeaders {
-		fasthttpReq.Header.Set(k, v)
-	}
-
-	if key.Value.GetValue() != "" {
-		fasthttpReq.Header.Set("x-api-key", key.Value.GetValue())
-	}
-	fasthttpReq.Header.Set("anthropic-version", provider.apiVersion)
-
-	fasthttpReq.SetBody(req.Body)
-
-	latency, bifrostErr, wait := providerUtils.MakeRequestWithContext(ctx, provider.client, fasthttpReq, resp)
-	defer wait()
-	if bifrostErr != nil {
-		return nil, bifrostErr
-	}
-
-	headers := providerUtils.ExtractPassthroughProviderResponseHeaders(resp)
-	ctx.SetValue(schemas.BifrostContextKeyProviderResponseHeaders, headers)
-
-	body, err := providerUtils.CheckAndDecodeBody(resp)
-	if err != nil {
-		return nil, providerUtils.NewBifrostOperationError("failed to decode response body", err)
-	}
-
-	var passthroughUsage *schemas.BifrostPassthroughUsage
-	if resp.StatusCode() >= 200 && resp.StatusCode() < 300 {
-		passthroughUsage = ExtractAnthropicPassthroughUsage(req.Path, req.Body, body)
-	}
-
-	bifrostResponse := &schemas.BifrostPassthroughResponse{
-		StatusCode: resp.StatusCode(),
-		Headers:    headers,
-		Body:       body,
-		ExtraFields: schemas.BifrostResponseExtraFields{
-			Latency:                 latency.Milliseconds(),
-			ProviderResponseHeaders: headers,
-			PassthroughPath:         req.Path,
-		},
-		PassthroughUsage: passthroughUsage,
-	}
-
-	return bifrostResponse, nil
+	endpoint, _ := provider.AnthropicMessagesEndpoint()
+	return anthropicmsg.Passthrough(ctx, provider.client, key, req, anthropicmsg.Config{
+		Provider:             provider.GetProviderKey(),
+		Endpoint:             endpoint,
+		APIVersion:           provider.apiVersion,
+		NetworkConfig:        provider.networkConfig,
+		CustomProviderConfig: provider.customProviderConfig,
+		Logger:               provider.logger,
+	})
 }
 
 func (provider *AnthropicProvider) PassthroughStream(
@@ -2863,99 +2816,13 @@ func (provider *AnthropicProvider) PassthroughStream(
 	key schemas.Key,
 	req *schemas.BifrostPassthroughRequest,
 ) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
-	if err := providerUtils.CheckOperationAllowed(schemas.Anthropic, provider.customProviderConfig, schemas.PassthroughStreamRequest); err != nil {
-		return nil, err
-	}
-
-	url := provider.networkConfig.BaseURL + req.Path
-	if req.RawQuery != "" {
-		url += "?" + req.RawQuery
-	}
-
-	startTime := time.Now()
-
-	fasthttpReq := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
-	resp.StreamBody = true
-	defer fasthttp.ReleaseRequest(fasthttpReq)
-
-	fasthttpReq.Header.SetMethod(req.Method)
-	fasthttpReq.SetRequestURI(url)
-
-	providerUtils.SetExtraHeaders(ctx, fasthttpReq, provider.networkConfig.ExtraHeaders, nil)
-
-	for k, v := range req.SafeHeaders {
-		fasthttpReq.Header.Set(k, v)
-	}
-
-	fasthttpReq.Header.Set("Connection", "close")
-
-	if key.Value.GetValue() != "" {
-		fasthttpReq.Header.Set("x-api-key", key.Value.GetValue())
-	}
-	fasthttpReq.Header.Set("anthropic-version", provider.apiVersion)
-
-	fasthttpReq.SetBody(req.Body)
-
-	activeClient := providerUtils.PrepareResponseStreaming(ctx, provider.streamingClient, resp)
-	err := activeClient.Do(fasthttpReq, resp)
-	latency := time.Since(startTime)
-	if err != nil {
-		providerUtils.ReleaseStreamingResponse(ctx, resp)
-		if errors.Is(err, context.Canceled) {
-			return nil, providerUtils.SetErrorLatency(&schemas.BifrostError{
-				IsBifrostError: false,
-				Error: &schemas.ErrorField{
-					Type:    schemas.Ptr(schemas.RequestCancelled),
-					Message: schemas.ErrRequestCancelled,
-					Error:   err,
-				},
-			}, latency)
-		}
-		if errors.Is(err, fasthttp.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUtils.SetErrorLatency(providerUtils.NewBifrostTimeoutError(schemas.ErrProviderRequestTimedOut, err), latency)
-		}
-		return nil, providerUtils.SetErrorLatency(providerUtils.NewBifrostUpstreamConnectionError(schemas.ErrProviderDoRequest, err), latency)
-	}
-
-	headers := providerUtils.ExtractPassthroughProviderResponseHeaders(resp)
-	ctx.SetValue(schemas.BifrostContextKeyProviderResponseHeaders, headers)
-
-	bodyStream := resp.BodyStream()
-	if bodyStream == nil {
-		providerUtils.ReleaseStreamingResponse(ctx, resp)
-		return nil, providerUtils.NewBifrostOperationError(
-			"provider returned an empty stream body",
-			fmt.Errorf("provider returned an empty stream body"),
-		)
-	}
-
-	providerUtils.SetStreamIdleTimeoutIfEmpty(ctx, provider.networkConfig.StreamIdleTimeoutInSeconds)
-	strippedPath := req.Path
-	if idx := strings.IndexByte(strippedPath, '?'); idx >= 0 {
-		strippedPath = strippedPath[:idx]
-	}
-	var messagesUsage *AnthropicPassthroughStreamUsage
-	if strings.HasSuffix(strippedPath, "/messages") {
-		messagesUsage = &AnthropicPassthroughStreamUsage{}
-	}
-	return providerUtils.StreamPassthrough(
-		ctx, postHookRunner, postHookSpanFinalizer, resp, bodyStream,
-		providerUtils.PassthroughStreamParams{
-			StatusCode:       resp.StatusCode(),
-			Headers:          headers,
-			Path:             req.Path,
-			RawRequest:       req.Body,
-			CancellationBody: req.Body,
-			StartTime:        startTime,
-			Logger:           provider.logger,
-			HasUsage:         HasAnthropicPassthroughUsage,
-			Observe: func(event []byte) *schemas.BifrostPassthroughUsage {
-				if messagesUsage != nil {
-					return messagesUsage.ObserveEvent(event)
-				}
-				return ExtractAnthropicPassthroughUsage(req.Path, req.Body, event)
-			},
-		},
-	), nil
+	endpoint, _ := provider.AnthropicMessagesEndpoint()
+	return anthropicmsg.PassthroughStream(ctx, postHookRunner, postHookSpanFinalizer, provider.streamingClient, key, req, anthropicmsg.Config{
+		Provider:             provider.GetProviderKey(),
+		Endpoint:             endpoint,
+		APIVersion:           provider.apiVersion,
+		NetworkConfig:        provider.networkConfig,
+		CustomProviderConfig: provider.customProviderConfig,
+		Logger:               provider.logger,
+	})
 }

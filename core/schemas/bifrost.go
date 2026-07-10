@@ -91,6 +91,7 @@ var SupportedBaseProviders = []ModelProvider{
 	Moonshot,
 	OpenAI,
 	Qwen,
+	XAI,
 	Volcengine,
 	HuggingFace,
 	Replicate,

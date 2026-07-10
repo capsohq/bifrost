@@ -11,6 +11,7 @@ import (
 	"github.com/bytedance/sonic"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/providers/anthropic"
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/tidwall/gjson"
 
@@ -85,6 +86,7 @@ func createAnthropicMessagesRouteConfig(pathPrefix string, logger schemas.Logger
 				}
 				return nil, errors.New("invalid request type")
 			},
+			NativePassthroughRequestConverter: createAnthropicMessagesNativePassthrough(pathPrefix),
 			ResponsesResponseConverter: func(ctx *schemas.BifrostContext, resp *schemas.BifrostResponsesResponse) (interface{}, error) {
 				soToolName, _ := ctx.Value(schemas.BifrostContextKeyStructuredOutputToolName).(string)
 				if soToolName == "" && isClaudeModel(resp.ExtraFields.OriginalModelRequested, resp.ExtraFields.ResolvedModelUsed, string(resp.ExtraFields.Provider)) {
@@ -169,6 +171,59 @@ func createAnthropicMessagesRouteConfig(pathPrefix string, logger schemas.Logger
 		})
 	}
 	return routes
+}
+
+func createAnthropicMessagesNativePassthrough(pathPrefix string) NativePassthroughRequestConverter {
+	return func(client *bifrost.Bifrost, httpCtx *fasthttp.RequestCtx, _ *schemas.BifrostContext, req interface{}, rawBody []byte) (*schemas.BifrostPassthroughRequest, bool, error) {
+		anthropicReq, ok := req.(*anthropic.AnthropicMessageRequest)
+		if !ok || client == nil {
+			return nil, false, nil
+		}
+
+		path := strings.TrimPrefix(string(httpCtx.Path()), pathPrefix)
+		if path != "/v1/messages" {
+			return nil, false, nil
+		}
+
+		provider, model := schemas.ParseModelString(anthropicReq.Model, "")
+		provider = getProviderFromHeader(httpCtx, provider)
+		if provider == "" && schemas.IsAnthropicModel(model) {
+			provider = schemas.Anthropic
+		}
+		providerInstance := client.GetProviderByKey(provider)
+		capable, ok := providerInstance.(schemas.AnthropicMessagesCapable)
+		if !ok {
+			return nil, false, nil
+		}
+		if endpoint, enabled := capable.AnthropicMessagesEndpoint(); !enabled || endpoint == "" {
+			return nil, false, nil
+		}
+
+		body := rawBody
+		if len(body) > 0 && model != "" && model != anthropicReq.Model {
+			var err error
+			body, err = providerUtils.SetJSONField(body, "model", model)
+			if err != nil {
+				return nil, false, fmt.Errorf("normalize native Messages model: %w", err)
+			}
+		}
+
+		headers := extractPassthroughHeaders(extractHeadersFromRequest(httpCtx))
+		safeHeaders := make(map[string]string, len(headers))
+		for name, values := range headers {
+			safeHeaders[name] = strings.Join(values, ",")
+		}
+
+		return &schemas.BifrostPassthroughRequest{
+			Provider:    provider,
+			Model:       model,
+			Method:      string(httpCtx.Method()),
+			Path:        path,
+			RawQuery:    string(httpCtx.URI().QueryString()),
+			Body:        body,
+			SafeHeaders: safeHeaders,
+		}, true, nil
+	}
 }
 
 // CreateAnthropicRouteConfigs creates route configurations for Anthropic endpoints.
