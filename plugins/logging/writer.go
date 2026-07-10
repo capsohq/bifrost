@@ -157,6 +157,7 @@ func (p *LoggerPlugin) processBatch(batch []*writeQueueEntry) {
 	}
 
 	if len(logs) > 0 {
+		logs = compactLogsForInsert(logs)
 		if err := p.store.BatchCreateIfNotExists(p.ctx, logs); err != nil {
 			p.logger.Warn("batch insert failed for %d entries, falling back to individual inserts: %v", len(logs), err)
 			// Individual fallback — isolate the bad entry instead of losing the whole batch
@@ -224,6 +225,113 @@ func (p *LoggerPlugin) processBatch(batch []*writeQueueEntry) {
 			}
 		}(callbacks, mcpCallbacks)
 	}
+}
+
+// compactLogsForInsert keeps one row per log ID before the store's
+// ON CONFLICT DO NOTHING insert. When the same request is queued twice in one
+// batch, prefer the terminal/richer row so usage and cost are not lost.
+func compactLogsForInsert(logs []*logstore.Log) []*logstore.Log {
+	if len(logs) < 2 {
+		return logs
+	}
+
+	positions := make(map[string]int, len(logs))
+	compacted := make([]*logstore.Log, 0, len(logs))
+	for _, log := range logs {
+		if log == nil {
+			continue
+		}
+		if log.ID == "" {
+			compacted = append(compacted, log)
+			continue
+		}
+		if pos, ok := positions[log.ID]; ok {
+			if preferLogForInsert(log, compacted[pos]) {
+				compacted[pos] = log
+			}
+			continue
+		}
+		positions[log.ID] = len(compacted)
+		compacted = append(compacted, log)
+	}
+	return compacted
+}
+
+func preferLogForInsert(candidate, current *logstore.Log) bool {
+	if current == nil {
+		return true
+	}
+	if candidate == nil {
+		return false
+	}
+	candidateScore := logInsertScore(candidate)
+	currentScore := logInsertScore(current)
+	if candidateScore == currentScore {
+		return true // same quality: the later row usually has fresher trace/plugin data
+	}
+	return candidateScore > currentScore
+}
+
+func logInsertScore(log *logstore.Log) int {
+	if log == nil {
+		return -1
+	}
+
+	score := 0
+	if log.Status == "success" || log.Status == "error" || log.Status == "cancelled" {
+		score += 1000
+	} else if log.Status != "" && log.Status != "processing" {
+		score += 100
+	}
+	if log.Cost != nil {
+		score += 500
+	}
+	if logHasUsage(log) {
+		score += 400
+	}
+	if log.Latency != nil {
+		score += 40
+	}
+	if log.OutputMessage != "" || log.OutputMessageParsed != nil ||
+		len(log.ResponsesOutput) > 0 || len(log.ResponsesOutputParsed) > 0 ||
+		log.EmbeddingOutput != "" || log.EmbeddingOutputParsed != nil ||
+		log.RerankOutput != "" || log.RerankOutputParsed != nil ||
+		log.OCROutput != "" || log.OCROutputParsed != nil {
+		score += 30
+	}
+	if log.ErrorDetails != "" || log.ErrorDetailsParsed != nil {
+		score += 20
+	}
+	if log.PluginLogs != "" {
+		score += 10
+	}
+	if log.RawResponse != "" || log.PassthroughResponseBody != "" {
+		score += 5
+	}
+	return score
+}
+
+func logHasUsage(log *logstore.Log) bool {
+	if log == nil {
+		return false
+	}
+	if log.TokenUsage != "" ||
+		log.PromptTokens != 0 ||
+		log.CompletionTokens != 0 ||
+		log.TotalTokens != 0 ||
+		log.CachedReadTokens != 0 {
+		return true
+	}
+	if log.TokenUsageParsed == nil {
+		return false
+	}
+	usage := log.TokenUsageParsed
+	return usage.PromptTokens != 0 ||
+		usage.CompletionTokens != 0 ||
+		usage.TotalTokens != 0 ||
+		usage.PromptTokensDetails != nil ||
+		usage.CompletionTokensDetails != nil ||
+		usage.Cost != nil
 }
 
 // cleanupStalePendingLogs removes stale in-memory pending log state.

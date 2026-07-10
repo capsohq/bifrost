@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/capsohq/bifrost/framework/logstore"
 )
 
@@ -230,5 +231,54 @@ func TestWriterConfigDefaultsAndInitOverrides(t *testing.T) {
 	}
 	if err := plugin.Cleanup(); err != nil {
 		t.Fatalf("Cleanup() with writer error = %v", err)
+	}
+}
+
+func TestProcessBatchKeepsRicherDuplicateLogEntry(t *testing.T) {
+	store := newTestStore(t)
+	plugin, err := Init(context.Background(), &Config{}, testLogger{}, store, nil, nil)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	defer func() {
+		if err := plugin.Cleanup(); err != nil {
+			t.Fatalf("Cleanup() error = %v", err)
+		}
+	}()
+
+	id := "duplicate-with-usage"
+	first := makeTestLog(id)
+	first.Status = "success"
+
+	cost := 0.000319
+	second := makeTestLog(id)
+	second.Status = "success"
+	second.Cost = &cost
+	second.TokenUsageParsed = &schemas.BifrostLLMUsage{
+		PromptTokens:     10,
+		CompletionTokens: 3,
+		TotalTokens:      13,
+	}
+	second.PromptTokens = 10
+	second.CompletionTokens = 3
+	second.TotalTokens = 13
+
+	plugin.processBatch([]*writeQueueEntry{
+		{log: first},
+		{log: second},
+	})
+
+	got, err := store.FindByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("FindByID() error = %v", err)
+	}
+	if got.Cost == nil || *got.Cost != cost {
+		t.Fatalf("stored cost = %v, want %v", got.Cost, cost)
+	}
+	if got.TokenUsageParsed == nil {
+		t.Fatalf("stored token usage is nil")
+	}
+	if got.TokenUsageParsed.TotalTokens != 13 {
+		t.Fatalf("stored total tokens = %d, want 13", got.TokenUsageParsed.TotalTokens)
 	}
 }
