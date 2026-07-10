@@ -26,6 +26,9 @@ func TestPassthroughPreservesNativeMessagesBodyAndUsage(t *testing.T) {
 		if got := r.Header.Get("anthropic-version"); got != DefaultAPIVersion {
 			t.Errorf("anthropic-version = %q", got)
 		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q", got)
+		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read request: %v", err)
@@ -73,6 +76,9 @@ func TestPassthroughStreamRelaysAnthropicSSEVerbatimAndMergesUsage(t *testing.T)
 		"data: {\"type\":\"message_stop\"}\n\n")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q", got)
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(frames[:len(frames)/2])

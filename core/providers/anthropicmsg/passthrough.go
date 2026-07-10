@@ -48,6 +48,9 @@ func (c Config) setHeaders(ctx *schemas.BifrostContext, req *fasthttp.Request, k
 	for name, value := range safeHeaders {
 		req.Header.Set(name, value)
 	}
+	if len(req.Header.ContentType()) == 0 {
+		req.Header.SetContentType("application/json")
+	}
 	if value := key.Value.GetValue(); value != "" {
 		header := c.APIKeyHeader
 		if header == "" {
