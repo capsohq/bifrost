@@ -372,102 +372,118 @@ params = {
     "order": "asc",
 }
 
-logs = []
-for _ in range(60):
-    payload = get_json("/api/logs", params)
-    logs = payload.get("logs", [])
-    if len(logs) >= expected_count:
-        break
-    time.sleep(1)
+def build_summary(logs):
+    mismatches = []
+    expected_total = 0.0
+    actual_total = 0.0
+    for item in logs:
+        if item.get("virtual_key_id") != virtual_key_id:
+            mismatches.append({
+                "id": item.get("id"),
+                "reason": "virtual_key_id mismatch",
+                "expected_virtual_key_id": virtual_key_id,
+                "actual_virtual_key_id": item.get("virtual_key_id"),
+            })
+            continue
+        usage = item.get("token_usage") or {}
+        prompt = usage.get("prompt_tokens")
+        completion = usage.get("completion_tokens")
+        actual = item.get("cost")
+        if prompt is None or completion is None or actual is None:
+            mismatches.append({"id": item.get("id"), "reason": "missing token_usage or cost"})
+            continue
+        expected = prompt * input_rate + completion * output_rate
+        expected_total += expected
+        actual_total += actual
+        if math.fabs(actual - expected) > 1e-12:
+            mismatches.append({
+                "id": item.get("id"),
+                "prompt_tokens": prompt,
+                "completion_tokens": completion,
+                "expected": expected,
+                "actual": actual,
+                "delta": actual - expected,
+            })
 
-if len(logs) != expected_count:
-    raise SystemExit(f"log count mismatch: got {len(logs)}, want {expected_count}")
+    stats = get_json("/api/logs/stats", {
+        "providers": "openai",
+        "models": "gpt-4o-mini",
+        "status": "success",
+        "virtual_key_ids": virtual_key_id,
+        "start_time": start_time,
+    })
+    stats_total = float(stats.get("total_cost", 0))
 
-mismatches = []
-expected_total = 0.0
-actual_total = 0.0
-for item in logs:
-    if item.get("virtual_key_id") != virtual_key_id:
-        mismatches.append({
-            "id": item.get("id"),
-            "reason": "virtual_key_id mismatch",
-            "expected_virtual_key_id": virtual_key_id,
-            "actual_virtual_key_id": item.get("virtual_key_id"),
-        })
-        continue
-    usage = item.get("token_usage") or {}
-    prompt = usage.get("prompt_tokens")
-    completion = usage.get("completion_tokens")
-    actual = item.get("cost")
-    if prompt is None or completion is None or actual is None:
-        mismatches.append({"id": item.get("id"), "reason": "missing token_usage or cost"})
-        continue
-    expected = prompt * input_rate + completion * output_rate
-    expected_total += expected
-    actual_total += actual
-    if math.fabs(actual - expected) > 1e-12:
-        mismatches.append({
-            "id": item.get("id"),
-            "prompt_tokens": prompt,
-            "completion_tokens": completion,
-            "expected": expected,
-            "actual": actual,
-            "delta": actual - expected,
-        })
-
-stats = get_json("/api/logs/stats", {
-    "providers": "openai",
-    "models": "gpt-4o-mini",
-    "status": "success",
-    "virtual_key_ids": virtual_key_id,
-    "start_time": start_time,
-})
-stats_total = float(stats.get("total_cost", 0))
-
-quota = None
-for _ in range(60):
     req = urllib.request.Request(base + "/api/governance/virtual-keys/quota", headers={"x-bf-vk": virtual_key_value})
     with urllib.request.urlopen(req, timeout=10) as resp:
         quota = json.loads(resp.read().decode("utf-8"))
-    budget_total = sum(float(b.get("current_usage") or 0) for b in quota.get("budgets", []))
-    if math.fabs(budget_total - expected_total) <= 1e-12:
+
+    budget_current_usage_total = sum(float(b.get("current_usage") or 0) for b in quota.get("budgets", []))
+    quota_model_total = 0.0
+    for budget in quota.get("budgets", []):
+        for model_usage in budget.get("per_model_usage", []):
+            if model_usage.get("model") == "gpt-4o-mini" and model_usage.get("provider") == "openai":
+                quota_model_total += float(model_usage.get("total_cost") or 0)
+
+    return {
+        "expected_count": expected_count,
+        "log_count": len(logs),
+        "virtual_key_id": virtual_key_id,
+        "expected_total": expected_total,
+        "actual_total_from_logs": actual_total,
+        "actual_total_from_stats": stats_total,
+        "budget_current_usage_total": budget_current_usage_total,
+        "quota_model_total": quota_model_total,
+        "log_delta": actual_total - expected_total,
+        "stats_delta": stats_total - expected_total,
+        "budget_delta": budget_current_usage_total - expected_total,
+        "quota_model_delta": quota_model_total - expected_total,
+        "mismatches": mismatches[:10],
+    }
+
+
+summary = {}
+for _ in range(120):
+    payload = get_json("/api/logs", params)
+    logs = payload.get("logs", [])
+    if len(logs) != expected_count:
+        summary = {
+            "expected_count": expected_count,
+            "log_count": len(logs),
+            "virtual_key_id": virtual_key_id,
+            "reason": "waiting for expected log count",
+        }
+        time.sleep(1)
+        continue
+
+    summary = build_summary(logs)
+    settled = (
+        not summary["mismatches"]
+        and math.fabs(summary["log_delta"]) <= 1e-12
+        and math.fabs(summary["stats_delta"]) <= 1e-12
+        and math.fabs(summary["budget_delta"]) <= 1e-12
+        and math.fabs(summary["quota_model_delta"]) <= 1e-12
+    )
+    if settled:
         break
+    # Log rows can become visible before async post-processing has persisted
+    # token usage, cost, and aggregate governance counters.
     time.sleep(1)
 
-budget_current_usage_total = sum(float(b.get("current_usage") or 0) for b in quota.get("budgets", []))
-quota_model_total = 0.0
-for budget in quota.get("budgets", []):
-    for model_usage in budget.get("per_model_usage", []):
-        if model_usage.get("model") == "gpt-4o-mini" and model_usage.get("provider") == "openai":
-            quota_model_total += float(model_usage.get("total_cost") or 0)
-
-summary = {
-    "expected_count": expected_count,
-    "log_count": len(logs),
-    "virtual_key_id": virtual_key_id,
-    "expected_total": expected_total,
-    "actual_total_from_logs": actual_total,
-    "actual_total_from_stats": stats_total,
-    "budget_current_usage_total": budget_current_usage_total,
-    "quota_model_total": quota_model_total,
-    "log_delta": actual_total - expected_total,
-    "stats_delta": stats_total - expected_total,
-    "budget_delta": budget_current_usage_total - expected_total,
-    "quota_model_delta": quota_model_total - expected_total,
-    "mismatches": mismatches[:10],
-}
 results_file.parent.mkdir(parents=True, exist_ok=True)
 results_file.write_text(json.dumps(summary, indent=2, sort_keys=True))
 
-if mismatches:
+if summary.get("log_count") != expected_count:
+    raise SystemExit(f"log count mismatch: {json.dumps(summary, indent=2)}")
+if summary.get("mismatches"):
     raise SystemExit(f"per-log cost mismatches: {json.dumps(summary, indent=2)}")
-if math.fabs(actual_total - expected_total) > 1e-12:
+if math.fabs(summary.get("log_delta", 0.0)) > 1e-12:
     raise SystemExit(f"log total mismatch: {json.dumps(summary, indent=2)}")
-if math.fabs(stats_total - expected_total) > 1e-12:
+if math.fabs(summary.get("stats_delta", 0.0)) > 1e-12:
     raise SystemExit(f"stats total mismatch: {json.dumps(summary, indent=2)}")
-if math.fabs(budget_current_usage_total - expected_total) > 1e-12:
+if math.fabs(summary.get("budget_delta", 0.0)) > 1e-12:
     raise SystemExit(f"budget usage mismatch: {json.dumps(summary, indent=2)}")
-if math.fabs(quota_model_total - expected_total) > 1e-12:
+if math.fabs(summary.get("quota_model_delta", 0.0)) > 1e-12:
     raise SystemExit(f"quota model usage mismatch: {json.dumps(summary, indent=2)}")
 print(json.dumps(summary, indent=2, sort_keys=True))
 PY
