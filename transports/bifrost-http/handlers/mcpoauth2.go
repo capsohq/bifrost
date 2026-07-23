@@ -225,6 +225,7 @@ type OAuthInitiationRequest struct {
 	RedirectURI     string             `json:"redirect_uri"`
 	Scopes          []string           `json:"scopes"`
 	ServerURL       string             `json:"server_url"` // For OAuth discovery
+	Resource        string             `json:"resource"`   // OAuth resource indicator (RFC 8707)
 }
 
 // InitiateOAuthFlow initiates an OAuth flow and returns the authorization URL
@@ -257,6 +258,7 @@ func (h *OAuthHandler) InitiateOAuthFlow(ctx context.Context, req OAuthInitiatio
 		RedirectURI:     req.RedirectURI,
 		Scopes:          req.Scopes,
 		ServerURL:       req.ServerURL,
+		Resource:        req.Resource,
 	}
 
 	return h.oauthProvider.InitiateOAuthFlow(ctx, config)

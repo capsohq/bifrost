@@ -445,9 +445,9 @@ func Test_createBedrockRerankRouteRequestConverter(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bifrostReq)
 	require.NotNil(t, bifrostReq.RerankRequest)
-	// Converters leave Provider empty; resolution happens later in the
-	// modelcatalogresolver PreRequestHook.
-	assert.Equal(t, schemas.ModelProvider(""), bifrostReq.RerankRequest.Provider)
+	// The provider-native route must remain pinned to Bedrock even when the
+	// model catalog cannot infer a provider from the model ARN.
+	assert.Equal(t, schemas.Bedrock, bifrostReq.RerankRequest.Provider)
 	assert.Equal(t, "capital of france", bifrostReq.RerankRequest.Query)
 	require.Len(t, bifrostReq.RerankRequest.Documents, 1)
 	assert.Equal(t, "Paris is capital of France", bifrostReq.RerankRequest.Documents[0].Text)

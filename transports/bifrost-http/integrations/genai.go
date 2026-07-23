@@ -1435,14 +1435,14 @@ func extractAndSetModelAndRequestType(ctx *fasthttp.RequestCtx, bifrostCtx *sche
 	// Determine the effective provider: the x-model-provider header takes precedence,
 	effectiveProvider, _ := schemas.ParseModelString(modelStr, provider)
 
-	// Raw passthrough is needed for Gemini-native routes so provider-specific
-	// JSON fields keep their exact shape and ordering. Vertex is excluded because
-	// it uses a different wire shape and is routed through its own converters.
+	// Raw passthrough is needed for explicitly Gemini-native routes so
+	// provider-specific JSON fields keep their exact shape and ordering. A bare
+	// model can resolve to Vertex later and must continue through conversion.
 	headerProvider := getProviderFromHeader(ctx, "")
 	prefixProvider, _ := schemas.ParseModelString(modelStr, "")
 	explicitGemini := effectiveProvider == schemas.Gemini &&
 		(headerProvider == schemas.Gemini || prefixProvider == schemas.Gemini)
-	shouldUseGeminiRawBody := effectiveProvider == schemas.Gemini || explicitGemini
+	shouldUseGeminiRawBody := explicitGemini
 
 	headers := extractHeadersFromRequest(ctx)
 	schemas.ExtractAndSetUserAgentFromHeaders(headers, bifrostCtx)

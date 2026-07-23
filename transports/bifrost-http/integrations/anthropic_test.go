@@ -1,9 +1,12 @@
 package integrations
 
 import (
+	"context"
 	"testing"
 
+	"github.com/capsohq/bifrost/core/providers/anthropic"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/valyala/fasthttp"
 )
 
 // TestMustConvertInPassthrough pins the passthrough routing decision that fixes
@@ -73,6 +76,117 @@ func TestMustConvertInPassthrough(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := mustConvertInPassthrough(tc.resp); got != tc.want {
 				t.Errorf("mustConvertInPassthrough(%s) = %v, want %v", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
+// A user message containing a container_upload block must survive the full
+// Anthropic integration request pipeline (parse → Bifrost → normalize → Anthropic
+// wire) with its file_id intact, and must NOT be replaced by the "..." empty-content
+// placeholder that normalizeBifrostInputContentBlocks backfills for otherwise-empty
+// user messages.
+func TestAnthropicContainerUploadSurvivesNormalization(t *testing.T) {
+	ctx, cancel := schemas.NewBifrostContextWithCancel(context.Background())
+	defer cancel()
+
+	fileID := "file_011CcpBQA2BV1gthmNPSYzkh"
+	req := &anthropic.AnthropicMessageRequest{
+		Model:     "anthropic/claude-sonnet-4-6",
+		MaxTokens: 1024,
+		Messages: []anthropic.AnthropicMessage{
+			{
+				Role: anthropic.AnthropicMessageRoleUser,
+				Content: anthropic.AnthropicContent{
+					ContentBlocks: []anthropic.AnthropicContentBlock{
+						{Type: anthropic.AnthropicContentBlockTypeText, Text: schemas.Ptr("analyse and share model names")},
+						{Type: anthropic.AnthropicContentBlockTypeContainerUpload, FileID: &fileID},
+					},
+				},
+			},
+		},
+	}
+
+	bifrostReq := req.ToBifrostResponsesRequest(ctx)
+	normalizeBifrostInputContentBlocks(bifrostReq)
+
+	out, err := anthropic.ToAnthropicResponsesRequest(ctx, bifrostReq)
+	if err != nil {
+		t.Fatalf("ToAnthropicResponsesRequest: %v", err)
+	}
+
+	var containerFileID *string
+	sawPlaceholder := false
+	for _, m := range out.Messages {
+		for _, b := range m.Content.ContentBlocks {
+			switch b.Type {
+			case anthropic.AnthropicContentBlockTypeContainerUpload:
+				containerFileID = b.FileID
+			case anthropic.AnthropicContentBlockTypeText:
+				if b.Text != nil && *b.Text == "..." {
+					sawPlaceholder = true
+				}
+			}
+		}
+	}
+
+	if sawPlaceholder {
+		t.Errorf("container_upload was replaced by the \"...\" empty-content placeholder")
+	}
+	if containerFileID == nil {
+		t.Fatalf("container_upload block missing from Anthropic request")
+	}
+	if *containerFileID != fileID {
+		t.Errorf("file_id = %q, want %q", *containerFileID, fileID)
+	}
+}
+
+// TestCheckAnthropicPassthrough_OutputConfigEscapeHatch verifies that a Claude Code
+// request carrying a raw output_config.format is forced off the raw-passthrough path
+// (UseRawRequestBody=false) for every provider whose native Anthropic endpoint rejects
+// that field (Vertex, Bedrock Mantle, Azure), so the field gets converted/stripped
+// downstream instead of being forwarded verbatim. Anthropic itself supports the field
+// natively and must stay on the raw path.
+func TestCheckAnthropicPassthrough_OutputConfigEscapeHatch(t *testing.T) {
+	cases := []struct {
+		name       string
+		model      string
+		wantRawOff bool
+	}{
+		{"vertex", "vertex/claude-haiku-4-5", true},
+		{"bedrock_mantle", "bedrock_mantle/claude-haiku-4-5", true},
+		{"azure", "azure/claude-haiku-4-5", true},
+		{"anthropic", "anthropic/claude-haiku-4-5", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			reqCtx := &fasthttp.RequestCtx{}
+			reqCtx.Request.Header.SetMethod(fasthttp.MethodPost)
+			reqCtx.Request.Header.Set("user-agent", "claude-code/1.0")
+			reqCtx.Request.Header.Set("x-api-key", "sk-ant-test")
+
+			bifrostCtx, cancel := schemas.NewBifrostContextWithCancel(context.Background())
+			defer cancel()
+
+			req := &anthropic.AnthropicMessageRequest{
+				Model:     tc.model,
+				MaxTokens: 1024,
+				OutputConfig: &anthropic.AnthropicOutputConfig{
+					Format: []byte(`{"type":"json_schema","json_schema":{"name":"my_schema"}}`),
+				},
+			}
+
+			if err := checkAnthropicPassthrough(reqCtx, bifrostCtx, req); err != nil {
+				t.Fatalf("checkAnthropicPassthrough: %v", err)
+			}
+
+			useRaw, _ := bifrostCtx.Value(schemas.BifrostContextKeyUseRawRequestBody).(bool)
+			if tc.wantRawOff && useRaw {
+				t.Errorf("expected UseRawRequestBody=false for %s (output_config.format unsupported natively), got true", tc.model)
+			}
+			if !tc.wantRawOff && !useRaw {
+				t.Errorf("expected UseRawRequestBody to stay true for %s, got false", tc.model)
 			}
 		})
 	}

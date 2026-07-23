@@ -123,6 +123,26 @@ func TestPassthroughStreamRelaysAnthropicSSEVerbatimAndMergesUsage(t *testing.T)
 	}
 }
 
+func TestExtractUsagePreservesThinkingTokensAndInferenceGeo(t *testing.T) {
+	usage := ExtractUsage("/v1/messages", nil, []byte(`{
+		"usage": {
+			"input_tokens": 23,
+			"output_tokens": 87,
+			"output_tokens_details": {"thinking_tokens": 39},
+			"inference_geo": "us"
+		}
+	}`))
+	if usage == nil || usage.LLMUsage == nil || usage.LLMUsage.CompletionTokensDetails == nil {
+		t.Fatalf("missing passthrough usage details: %+v", usage)
+	}
+	if got := usage.LLMUsage.CompletionTokensDetails.ReasoningTokens; got != 39 {
+		t.Fatalf("reasoning tokens = %d, want 39", got)
+	}
+	if usage.InferenceGeo == nil || *usage.InferenceGeo != "us" {
+		t.Fatalf("inference geo = %v, want us", usage.InferenceGeo)
+	}
+}
+
 func testKey(value string) schemas.Key {
 	return schemas.Key{Value: schemas.SecretVar{Val: value}}
 }

@@ -19,15 +19,21 @@ type serverToolUseUsage struct {
 	WebSearchRequests int `json:"web_search_requests"`
 }
 
+type outputTokensDetails struct {
+	ThinkingTokens int `json:"thinking_tokens"`
+}
+
 type messagesUsage struct {
-	InputTokens              int                 `json:"input_tokens"`
-	OutputTokens             int                 `json:"output_tokens"`
-	CacheReadInputTokens     int                 `json:"cache_read_input_tokens"`
-	CacheCreationInputTokens int                 `json:"cache_creation_input_tokens"`
-	CacheCreation            cacheCreationUsage  `json:"cache_creation"`
-	ServerToolUse            *serverToolUseUsage `json:"server_tool_use,omitempty"`
-	ServiceTier              *string             `json:"service_tier,omitempty"`
-	Speed                    *string             `json:"speed,omitempty"`
+	InputTokens              int                  `json:"input_tokens"`
+	OutputTokens             int                  `json:"output_tokens"`
+	CacheReadInputTokens     int                  `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int                  `json:"cache_creation_input_tokens"`
+	CacheCreation            cacheCreationUsage   `json:"cache_creation"`
+	ServerToolUse            *serverToolUseUsage  `json:"server_tool_use,omitempty"`
+	OutputTokensDetails      *outputTokensDetails `json:"output_tokens_details,omitempty"`
+	ServiceTier              *string              `json:"service_tier,omitempty"`
+	Speed                    *string              `json:"speed,omitempty"`
+	InferenceGeo             *string              `json:"inference_geo,omitempty"`
 }
 
 type messagesResponse struct {
@@ -97,8 +103,18 @@ func buildUsage(au *messagesUsage) *schemas.BifrostPassthroughUsage {
 		n := au.ServerToolUse.WebSearchRequests
 		usage.CompletionTokensDetails = &schemas.ChatCompletionTokensDetails{NumSearchQueries: &n}
 	}
+	if au.OutputTokensDetails != nil && au.OutputTokensDetails.ThinkingTokens > 0 {
+		if usage.CompletionTokensDetails == nil {
+			usage.CompletionTokensDetails = &schemas.ChatCompletionTokensDetails{}
+		}
+		usage.CompletionTokensDetails.ReasoningTokens = au.OutputTokensDetails.ThinkingTokens
+	}
 
-	result := &schemas.BifrostPassthroughUsage{LLMUsage: usage, Speed: au.Speed}
+	result := &schemas.BifrostPassthroughUsage{
+		LLMUsage:     usage,
+		Speed:        au.Speed,
+		InferenceGeo: au.InferenceGeo,
+	}
 	if au.ServiceTier != nil {
 		tier := schemas.BifrostServiceTier(*au.ServiceTier)
 		switch *au.ServiceTier {
@@ -147,11 +163,20 @@ func (a *StreamUsage) ObserveEvent(event []byte) *schemas.BifrostPassthroughUsag
 		}
 		c.ServerToolUse.WebSearchRequests = max(c.ServerToolUse.WebSearchRequests, u.ServerToolUse.WebSearchRequests)
 	}
+	if u.OutputTokensDetails != nil {
+		if c.OutputTokensDetails == nil {
+			c.OutputTokensDetails = &outputTokensDetails{}
+		}
+		c.OutputTokensDetails.ThinkingTokens = max(c.OutputTokensDetails.ThinkingTokens, u.OutputTokensDetails.ThinkingTokens)
+	}
 	if u.ServiceTier != nil {
 		c.ServiceTier = u.ServiceTier
 	}
 	if u.Speed != nil {
 		c.Speed = u.Speed
+	}
+	if u.InferenceGeo != nil {
+		c.InferenceGeo = u.InferenceGeo
 	}
 	return a.usage()
 }

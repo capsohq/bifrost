@@ -3,11 +3,11 @@ package handlers
 import (
 	"testing"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/capsohq/bifrost/core/schemas"
 	configtables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
@@ -413,19 +413,21 @@ func TestGetMCPServerForRequest_PreAuthenticatedUserPath(t *testing.T) {
 		assert.Contains(t, err.Error(), "no MCP access grant")
 	})
 
-	t.Run("stamped user id with a header VK is rejected as conflicting", func(t *testing.T) {
+	t.Run("stamped user id with a header VK trusts the upstream conflict resolution", func(t *testing.T) {
 		cfg := newTestOAuth2Config(newStore(), configtables.MCPServerAuthModeBoth, true)
 		h := newTestMCPHandler(cfg)
 		h.identityResolver = &fakeResolver{userVKID: "vk-row-1"}
-		h.vkMCPServers[activeVK.Value.GetValue()] = server.NewMCPServer("vk", "v0")
+		vkServer := server.NewMCPServer("vk", "v0")
+		h.vkMCPServers[activeVK.Value.GetValue()] = vkServer
 
 		ctx := &fasthttp.RequestCtx{}
 		ctx.SetUserValue(schemas.BifrostContextKeyUserID, "user-1")
 		ctx.Request.Header.Set(string(schemas.BifrostContextKeyVirtualKey), "sk-bf-header")
 
-		_, err := h.getMCPServerForRequest(ctx)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "conflicting credentials")
+		res, err := h.getMCPServerForRequest(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		assert.Equal(t, vkServer, res.mcpServer)
 	})
 
 	t.Run("inactive representative virtual key is rejected", func(t *testing.T) {
