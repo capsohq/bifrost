@@ -247,13 +247,13 @@ func TestProcessBatchKeepsRicherDuplicateLogEntry(t *testing.T) {
 	}()
 
 	id := "duplicate-with-usage"
+	cost := 0.000319
 	first := makeTestLog(id)
 	first.Status = "success"
+	first.Cost = &cost
 
-	cost := 0.000319
 	second := makeTestLog(id)
 	second.Status = "success"
-	second.Cost = &cost
 	second.TokenUsageParsed = &schemas.BifrostLLMUsage{
 		PromptTokens:     10,
 		CompletionTokens: 3,
@@ -280,5 +280,45 @@ func TestProcessBatchKeepsRicherDuplicateLogEntry(t *testing.T) {
 	}
 	if got.TokenUsageParsed.TotalTokens != 13 {
 		t.Fatalf("stored total tokens = %d, want 13", got.TokenUsageParsed.TotalTokens)
+	}
+}
+
+func TestProcessBatchRepairsBillingAcrossBatchBoundary(t *testing.T) {
+	store := newTestStore(t)
+	plugin, err := Init(context.Background(), &Config{}, testLogger{}, store, nil, nil)
+	if err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+	defer func() {
+		if err := plugin.Cleanup(); err != nil {
+			t.Fatalf("Cleanup() error = %v", err)
+		}
+	}()
+
+	id := "duplicate-across-batches"
+	cost := 0.00184
+	first := makeTestLog(id)
+	first.Status = "success"
+	first.Cost = &cost
+	plugin.processBatch([]*writeQueueEntry{{log: first}})
+
+	second := makeTestLog(id)
+	second.Status = "success"
+	second.TokenUsageParsed = &schemas.BifrostLLMUsage{
+		PromptTokens:     1600,
+		CompletionTokens: 120,
+		TotalTokens:      1720,
+	}
+	plugin.processBatch([]*writeQueueEntry{{log: second}})
+
+	got, err := store.FindByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("FindByID() error = %v", err)
+	}
+	if got.Cost == nil || *got.Cost != cost {
+		t.Fatalf("stored cost = %v, want %v", got.Cost, cost)
+	}
+	if got.TokenUsageParsed == nil || got.TokenUsageParsed.TotalTokens != 1720 {
+		t.Fatalf("stored token usage = %+v, want 1720 total tokens", got.TokenUsageParsed)
 	}
 }

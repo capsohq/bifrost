@@ -59,6 +59,11 @@ type writeQueueEntry struct {
 	mcpCallback func(entry *logstore.MCPToolLog)
 }
 
+type persistedLogBillingState struct {
+	hasUsage bool
+	hasCost  bool
+}
+
 // batchWriter is the single writer goroutine that drains the write queue
 // and processes entries in batched transactions.
 func (p *LoggerPlugin) batchWriter() {
@@ -158,9 +163,12 @@ func (p *LoggerPlugin) processBatch(batch []*writeQueueEntry) {
 
 	if len(logs) > 0 {
 		logs = compactLogsForInsert(logs)
+		inserted := true
 		if err := p.store.BatchCreateIfNotExists(p.ctx, logs); err != nil {
+			inserted = false
 			p.logger.Warn("batch insert failed for %d entries, falling back to individual inserts: %v", len(logs), err)
 			// Individual fallback — isolate the bad entry instead of losing the whole batch
+			inserted = true
 			for _, log := range logs {
 				if err := p.store.BatchCreateIfNotExists(p.ctx, []*logstore.Log{log}); err != nil {
 					p.logger.Warn("individual insert failed for log %s, retrying without payload fields: %v", log.ID, err)
@@ -171,9 +179,13 @@ func (p *LoggerPlugin) processBatch(batch []*writeQueueEntry) {
 					if err := p.store.BatchCreateIfNotExists(p.ctx, []*logstore.Log{log}); err != nil {
 						p.logger.Warn("payload-stripped insert failed for log %s: %v", log.ID, err)
 						p.droppedRequests.Add(1)
+						inserted = false
 					}
 				}
 			}
+		}
+		if inserted {
+			p.repairRecentDuplicateBilling(logs)
 		}
 	}
 	if len(mcpLogs) > 0 {
@@ -246,8 +258,12 @@ func compactLogsForInsert(logs []*logstore.Log) []*logstore.Log {
 			continue
 		}
 		if pos, ok := positions[log.ID]; ok {
-			if preferLogForInsert(log, compacted[pos]) {
+			current := compacted[pos]
+			if preferLogForInsert(log, current) {
+				mergeMissingLogBilling(log, current)
 				compacted[pos] = log
+			} else {
+				mergeMissingLogBilling(current, log)
 			}
 			continue
 		}
@@ -255,6 +271,103 @@ func compactLogsForInsert(logs []*logstore.Log) []*logstore.Log {
 		compacted = append(compacted, log)
 	}
 	return compacted
+}
+
+// mergeMissingLogBilling combines complementary duplicate rows. Cost and usage
+// can be attached by different post-processing paths, so choosing only one row
+// may discard half of the billing data even when both copies share a batch.
+func mergeMissingLogBilling(dst, src *logstore.Log) {
+	if dst == nil || src == nil {
+		return
+	}
+	if dst.Cost == nil && src.Cost != nil {
+		dst.Cost = src.Cost
+	}
+	if logHasUsage(dst) || !logHasUsage(src) {
+		return
+	}
+	dst.TokenUsage = src.TokenUsage
+	dst.TokenUsageParsed = src.TokenUsageParsed
+	dst.PromptTokens = src.PromptTokens
+	dst.CompletionTokens = src.CompletionTokens
+	dst.TotalTokens = src.TotalTokens
+	dst.CachedReadTokens = src.CachedReadTokens
+}
+
+// repairRecentDuplicateBilling handles the same duplicate pattern when a
+// timer or size flush lands between the two copies. Inserts are intentionally
+// idempotent, so a later richer row would otherwise be ignored forever.
+func (p *LoggerPlugin) repairRecentDuplicateBilling(logs []*logstore.Log) {
+	p.recentLogBillingMu.Lock()
+	defer p.recentLogBillingMu.Unlock()
+
+	if p.recentLogBilling == nil {
+		p.recentLogBilling = make(map[string]persistedLogBillingState)
+	}
+	limit := p.writerConfig.MaxBatchSize * 2
+	if limit < 2 {
+		limit = 2
+	}
+
+	for _, log := range logs {
+		if log == nil || log.ID == "" {
+			continue
+		}
+		candidate := persistedLogBillingState{hasUsage: logHasUsage(log), hasCost: log.Cost != nil}
+		previous, seen := p.recentLogBilling[log.ID]
+		if !seen {
+			p.recentLogBilling[log.ID] = candidate
+			p.recentLogBillingOrder = append(p.recentLogBillingOrder, log.ID)
+			continue
+		}
+
+		updates := make(map[string]interface{}, 6)
+		if !previous.hasUsage && candidate.hasUsage {
+			usageJSON := log.TokenUsage
+			promptTokens := log.PromptTokens
+			completionTokens := log.CompletionTokens
+			totalTokens := log.TotalTokens
+			cachedReadTokens := log.CachedReadTokens
+			if usageJSON == "" && log.TokenUsageParsed != nil {
+				temp := &logstore.Log{TokenUsageParsed: log.TokenUsageParsed}
+				if err := temp.SerializeFields(); err != nil {
+					p.logger.Warn("failed to serialize duplicate token usage for log %s: %v", log.ID, err)
+				} else {
+					usageJSON = temp.TokenUsage
+					promptTokens = temp.PromptTokens
+					completionTokens = temp.CompletionTokens
+					totalTokens = temp.TotalTokens
+					cachedReadTokens = temp.CachedReadTokens
+				}
+			}
+			if usageJSON != "" {
+				updates["token_usage"] = usageJSON
+				updates["prompt_tokens"] = promptTokens
+				updates["completion_tokens"] = completionTokens
+				updates["total_tokens"] = totalTokens
+				updates["cached_read_tokens"] = cachedReadTokens
+			}
+		}
+		if !previous.hasCost && candidate.hasCost {
+			updates["cost"] = *log.Cost
+		}
+		if len(updates) > 0 {
+			if err := p.store.Update(p.ctx, log.ID, updates); err != nil {
+				p.logger.Warn("failed to repair billing fields for duplicate log %s: %v", log.ID, err)
+				continue
+			}
+		}
+		previous.hasUsage = previous.hasUsage || candidate.hasUsage
+		previous.hasCost = previous.hasCost || candidate.hasCost
+		p.recentLogBilling[log.ID] = previous
+	}
+
+	for len(p.recentLogBillingOrder) > limit {
+		id := p.recentLogBillingOrder[0]
+		p.recentLogBillingOrder[0] = ""
+		p.recentLogBillingOrder = p.recentLogBillingOrder[1:]
+		delete(p.recentLogBilling, id)
+	}
 }
 
 func preferLogForInsert(candidate, current *logstore.Log) bool {

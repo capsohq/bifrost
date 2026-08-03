@@ -508,15 +508,18 @@ type LoggerPlugin struct {
 	pendingMCPLogsToInject       sync.Map              // Maps mcpLogID -> *logstore.MCPToolLog (PreMCPHook input data awaiting PostMCPHook)
 	writerConfig                 logstore.WriterConfig // Resolved async writer queue and batch settings
 	writeQueue                   chan *writeQueueEntry // Buffered channel for batch write queue
-	closed                       atomic.Bool           // Set during cleanup to prevent sends on closed writeQueue
-	deferredUsageSem             chan struct{}         // Limits concurrent deferred usage DB updates
-	deferredUsageWatchSem        chan struct{}         // Caps goroutines parked on a deferred-usage channel (see scheduleDeferredUsageUpdate)
-	droppedDeferredUsage         atomic.Int64          // Deferred usage updates dropped because a semaphore was full
-	clusterNodeID                atomic.Value          // Cluster node ID (string) for log attribution in clustered deployments
-	batchCtx                     context.Context       // Cancelled by Cleanup to stop the batchWriter goroutine before any further DB work
-	batchCancel                  context.CancelFunc    // Cancels batchCtx
-	batchWriterDone              chan struct{}         // Closed by batchWriter on exit; receiving from it transfers writeQueue ownership to Cleanup
-	recoveredBatch               []*writeQueueEntry    // batchWriter parks its in-memory batch here before exiting; safe to read after batchWriterDone closes (happens-before)
+	recentLogBillingMu           sync.Mutex            // Protects cross-batch duplicate billing repair state
+	recentLogBilling             map[string]persistedLogBillingState
+	recentLogBillingOrder        []string
+	closed                       atomic.Bool        // Set during cleanup to prevent sends on closed writeQueue
+	deferredUsageSem             chan struct{}      // Limits concurrent deferred usage DB updates
+	deferredUsageWatchSem        chan struct{}      // Caps goroutines parked on a deferred-usage channel (see scheduleDeferredUsageUpdate)
+	droppedDeferredUsage         atomic.Int64       // Deferred usage updates dropped because a semaphore was full
+	clusterNodeID                atomic.Value       // Cluster node ID (string) for log attribution in clustered deployments
+	batchCtx                     context.Context    // Cancelled by Cleanup to stop the batchWriter goroutine before any further DB work
+	batchCancel                  context.CancelFunc // Cancels batchCtx
+	batchWriterDone              chan struct{}      // Closed by batchWriter on exit; receiving from it transfers writeQueue ownership to Cleanup
+	recoveredBatch               []*writeQueueEntry // batchWriter parks its in-memory batch here before exiting; safe to read after batchWriterDone closes (happens-before)
 }
 
 // Init creates new logger plugin with given log store
