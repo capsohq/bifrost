@@ -228,8 +228,9 @@ func (r *AnthropicBatchResponse) ToBifrostBatchRetrieveResponse(providerName sch
 	return resp
 }
 
-// ParseAnthropicError parses Anthropic error responses for batch operations.
-func ParseAnthropicError(resp *fasthttp.Response, requestType schemas.RequestType, providerName schemas.ModelProvider, model string) *schemas.BifrostError {
+// ParseAnthropicBatchError parses Anthropic error responses for batch operations
+// and annotates them with the batch request metadata.
+func ParseAnthropicBatchError(resp *fasthttp.Response, requestType schemas.RequestType, providerName schemas.ModelProvider, model string) *schemas.BifrostError {
 	var errorResp AnthropicError
 	bifrostErr := providerUtils.HandleProviderAPIError(resp, &errorResp)
 	if errorResp.Error != nil {

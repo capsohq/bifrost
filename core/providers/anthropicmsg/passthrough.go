@@ -132,7 +132,7 @@ func PassthroughStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostH
 	}
 
 	activeClient := providerUtils.PrepareResponseStreaming(ctx, streamingClient, resp)
-	err := activeClient.Do(upstreamReq, resp)
+	err := providerUtils.DoStreamingRequest(ctx, activeClient, upstreamReq, resp)
 	latency := time.Since(startTime)
 	if err != nil {
 		providerUtils.ReleaseStreamingResponse(ctx, resp)

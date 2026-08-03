@@ -1,6 +1,6 @@
 module github.com/capsohq/bifrost/examples/plugins/mcp-only
 
-go 1.26.4
+go 1.26.5
 
 require github.com/capsohq/bifrost/core v1.5.12
 

@@ -31,7 +31,7 @@ func (l *testLogger) LogHTTPRequest(level schemas.LogLevel, msg string) schemas.
 }
 
 // TestTranscription_DiarizedJSON_StringSegmentID reproduces
-// https://github.com/maximhq/bifrost/issues/5002: OpenAI's
+// https://github.com/capsohq/bifrost/issues/5002: OpenAI's
 // response_format=diarized_json (used by gpt-4o-transcribe-diarize) returns
 // segments with a string id (e.g. "seg_154") and speaker/type fields, which
 // don't fit TranscriptionSegment's int id. Previously this crashed the whole

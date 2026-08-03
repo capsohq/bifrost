@@ -413,12 +413,22 @@ func TestGetMCPServerForRequest_PreAuthenticatedUserPath(t *testing.T) {
 		assert.Contains(t, err.Error(), "no MCP access grant")
 	})
 
-	t.Run("stamped user id with a header VK trusts the upstream conflict resolution", func(t *testing.T) {
+	// A stamped user id wins over any virtual key sent in the request headers: the
+	// request is scoped to the user's representative VK and the header VK is never
+	// honoured. Rejecting the pair as conflicting is deliberately NOT this
+	// function's job — that decision belongs upstream, in the SCIM inference
+	// middleware, which applies the operator's dual_credential_conflict_behavior
+	// before any identity is stamped (see getMCPServerForRequest). What matters
+	// here is that a header VK cannot escalate or redirect an already-authenticated
+	// user to a different key.
+	t.Run("stamped user id takes precedence over a header VK", func(t *testing.T) {
 		cfg := newTestOAuth2Config(newStore(), configtables.MCPServerAuthModeBoth, true)
 		h := newTestMCPHandler(cfg)
 		h.identityResolver = &fakeResolver{userVKID: "vk-row-1"}
-		vkServer := server.NewMCPServer("vk", "v0")
-		h.vkMCPServers[activeVK.Value.GetValue()] = vkServer
+		userVKServer := server.NewMCPServer("vk", "v0")
+		h.vkMCPServers[activeVK.Value.GetValue()] = userVKServer
+		headerVKServer := server.NewMCPServer("header-vk", "v0")
+		h.vkMCPServers["sk-bf-header"] = headerVKServer
 
 		ctx := &fasthttp.RequestCtx{}
 		ctx.SetUserValue(schemas.BifrostContextKeyUserID, "user-1")
@@ -427,7 +437,10 @@ func TestGetMCPServerForRequest_PreAuthenticatedUserPath(t *testing.T) {
 		res, err := h.getMCPServerForRequest(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, res)
-		assert.Equal(t, vkServer, res.mcpServer)
+		assert.Equal(t, userVKServer, res.mcpServer)
+		assert.NotEqual(t, headerVKServer, res.mcpServer)
+		assert.Nil(t, res.jwtVK)
+		assert.Nil(t, res.jwtClaims)
 	})
 
 	t.Run("inactive representative virtual key is rejected", func(t *testing.T) {

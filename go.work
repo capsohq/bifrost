@@ -1,4 +1,4 @@
-go 1.26.4
+go 1.26.5
 
 use (
 	./cli
@@ -25,61 +25,74 @@ replace (
 	github.com/capsohq/bifrost/core v1.6.3 => ./core
 	github.com/capsohq/bifrost/core v1.7.1 => ./core
 	github.com/capsohq/bifrost/core v1.7.3 => ./core
+	github.com/capsohq/bifrost/core v1.7.4 => ./core
+	github.com/capsohq/bifrost/core v1.7.5 => ./core
 )
 
 replace (
 	github.com/capsohq/bifrost/framework v1.3.16 => ./framework
 	github.com/capsohq/bifrost/framework v1.4.3 => ./framework
 	github.com/capsohq/bifrost/framework v1.5.3 => ./framework
+	github.com/capsohq/bifrost/framework v1.5.5 => ./framework
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/compat v0.1.25 => ./plugins/compat
 	github.com/capsohq/bifrost/plugins/compat v0.1.29 => ./plugins/compat
+	github.com/capsohq/bifrost/plugins/compat v0.1.31 => ./plugins/compat
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/governance v1.6.3 => ./plugins/governance
 	github.com/capsohq/bifrost/plugins/governance v1.6.7 => ./plugins/governance
+	github.com/capsohq/bifrost/plugins/governance v1.6.9 => ./plugins/governance
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/logging v1.5.26 => ./plugins/logging
 	github.com/capsohq/bifrost/plugins/logging v1.6.3 => ./plugins/logging
+	github.com/capsohq/bifrost/plugins/logging v1.6.5 => ./plugins/logging
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/maxim v1.6.26 => ./plugins/maxim
 	github.com/capsohq/bifrost/plugins/maxim v1.6.30 => ./plugins/maxim
+	github.com/capsohq/bifrost/plugins/maxim v1.6.32 => ./plugins/maxim
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/mocker v1.5.19 => ./plugins/mocker
 	github.com/capsohq/bifrost/plugins/mocker v1.5.26 => ./plugins/mocker
 	github.com/capsohq/bifrost/plugins/mocker v1.5.30 => ./plugins/mocker
+	github.com/capsohq/bifrost/plugins/mocker v1.5.32 => ./plugins/mocker
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/modelcatalogresolver v1.0.7 => ./plugins/modelcatalogresolver
 	github.com/capsohq/bifrost/plugins/modelcatalogresolver v1.0.11 => ./plugins/modelcatalogresolver
+	github.com/capsohq/bifrost/plugins/modelcatalogresolver v1.0.13 => ./plugins/modelcatalogresolver
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/otel v1.3.3 => ./plugins/otel
 	github.com/capsohq/bifrost/plugins/otel v1.4.2 => ./plugins/otel
+	github.com/capsohq/bifrost/plugins/otel v1.4.4 => ./plugins/otel
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/prompts v1.0.26 => ./plugins/prompts
 	github.com/capsohq/bifrost/plugins/prompts v1.0.30 => ./plugins/prompts
+	github.com/capsohq/bifrost/plugins/prompts v1.0.32 => ./plugins/prompts
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/semanticcache v1.5.26 => ./plugins/semanticcache
 	github.com/capsohq/bifrost/plugins/semanticcache v1.5.30 => ./plugins/semanticcache
+	github.com/capsohq/bifrost/plugins/semanticcache v1.5.32 => ./plugins/semanticcache
 )
 
 replace (
 	github.com/capsohq/bifrost/plugins/telemetry v1.5.26 => ./plugins/telemetry
 	github.com/capsohq/bifrost/plugins/telemetry v1.5.30 => ./plugins/telemetry
+	github.com/capsohq/bifrost/plugins/telemetry v1.5.32 => ./plugins/telemetry
 )

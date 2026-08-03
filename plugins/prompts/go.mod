@@ -1,10 +1,10 @@
 module github.com/capsohq/bifrost/plugins/prompts
 
-go 1.26.4
+go 1.26.5
 
 require (
-	github.com/capsohq/bifrost/core v1.7.3
-	github.com/capsohq/bifrost/framework v1.5.3
+	github.com/capsohq/bifrost/core v1.7.5
+	github.com/capsohq/bifrost/framework v1.5.5
 	github.com/stretchr/testify v1.11.1
 )
 

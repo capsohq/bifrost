@@ -1,6 +1,6 @@
 module github.com/capsohq/bifrost/tests/cmd/seedvks
 
-go 1.26.4
+go 1.26.5
 
 replace (
 	github.com/capsohq/bifrost/core => ../../../core
@@ -9,7 +9,7 @@ replace (
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/capsohq/bifrost/core v1.7.1
+	github.com/capsohq/bifrost/core v1.7.4
 	github.com/capsohq/bifrost/framework v1.3.16
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
