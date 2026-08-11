@@ -100,6 +100,16 @@ type ServerCallbacks interface {
 	RemoveCustomer(ctx context.Context, id string) error
 	// Virtual key related callbacks
 	ReloadVirtualKey(ctx context.Context, id string) (*tables.TableVirtualKey, error)
+	// ResetBudgetUsageInMemory clears usage for the given budgets in the governance
+	// store, leaving each reset boundary untouched. owner identifies the entity that
+	// owns them so enterprise can address the cluster broadcast that propagates the
+	// reset to peers.
+	ResetBudgetUsageInMemory(ctx context.Context, owner handlers.BudgetUsageResetOwner, budgetIDs []string) error
+	// AdoptCalendarAlignmentInMemory re-anchors an owner's budgets and rate limits
+	// onto their calendar boundaries after alignment was switched on, preserving
+	// usage. owner identifies the entity so enterprise can address the cluster
+	// broadcast, exactly as the usage reset above does.
+	AdoptCalendarAlignmentInMemory(ctx context.Context, owner handlers.BudgetUsageResetOwner, budgetIDs []string, rateLimitIDs []string) error
 	RemoveVirtualKey(ctx context.Context, id string) error
 	// Provider related callbacks
 	GetModelsForProvider(provider schemas.ModelProvider) []string
@@ -442,15 +452,10 @@ func (s *BifrostHTTPServer) ReloadVirtualKey(ctx context.Context, id string) (*t
 	if err != nil {
 		return virtualKey, fmt.Errorf("failed to reload VK-scoped model configs for VK %s: %w", id, err)
 	}
-	if governanceData := governancePlugin.GetGovernanceStore().GetGovernanceData(ctx); governanceData != nil {
-		for _, existingVK := range governanceData.VirtualKeys {
-			if existingVK != nil && existingVK.ID == virtualKey.ID && existingVK.Value.IsSet() && existingVK.Value.GetValue() != virtualKey.Value.GetValue() {
-				s.MCPServerHandler.DeleteVKMCPServer(existingVK.Value.GetValue())
-				break
-			}
-		}
-	}
 	store := governancePlugin.GetGovernanceStore()
+	if existingVK, found := store.GetVirtualKeyByID(ctx, virtualKey.ID); found && existingVK != nil && existingVK.Value.IsSet() && existingVK.Value.GetValue() != virtualKey.Value.GetValue() {
+		s.MCPServerHandler.DeleteVKMCPServer(existingVK.Value.GetValue())
+	}
 	store.UpdateVirtualKeyInMemory(ctx, virtualKey, nil, nil, nil)
 	// Snapshot in-memory VK-scoped config IDs before the upserts so we can evict
 	// the ones that no longer exist in the DB (e.g. a standalone VK adopted into
@@ -469,6 +474,69 @@ func (s *BifrostHTTPServer) ReloadVirtualKey(ctx context.Context, id string) (*t
 	}
 	s.MCPServerHandler.SyncVKMCPServer(virtualKey)
 	return virtualKey, nil
+}
+
+// ResetBudgetUsageInMemory clears usage for the given budgets in the governance
+// store that enforces spend, leaving each reset boundary untouched.
+//
+// The database write happens inside the update transaction through
+// UpdateBudgetUsage, but the in-memory store is what enforcement actually reads,
+// and ReloadVirtualKey deliberately carries the cached usage forward on a config
+// reload. Without this step the reset would be visible in the database and
+// nowhere else, and the next dump tick would write the cached value back over it.
+//
+// Missing budgets are not an error: a budget can legitimately have been deleted
+// in the same request that asked for the reset.
+func (s *BifrostHTTPServer) ResetBudgetUsageInMemory(ctx context.Context, owner handlers.BudgetUsageResetOwner, budgetIDs []string) error {
+	if len(budgetIDs) == 0 {
+		return nil
+	}
+	governancePlugin, err := s.getGovernancePlugin()
+	if err != nil {
+		return err
+	}
+	store := governancePlugin.GetGovernanceStore()
+	for _, budgetID := range budgetIDs {
+		if _, ok := store.ResetBudgetUsageInMemory(ctx, budgetID); !ok {
+			logger.Debug("budget %s not present in the governance store; skipping usage reset", budgetID)
+		}
+	}
+	return nil
+}
+
+// AdoptCalendarAlignmentInMemory re-anchors an owner's budgets and rate limits
+// onto their calendar boundaries after alignment was switched on.
+//
+// Only meaningful on the false-to-true transition. The in-memory store is what
+// the reset sweep reads, and a window that opened before the current boundary
+// reads as already due the moment the flag flips, so without this the operator
+// loses the usage they were still accumulating. Adoption moves the boundary
+// forward instead, which every persistence path allows, and the next dump tick
+// carries the new boundary to the database the same way an ordinary reset does.
+//
+// Missing entries are not an error: a budget or rate limit can legitimately have
+// been deleted in the same request that turned alignment on.
+func (s *BifrostHTTPServer) AdoptCalendarAlignmentInMemory(ctx context.Context, owner handlers.BudgetUsageResetOwner, budgetIDs []string, rateLimitIDs []string) error {
+	if len(budgetIDs) == 0 && len(rateLimitIDs) == 0 {
+		return nil
+	}
+	governancePlugin, err := s.getGovernancePlugin()
+	if err != nil {
+		return err
+	}
+	store := governancePlugin.GetGovernanceStore()
+	now := time.Now()
+	for _, budgetID := range budgetIDs {
+		if !store.AdoptCalendarAlignmentInMemory(ctx, budgetID, now) {
+			logger.Debug("budget %s needed no calendar adoption (absent, unalignable, or already current)", budgetID)
+		}
+	}
+	for _, rateLimitID := range rateLimitIDs {
+		if !store.AdoptRateLimitCalendarAlignmentInMemory(ctx, rateLimitID, now) {
+			logger.Debug("rate limit %s needed no calendar adoption (absent, unalignable, or already current)", rateLimitID)
+		}
+	}
+	return nil
 }
 
 // RemoveVirtualKey removes a virtual key from the in-memory store

@@ -477,17 +477,30 @@
               },
               "reset_duration": {
                 "type": "string",
-                "description": "Budget reset duration (e.g., '30s', '5m', '1h', '1d', '1w', '1M', '1Y')"
+                "description": "Budget reset duration (e.g., '30s', '5m', '1h', '1d', '1w', '1M', '1Q', '1Y')"
+              },
+              "reset_config": {
+                "type": "object",
+                "description": "Window settings the reset duration cannot express. Only valid when reset_duration is quarterly ('1Q').",
+                "properties": {
+                  "quarter_start_month": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 12,
+                    "description": "First month of Q1 as 1-12, so a fiscal year opening in April (4) gives Apr-Jun / Jul-Sep / Oct-Dec / Jan-Mar. Omitted or 0 means January. Quarter boundaries repeat every three months, so only the value modulo 3 changes the reset dates: January, April, July and October all reset on calendar quarters and differ only in which quarter is labelled Q1."
+                  }
+                },
+                "additionalProperties": false
               },
               "current_usage": {
                 "type": "number",
-                "description": "Current usage in dollars",
+                "description": "Seed value only: current usage in dollars, applied when the budget is first created. Runtime-owned thereafter - the value here is ignored on every subsequent sync so a config.json reload cannot overwrite live accounting.",
                 "default": 0
               },
               "last_reset": {
                 "type": "string",
                 "format": "date-time",
-                "description": "Last time budget was reset"
+                "description": "Seed value only: last time the budget was reset, applied when the budget is first created. Runtime-owned thereafter, like current_usage."
               },
               "virtual_key_id": {
                 "type": "string",
@@ -544,6 +557,13 @@
             "required": ["id", "max_limit", "reset_duration"],
             "additionalProperties": false,
             "allOf": [
+              {
+                "if": { "required": ["reset_config"] },
+                "then": {
+                  "required": ["reset_duration"],
+                  "properties": { "reset_duration": { "const": "1Q" } }
+                }
+              },
               {
                 "if": {
                   "not": {
@@ -612,13 +632,13 @@
               },
               "token_current_usage": {
                 "type": "integer",
-                "description": "Current token usage",
+                "description": "Seed value only: current token usage, applied when the rate limit is first created. Runtime-owned thereafter - the value here is ignored on every subsequent sync so a config.json reload cannot overwrite live counters.",
                 "default": 0
               },
               "token_last_reset": {
                 "type": "string",
                 "format": "date-time",
-                "description": "Last time token counter was reset"
+                "description": "Seed value only: last time the token counter was reset, applied when the rate limit is first created. Runtime-owned thereafter, like token_current_usage."
               },
               "request_max_limit": {
                 "type": "integer",
@@ -630,13 +650,13 @@
               },
               "request_current_usage": {
                 "type": "integer",
-                "description": "Current request usage",
+                "description": "Seed value only: current request usage, applied when the rate limit is first created. Runtime-owned thereafter - the value here is ignored on every subsequent sync so a config.json reload cannot overwrite live counters.",
                 "default": 0
               },
               "request_last_reset": {
                 "type": "string",
                 "format": "date-time",
-                "description": "Last time request counter was reset"
+                "description": "Seed value only: last time the request counter was reset, applied when the rate limit is first created. Runtime-owned thereafter, like request_current_usage."
               },
               "calendar_aligned": {
                 "type": "boolean",
@@ -900,6 +920,16 @@
               "customer_id": {
                 "type": "string",
                 "description": "Associated customer ID (mutually exclusive with team_id)"
+              },
+              "access_profile_id": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Associated access profile ID for direct access profile assignment (mutually exclusive with team_id and customer_id)"
+              },
+              "is_access_profile_managed": {
+                "type": "boolean",
+                "description": "Read-only, server-computed flag: true when the virtual key is governed by an access profile. Never persisted and ignored if set in config.json.",
+                "readOnly": true
               },
               "rate_limit_id": {
                 "type": "string",
@@ -3703,6 +3733,12 @@
           "type": "boolean",
           "description": "Force HTTP/2 on provider connections (relevant for Bedrock and other net/http-based providers)"
         },
+        "http2_ping_interval_in_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600,
+          "description": "Seconds of stream idle before a client-initiated HTTP/2 keepalive PING (0 = disabled; only when enforce_http2)."
+        },
         "insecure_skip_verify": {
           "type": "boolean",
           "description": "Disable TLS certificate verification for provider connections. This bypasses server certificate validation and should be used only as a last resort when a trusted CA chain cannot be configured. Prefer ca_cert_pem for self-signed or private CA deployments."
@@ -3777,6 +3813,12 @@
         "enforce_http2": {
           "type": "boolean",
           "description": "Force HTTP/2 on provider connections (relevant for Bedrock and other net/http-based providers)"
+        },
+        "http2_ping_interval_in_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600,
+          "description": "Seconds of stream idle before a client-initiated HTTP/2 keepalive PING (0 = disabled; only when enforce_http2)."
         },
         "insecure_skip_verify": {
           "type": "boolean",
@@ -5751,6 +5793,7 @@
           "default": "roles"
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"},
@@ -5807,6 +5850,7 @@
           "default": "roles"
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"},
@@ -5857,6 +5901,7 @@
           "default": "roles"
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"}
@@ -5915,6 +5960,7 @@
           "items": { "type": "string" }
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"},
@@ -5964,6 +6010,7 @@
           "default": "groups"
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"},
@@ -6022,6 +6069,7 @@
           "default": "groups"
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"},
@@ -6106,6 +6154,7 @@
           "description": "JWT claim field for team IDs"
         },
         "attributeRoleMappings": {"$ref": "#/$defs/scim_attribute_role_mappings"},
+        "roleResolutionStrategy": {"$ref": "#/$defs/scim_role_resolution_strategy"},
         "attributeTeamMappings": {"$ref": "#/$defs/scim_attribute_team_mappings"},
         "attributeBusinessUnitMappings": {"$ref": "#/$defs/scim_attribute_business_unit_mappings"},
         "authProxy": {"$ref": "#/$defs/scim_auth_proxy"},
@@ -6444,6 +6493,21 @@
     },
     "budget_line": {
       "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "required": ["reset_config"]
+          },
+          "then": {
+            "required": ["reset_duration"],
+            "properties": {
+              "reset_duration": {
+                "const": "1Q"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -6455,7 +6519,20 @@
         },
         "reset_duration": {
           "type": "string",
-          "description": "Reset window, e.g. \"1M\", \"1h\""
+          "description": "Reset window, e.g. \"1M\", \"1h\", \"1Q\""
+        },
+        "reset_config": {
+          "type": "object",
+          "description": "Window settings the reset duration cannot express. Only valid when reset_duration is quarterly (\"1Q\").",
+          "properties": {
+            "quarter_start_month": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 12,
+              "description": "First month of Q1 as 1-12, so a fiscal year opening in April (4) gives Apr-Jun / Jul-Sep / Oct-Dec / Jan-Mar. Omitted or 0 means January. Quarter boundaries repeat every three months, so only the value modulo 3 changes the reset dates."
+            }
+          },
+          "additionalProperties": false
         },
         "calendar_aligned": {
           "type": "boolean",
@@ -7408,7 +7485,7 @@
     },
     "scim_attribute_role_mappings": {
       "type": "array",
-      "description": "Ordered list of attribute -> role mappings (first match wins).",
+      "description": "List of attribute -> role mappings. When a user resolves to more than one role (from these mappings, the native roles claim, or group/attribute channels), roleResolutionStrategy decides which single role is assigned: 'highestPermissionCount' (default) picks the role with the most permissions; 'order' evaluates this mappings list top to bottom and the first matching rule wins.",
       "items": {
         "type": "object",
         "properties": {
@@ -7428,6 +7505,12 @@
         "required": ["attribute", "value", "role"],
         "additionalProperties": false
       }
+    },
+    "scim_role_resolution_strategy": {
+      "type": "string",
+      "enum": ["highestPermissionCount", "order"],
+      "default": "highestPermissionCount",
+      "description": "How a single role is chosen when a user resolves to more than one role: 'highestPermissionCount' (default) picks the role with the most permissions; 'order' evaluates the attribute-role mappings top to bottom and the first matching rule wins."
     },
     "scim_attribute_team_mappings": {
       "type": "array",

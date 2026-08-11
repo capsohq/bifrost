@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fasthttp/router"
-	"github.com/google/uuid"
 	bifrost "github.com/capsohq/bifrost/core"
 	"github.com/capsohq/bifrost/core/mcp"
 	mcputils "github.com/capsohq/bifrost/core/mcp/utils"
@@ -24,6 +22,8 @@ import (
 	configstoreTables "github.com/capsohq/bifrost/framework/configstore/tables"
 	"github.com/capsohq/bifrost/framework/modelcatalog"
 	"github.com/capsohq/bifrost/transports/bifrost-http/lib"
+	"github.com/fasthttp/router"
+	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
 	"gorm.io/gorm"
 )

@@ -78,6 +78,9 @@ func ToOpenAIChatRequest(ctx *schemas.BifrostContext, bifrostReq *schemas.Bifros
 	case schemas.DeepSeek:
 		openaiReq.filterOpenAISpecificParametersPreserveReasoning()
 		openaiReq.applyDeepseekCompatibility()
+		// DeepSeek rejects reasoning_content on ordinary assistant turns but
+		// requires it on assistant tool-call turns.
+		openaiReq.stripReasoningDetailsExceptToolCalls()
 		return openaiReq
 	case schemas.GLM:
 		openaiReq.filterOpenAISpecificParametersPreserveReasoning()
@@ -304,6 +307,24 @@ func (req *OpenAIChatRequest) stripReasoningDetails() {
 	for i := range req.Messages {
 		assistantMessage := req.Messages[i].OpenAIChatAssistantMessage
 		if assistantMessage == nil {
+			continue
+		}
+		assistantMessage.Reasoning = nil
+	}
+}
+
+// stripReasoningDetailsExceptToolCalls strips reasoning_content from assistant messages that
+// carry no tool calls, and preserves it on assistant tool_call turns. This is DeepSeek's
+// contract: reasoning_content "must be passed back to the API in all subsequent user
+// interaction turns" for tool calls, while an ordinary assistant turn's reasoning_content
+// "does not need to participate in the context concatenation".
+//
+// Mutating in place is safe here — ConvertBifrostMessagesToOpenAIMessages allocates a fresh
+// OpenAIChatAssistantMessage per message, so the caller's input is never touched.
+func (req *OpenAIChatRequest) stripReasoningDetailsExceptToolCalls() {
+	for i := range req.Messages {
+		assistantMessage := req.Messages[i].OpenAIChatAssistantMessage
+		if assistantMessage == nil || len(assistantMessage.ToolCalls) > 0 {
 			continue
 		}
 		assistantMessage.Reasoning = nil

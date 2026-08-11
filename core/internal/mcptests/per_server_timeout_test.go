@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/capsohq/bifrost/core/schemas"
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

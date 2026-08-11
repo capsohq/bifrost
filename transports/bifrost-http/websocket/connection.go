@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	providerUtils "github.com/capsohq/bifrost/core/providers/utils"
 	"github.com/capsohq/bifrost/core/schemas"
 	ws "github.com/fasthttp/websocket"
 )
@@ -252,18 +253,23 @@ func isConnectionDead(err error) bool {
 }
 
 // DialUpstream creates a new upstream connection without adding it to the pool.
-func DialUpstream(url string, headers http.Header, provider schemas.ModelProvider, keyID string) (*UpstreamConn, error) {
-	wsConn, resp, err := Dial(url, headers)
+func DialUpstream(url string, headers http.Header, provider schemas.ModelProvider, keyID string, proxyConfig *schemas.ProxyConfig) (*UpstreamConn, error) {
+	wsConn, resp, err := Dial(url, headers, proxyConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial upstream websocket %s: %w", url, wrapHandshakeError(resp, err))
 	}
 	return newUpstreamConn(wsConn, provider, keyID, url), nil
 }
 
-// Dial creates a new WebSocket connection to the given URL with the provided headers.
-func Dial(url string, headers http.Header) (*ws.Conn, *http.Response, error) {
-	dialer := ws.Dialer{
+// Dial creates a new WebSocket connection to the given URL with the provided headers,
+// routed through proxyConfig if set (nil/NoProxy dials directly).
+func Dial(url string, headers http.Header, proxyConfig *schemas.ProxyConfig) (*ws.Conn, *http.Response, error) {
+	dialer := &ws.Dialer{
 		HandshakeTimeout: 10 * time.Second,
+	}
+	dialer, err := providerUtils.ConfigureWebSocketProxy(dialer, proxyConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid proxy configuration: %w", err)
 	}
 	return dialer.Dial(url, headers)
 }
