@@ -89,7 +89,7 @@ cd "$REPO_ROOT"
 
 # Build the UI first, then the binary
 make build-ui
-make build
+make build LOCAL=1
 
 if [ ! -f "$REPO_ROOT/tmp/bifrost-http" ]; then
   echo "❌ Error: bifrost-http binary not found at $REPO_ROOT/tmp/bifrost-http"
