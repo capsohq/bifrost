@@ -36,6 +36,39 @@ APP_DIR="$REPO_ROOT/$APP_DIR_REL"
 SERVER_LOG="$REPO_ROOT/tmp/bifrost-dev.log"
 GCLOUD_KEY_FILE="$APP_DIR/vertex-sa.json"
 
+has_any_provider_credentials() {
+  local vars=(
+    OPENAI_API_KEY
+    ANTHROPIC_API_KEY
+    GEMINI_API_KEY
+    VERTEX_PROJECT_ID
+    VERTEX_CREDENTIALS
+    OPENROUTER_API_KEY
+    AZURE_API_KEY
+    AWS_ACCESS_KEY_ID
+    XAI_API_KEY
+  )
+
+  local var_name
+  for var_name in "${vars[@]}"; do
+    if [ -n "${!var_name:-}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Forks commonly do not receive the upstream repository's provider secrets.
+# Running the live matrix without any credentials produces thousands of
+# deterministic 401s and can incorrectly enter the flaky-test override path.
+# Core unit tests and the integration startup smoke test remain separate,
+# mandatory release gates when this live-provider-only suite is unavailable.
+if ! has_any_provider_credentials; then
+  echo "::warning::No provider credentials are available; skipping the live provider harness."
+  echo "Core unit tests and the Bifrost integration startup smoke test remain required release gates."
+  exit 0
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
   echo "❌ jq is required" >&2
   exit 1
