@@ -117,6 +117,13 @@ func TestOverheadEndToEndUnary(t *testing.T) {
 	const providerDelay = 200 * time.Millisecond
 	client, _, calls := newBifrostWithMockProvider(t, providerDelay)
 
+	// Init starts provider workers asynchronously. Warm them before measuring so
+	// the steady-state overhead assertion does not include one-time startup work.
+	warmupCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	if _, bifrostErr := client.ChatCompletionRequest(warmupCtx, chatRequest()); bifrostErr != nil {
+		t.Fatalf("warm-up request failed: %v", bifrostErr.Error.Message)
+	}
+
 	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
 
 	start := time.Now()
@@ -129,8 +136,8 @@ func TestOverheadEndToEndUnary(t *testing.T) {
 	if resp == nil {
 		t.Fatal("nil response")
 	}
-	if *calls != 1 {
-		t.Fatalf("provider called %d times, want 1", *calls)
+	if *calls != 2 {
+		t.Fatalf("provider called %d times, want 2 (warm-up plus measured request)", *calls)
 	}
 
 	upstream, ok := schemas.GetUpstreamLatency(ctx)
