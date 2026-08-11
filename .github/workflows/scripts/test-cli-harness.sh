@@ -125,6 +125,32 @@ OPENCODE_ANTHROPIC_CASES="${OPENCODE_ANTHROPIC_CASES:-TestCLIs/opencode-anthropi
 # regression still fails after every attempt.
 CLI_RERUN_ATTEMPTS="${CLI_RERUN_ATTEMPTS:-2}"
 
+has_any_cli_provider_credentials() {
+  local vars=(
+    OPENAI_API_KEY
+    ANTHROPIC_API_KEY
+    AZURE_API_KEY
+    AWS_ACCESS_KEY_ID
+  )
+
+  local var_name
+  for var_name in "${vars[@]}"; do
+    if [ -n "${!var_name:-}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# This suite drives real coding CLIs against live providers. Fork workflows do
+# not inherit the upstream repository's secrets, so running without any of the
+# matrix credentials can only produce deterministic authentication failures.
+if ! has_any_cli_provider_credentials; then
+  echo "::warning::No CLI provider credentials are available; skipping the live CLI harness."
+  echo "Core unit tests and the Bifrost integration startup smoke test remain required release gates."
+  exit 0
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
   echo "❌ jq is required" >&2
   exit 1
