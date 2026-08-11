@@ -135,6 +135,8 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
   # Check if server process is still running
   if ! kill -0 "$BIFROST_PID" 2>/dev/null; then
     echo "❌ Bifrost process died unexpectedly"
+    echo "📄 Last 200 lines of server log:"
+    tail -n 200 "$LOG_FILE" || true
     exit 1
   fi
   
