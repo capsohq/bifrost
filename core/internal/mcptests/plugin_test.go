@@ -725,3 +725,30 @@ func TestPlugin_CustomTestPlugin(t *testing.T) {
 
 	t.Logf("✅ Custom test plugin test completed successfully")
 }
+
+func TestPlugin_PreMCPHookShortCircuitsBeforeToolResolution(t *testing.T) {
+	t.Parallel()
+
+	manager := setupMCPManager(t)
+	shortCircuitPlugin := NewTestShortCircuitPlugin()
+	shortCircuitPlugin.SetShouldShortCircuit(true)
+	shortCircuitPlugin.SetShortCircuitMessage("Blocked before tool resolution")
+
+	bifrost, err := core.Init(context.Background(), schemas.BifrostConfig{
+		Account:    &testAccount{},
+		MCPPlugins: []schemas.MCPPlugin{shortCircuitPlugin},
+		Logger:     core.NewDefaultLogger(schemas.LogLevelInfo),
+	})
+	require.NoError(t, err)
+	bifrost.SetMCPManager(manager)
+
+	ctx := createTestContext()
+	missingToolCall := CreateToolCall("missing-tool", "missing-client-echo", map[string]interface{}{"message": "test"})
+	result, bifrostErr := bifrost.ExecuteChatMCPTool(ctx, &missingToolCall)
+
+	require.Nil(t, bifrostErr)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Content)
+	require.NotNil(t, result.Content.ContentStr)
+	assert.Contains(t, *result.Content.ContentStr, "Blocked before tool resolution")
+}

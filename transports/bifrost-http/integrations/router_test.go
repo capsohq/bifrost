@@ -16,6 +16,7 @@ import (
 	"github.com/capsohq/bifrost/core/providers/anthropic"
 	"github.com/capsohq/bifrost/core/providers/openai"
 	"github.com/capsohq/bifrost/core/schemas"
+	"github.com/fasthttp/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
@@ -36,6 +37,46 @@ func TestParsePassthroughBody_MultipartExtractsModelAfterFilePart(t *testing.T) 
 	model, stream := parsePassthroughBody(writer.FormDataContentType(), body.Bytes())
 	assert.Equal(t, "openai/whisper-1", model)
 	assert.True(t, stream)
+}
+
+func TestChatGPTPassthroughRouterRegistersCodexResponsesPost(t *testing.T) {
+	r := router.New()
+	passthroughRouter := NewChatGPTPassthroughRouter(nil, &mockHandlerStore{}, &testLogger{})
+	passthroughRouter.RegisterRoutes(r, func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		return func(ctx *fasthttp.RequestCtx) {
+			ctx.SetStatusCode(fasthttp.StatusNoContent)
+		}
+	})
+
+	var ctx fasthttp.RequestCtx
+	ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+	ctx.Request.SetRequestURI("/chatgpt_passthrough/backend-api/codex/responses")
+
+	r.Handler(&ctx)
+
+	require.Equal(t, fasthttp.StatusNoContent, ctx.Response.StatusCode())
+}
+
+func TestRunwarePassthroughRouterRegistersCatchAll(t *testing.T) {
+	r := router.New()
+	passthroughRouter := NewRunwarePassthroughRouter(nil, &mockHandlerStore{}, &testLogger{})
+	passthroughRouter.RegisterRoutes(r, func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		return func(ctx *fasthttp.RequestCtx) {
+			ctx.SetStatusCode(fasthttp.StatusNoContent)
+		}
+	})
+
+	// Runware is a single-endpoint API, so the passthrough router forwards any path under the
+	// prefix; /runware_passthrough/v1 is the canonical way clients hit the base endpoint.
+	for _, uri := range []string{"/runware_passthrough/v1", "/runware_passthrough/v1/anything"} {
+		var ctx fasthttp.RequestCtx
+		ctx.Request.Header.SetMethod(fasthttp.MethodPost)
+		ctx.Request.SetRequestURI(uri)
+
+		r.Handler(&ctx)
+
+		require.Equal(t, fasthttp.StatusNoContent, ctx.Response.StatusCode(), "POST %s should match a registered route", uri)
+	}
 }
 
 func TestRequestWithSettableExtraParams_OpenAIChatRequest(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/capsohq/bifrost/core/schemas"
 	"github.com/mark3labs/mcp-go/client"
@@ -82,6 +83,11 @@ func (m *MockClientManager) GetPluginPipeline() PluginPipeline             { ret
 func (m *MockClientManager) ReleasePluginPipeline(pipeline PluginPipeline) {}
 func (m *MockClientManager) AcquireClientConn(ctx *schemas.BifrostContext, state *schemas.MCPClientState) (*client.Client, func(), error) {
 	return nil, func() {}, nil
+}
+func (m *MockClientManager) ReconnectClient(id string) error { return nil }
+
+func (m *MockClientManager) AwaitReconnect(clientID string, budget time.Duration) (bool, error) {
+	return false, nil
 }
 func (m *MockClientManager) RunWithPluginPipeline(ctx *schemas.BifrostContext, req *schemas.BifrostMCPRequest, op MCPOpFunc) (*schemas.BifrostMCPResponse, *schemas.BifrostError) {
 	resp, err := op(req)
@@ -574,6 +580,11 @@ func (m *MockAutoClientManager) GetPluginPipeline() PluginPipeline             {
 func (m *MockAutoClientManager) ReleasePluginPipeline(pipeline PluginPipeline) {}
 func (m *MockAutoClientManager) AcquireClientConn(ctx *schemas.BifrostContext, state *schemas.MCPClientState) (*client.Client, func(), error) {
 	return nil, func() {}, nil
+}
+func (m *MockAutoClientManager) ReconnectClient(id string) error { return nil }
+
+func (m *MockAutoClientManager) AwaitReconnect(clientID string, budget time.Duration) (bool, error) {
+	return false, nil
 }
 func (m *MockAutoClientManager) RunWithPluginPipeline(ctx *schemas.BifrostContext, req *schemas.BifrostMCPRequest, op MCPOpFunc) (*schemas.BifrostMCPResponse, *schemas.BifrostError) {
 	resp, err := op(req)

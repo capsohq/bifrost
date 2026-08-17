@@ -284,6 +284,7 @@ func parseMigrationOrder(migrationsPath string) ([]MigrationAction, error) {
 		"TableModel":                    "config_models",
 		"TableOauthConfig":              "oauth_configs",
 		"TableOauthToken":               "oauth_tokens",
+		"TableMCPOauthToken":            "mcp_oauth_tokens",
 		"TableMCPClient":                "config_mcp_clients",
 		"TableClientConfig":             "config_client",
 		"TableEnvKey":                   "config_env_keys",

@@ -111,6 +111,11 @@ func (w *CredentialSweepWorker) sweepOrphanedCredentials(ctx context.Context) {
 	if w.orphanRetention <= 0 {
 		return
 	}
+	// No cache eviction here: the provider's credential cache can never hold
+	// an orphaned row (the ByMode lookup filters them at SQL), and the
+	// reconcile paths that flip rows to 'orphaned' already evict when the
+	// flip happens. Deleting the rows outright therefore cannot invalidate
+	// any cached entry.
 	n, err := w.provider.configStore.DeleteOrphanedMCPPerUserHeaderCredentials(ctx, w.orphanRetention)
 	if err != nil {
 		if w.logger != nil {
